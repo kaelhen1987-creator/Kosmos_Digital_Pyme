@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 import sqlite3
 
 # =============================================================================
@@ -37,13 +37,31 @@ class InventarioModel:
         return resultados
 
     def add_product(self, nombre, precio, stock, stock_critico):
-        """Agrega un nuevo producto."""
+        """Agrega un producto o suma stock si ya existe (por nombre)."""
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO productos (nombre, precio, stock, stock_critico) VALUES (?, ?, ?, ?)",
-                       (nombre, precio, stock, stock_critico))
+        
+        # Verificar si existe por nombre (case insensitive)
+        cursor.execute("SELECT id, stock FROM productos WHERE lower(nombre) = ?", (nombre.lower(),))
+        existing = cursor.fetchone()
+        
+        if existing:
+            # Si existe, actualizamos stock y precio/critico (Upsert)
+            product_id, current_stock = existing
+            new_stock = current_stock + stock
+            cursor.execute("""
+                UPDATE productos 
+                SET stock = ?, precio = ?, stock_critico = ? 
+                WHERE id = ?
+            """, (new_stock, precio, stock_critico, product_id))
+        else:
+            # Si no existe, insertamos
+            cursor.execute("INSERT INTO productos (nombre, precio, stock, stock_critico) VALUES (?, ?, ?, ?)",
+                           (nombre, precio, stock, stock_critico))
+        
         conn.commit()
         conn.close()
+        return existing is not None # Return True if updated, False if created
 
     def delete_product(self, product_id):
         """Elimina un producto por ID."""
@@ -105,7 +123,11 @@ class POSView:
         self.on_add_product = None
         self.on_delete_product = None
         self.on_update_product = None
-        self.on_sell_product = None
+        # Callbacks Carrito
+        self.on_add_to_cart = None
+        self.on_remove_from_cart = None
+        self.on_checkout = None
+        self.on_clear_cart = None
 
     def _setup_inventario_tab(self):
         # Frame Formulario
@@ -135,6 +157,9 @@ class POSView:
         self.btn_agregar = ttk.Button(btn_frame, text="Agregar Producto", command=self._handle_add)
         self.btn_agregar.pack(side="left", padx=5)
         
+        self.btn_editar = ttk.Button(btn_frame, text="Guardar Cambios", command=self._handle_update)
+        self.btn_editar.pack(side="left", padx=5)
+
         self.btn_eliminar = ttk.Button(btn_frame, text="Eliminar Seleccionado", command=self._handle_delete)
         self.btn_eliminar.pack(side="left", padx=5)
 
@@ -168,26 +193,81 @@ class POSView:
         self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
 
     def _setup_pos_tab(self):
-        # Frame Principal POS
-        main_frame = ttk.Frame(self.tab_pos, padding=20)
+        # Frame Principal POS (Contenedor Horizontal)
+        main_frame = ttk.Frame(self.tab_pos, padding=10)
         main_frame.pack(fill="both", expand=True)
 
-        ttk.Label(main_frame, text="Seleccione Producto a Vender:", font=("Arial", 14)).pack(pady=10)
+        # === SECCIÓN IZQUIERDA: LISTA DE PRODUCTOS ===
+        left_frame = ttk.LabelFrame(main_frame, text="1. Seleccionar Productos", padding=5)
+        left_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
 
-        # Lista de productos para venta rápida (Treeview simplificado)
+        # Buscador (Opcional TODO) - Por ahora solo la lista
         columns_pos = ("ID", "Nombre", "Precio", "Stock")
-        self.tree_pos = ttk.Treeview(main_frame, columns=columns_pos, show="headings", height=15)
+        self.tree_pos = ttk.Treeview(left_frame, columns=columns_pos, show="headings")
+        self.tree_pos.heading("ID", text="ID")
+        self.tree_pos.heading("Nombre", text="Nombre")
+        self.tree_pos.heading("Precio", text="Precio")
+        self.tree_pos.heading("Stock", text="Stock")
         
-        for col in columns_pos:
-            self.tree_pos.heading(col, text=col)
-            self.tree_pos.column(col, width=100 if col != "Nombre" else 400)
+        self.tree_pos.column("ID", width=40)
+        self.tree_pos.column("Nombre", width=150)
+        self.tree_pos.column("Precio", width=80)
+        self.tree_pos.column("Stock", width=60)
         
-        self.tree_pos.pack(fill="both", expand=True, pady=10)
+        # Scrollbar Izquierda
+        scroll_pos = ttk.Scrollbar(left_frame, orient="vertical", command=self.tree_pos.yview)
+        self.tree_pos.configure(yscroll=scroll_pos.set)
+        
+        self.tree_pos.pack(side="left", fill="both", expand=True)
+        scroll_pos.pack(side="right", fill="y")
+        
+        # Botón Agregar al Carrito (Debajo de la lista izquierda)
+        btn_add = ttk.Button(left_frame, text="Agregar al Carrito >>", command=self._handle_add_to_cart)
+        btn_add.pack(side="bottom", fill="x", pady=5)
+        self.tree_pos.bind("<Double-1>", lambda e: self._handle_add_to_cart()) # Doble click para agregar
 
-        # Botón VENDER GIGANTE
-        self.btn_vender = tk.Button(main_frame, text="VENDER ( -1 UNIDAD )", bg="#4CAF50", fg="white", 
-                                    font=("Arial", 16, "bold"), height=3, command=self._handle_sell)
-        self.btn_vender.pack(fill="x", pady=20)
+        # === SECCIÓN DERECHA: CARRITO DE COMPRAS ===
+        right_frame = ttk.LabelFrame(main_frame, text="2. Carrito de Compras", padding=5)
+        right_frame.pack(side="right", fill="both", expand=True, padx=(5, 0))
+
+        # Lista del Carrito
+        columns_cart = ("ID", "Producto", "Cant", "Total")
+        self.tree_cart = ttk.Treeview(right_frame, columns=columns_cart, show="headings")
+        self.tree_cart.heading("ID", text="ID")
+        self.tree_cart.heading("Producto", text="Producto")
+        self.tree_cart.heading("Cant", text="Cant")
+        self.tree_cart.heading("Total", text="Total")
+        
+        self.tree_cart.column("ID", width=40)
+        self.tree_cart.column("Producto", width=150)
+        self.tree_cart.column("Cant", width=50)
+        self.tree_cart.column("Total", width=80)
+
+        # Scrollbar Derecha
+        scroll_cart = ttk.Scrollbar(right_frame, orient="vertical", command=self.tree_cart.yview)
+        self.tree_cart.configure(yscroll=scroll_cart.set)
+        
+        self.tree_cart.pack(side="top", fill="both", expand=True)
+        scroll_cart.pack(side="right", fill="y")
+
+        # Botón Quitar del Carrito
+        btn_remove = ttk.Button(right_frame, text="Quitar Item Seleccionado", command=self._handle_remove_from_cart)
+        btn_remove.pack(fill="x", pady=5)
+
+        # TOTAL A PAGAR
+        self.lbl_total = ttk.Label(right_frame, text="TOTAL: $0.0", font=("Arial", 20, "bold"), anchor="e")
+        self.lbl_total.pack(fill="x", pady=10)
+
+        # === BOTONES DE ACCIÓN (Confirmar / Cancelar) ===
+        action_frame = ttk.Frame(right_frame)
+        action_frame.pack(side="bottom", fill="x", pady=10)
+
+        self.btn_pagar = ttk.Button(action_frame, text="CONFIRMAR VENTA", command=self._handle_checkout)
+        self.btn_pagar.pack(side="left", fill="x", expand=True, padx=2)
+        
+        self.btn_cancelar = ttk.Button(action_frame, text="CANCELAR", command=self._handle_clear_cart)
+        self.btn_cancelar.pack(side="left", fill="x", expand=True, padx=2)
+
 
     # --- Métodos de Interfaz interna ---
     def _handle_add(self):
@@ -208,6 +288,33 @@ class POSView:
         except ValueError:
             messagebox.showerror("Error", "Por favor ingrese valores numéricos válidos para Precio y Stock")
 
+    def _handle_update(self):
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning("Selección", "Seleccione un producto para editar")
+            return
+        
+        item = self.tree.item(selected[0])
+        product_id = item['values'][0]
+
+        try:
+            nombre = self.entry_nombre.get()
+            precio = float(self.entry_precio.get())
+            stock = int(self.entry_stock.get())
+            critico = int(self.entry_stock_critico.get())
+            
+            if not nombre:
+                messagebox.showwarning("Faltan datos", "El nombre es obligatorio")
+                return
+
+            if self.on_update_product:
+                self.on_update_product(product_id, nombre, precio, stock, critico)
+                messagebox.showinfo("Éxito", "Producto actualizado correctamente")
+            
+            self._clear_form()
+        except ValueError:
+            messagebox.showerror("Error", "Por favor ingrese valores numéricos válidos")
+
     def _handle_delete(self):
         selected = self.tree.selection()
         if not selected:
@@ -220,34 +327,93 @@ class POSView:
         if messagebox.askyesno("Confirmar", "¿Está seguro de eliminar este producto?"):
             if self.on_delete_product:
                 self.on_delete_product(product_id)
+            self._clear_form()
 
-    def _handle_sell(self):
+    # --- Métodos de Interfaz interna (POS Actualizado) ---
+    def _handle_add_to_cart(self):
         selected = self.tree_pos.selection()
         if not selected:
-            messagebox.showwarning("Selección", "Seleccione un producto de la lista para vender")
-            return
-
+            return # Nada seleccionado
+        
         item = self.tree_pos.item(selected[0])
         product_id = item['values'][0]
-        stock_actual = item['values'][3]
+        product_name = item['values'][1]
+        
+        # Pedir cantidad al usuario
+        cantidad = simpledialog.askinteger("Cantidad", f"Ingrese cantidad para '{product_name}':", 
+                                         parent=self.root, minvalue=1, initialvalue=1)
+        
+        if cantidad is not None and self.on_add_to_cart:
+            self.on_add_to_cart(product_id, cantidad)
 
-        if stock_actual <= 0:
-            messagebox.showerror("Error", "No hay stock suficiente para realizar la venta")
-            return
+    def _handle_remove_from_cart(self):
+        selected = self.tree_cart.selection()
+        if not selected:
+             messagebox.showwarning("Selección", "Seleccione un producto del carrito para quitar")
+             return
 
-        if self.on_sell_product:
-            self.on_sell_product(product_id)
-            messagebox.showinfo("Venta Exitosa", "Se descontó 1 unidad del inventario")
+        item = self.tree_cart.item(selected[0])
+        product_id = item['values'][0]
+        
+        if self.on_remove_from_cart:
+            self.on_remove_from_cart(product_id)
+
+    def _handle_checkout(self):
+        if self.on_checkout:
+            self.on_checkout()
+
+    def _handle_clear_cart(self):
+        if self.on_clear_cart:
+            self.on_clear_cart()
+
+    def update_cart_view(self, cart_items, total):
+        """Actualiza la tabla del carrito."""
+        # Limpiar
+        for i in self.tree_cart.get_children():
+            self.tree_cart.delete(i)
+        
+        # Llenar
+        for item in cart_items:
+            # item = {id, nombre, precio, cantidad, subtotal}
+            self.tree_cart.insert("", "end", values=(
+                item['id'],
+                item['nombre'],
+                item['cantidad'],
+                f"${item['subtotal']:.0f}"
+            ))
+        
+        self.lbl_total.config(text=f"TOTAL: ${total:,.0f}")
 
     def _clear_form(self):
         self.entry_nombre.delete(0, tk.END)
         self.entry_precio.delete(0, tk.END)
         self.entry_stock.delete(0, tk.END)
         self.entry_stock_critico.delete(0, tk.END)
+        # Deseleccionar árbol para evitar confusiones
+        if self.tree.selection():
+            self.tree.selection_remove(self.tree.selection()[0])
 
     def _on_tree_select(self, event):
-        # Opcional: Cargar datos en el formulario al seleccionar para editar (no requerido estrictamente en MVP)
-        pass
+        selected = self.tree.selection()
+        if not selected:
+            return
+        
+        item = self.tree.item(selected[0])
+        values = item['values']
+        
+        # values = [id, nombre, precio, stock, critico]
+        # Llenar formulario
+        self.entry_nombre.delete(0, tk.END)
+        self.entry_nombre.insert(0, values[1])
+        
+        self.entry_precio.delete(0, tk.END)
+        self.entry_precio.insert(0, values[2])
+        
+        self.entry_stock.delete(0, tk.END)
+        self.entry_stock.insert(0, values[3])
+        
+        self.entry_stock_critico.delete(0, tk.END)
+        self.entry_stock_critico.insert(0, values[4])
 
     def update_product_list(self, products):
         """Actualiza ambas tablas (Inventario y POS) con los datos y aplica colores."""
@@ -283,26 +449,116 @@ class POSController:
     def __init__(self, model, view):
         self.model = model
         self.view = view
+        self.cart = {} # {product_id: {'info': tuple_prod, 'qty': int}}
 
-        # Asignar callbacks de la vista a métodos del controlador
+        # Asignar callbacks de la vista
         self.view.on_add_product = self.add_product
         self.view.on_delete_product = self.delete_product
-        self.view.on_sell_product = self.sell_product
+        self.view.on_update_product = self.update_product
+        
+        # Callbacks del Carrito
+        self.view.on_add_to_cart = self.add_to_cart
+        self.view.on_remove_from_cart = self.remove_from_cart
+        self.view.on_checkout = self.checkout
+        self.view.on_clear_cart = self.clear_cart
 
         # Cargar datos iniciales
         self.refresh_list()
 
     def add_product(self, nombre, precio, stock, stock_critico):
-        self.model.add_product(nombre, precio, stock, stock_critico)
+        updated = self.model.add_product(nombre, precio, stock, stock_critico)
+        if updated:
+            messagebox.showinfo("Stock Actualizado", f"El producto '{nombre}' ya existía. Se sumó el stock.")
+        else:
+            # messagebox.showinfo("Agregado", "Producto nuevo agregado.") # Opcional, para no ser invasivo
+            pass
+        self.refresh_list()
+
+    def update_product(self, product_id, nombre, precio, stock, stock_critico):
+        self.model.update_product(product_id, nombre, precio, stock, stock_critico)
         self.refresh_list()
 
     def delete_product(self, product_id):
         self.model.delete_product(product_id)
         self.refresh_list()
 
-    def sell_product(self, product_id):
-        self.model.decrease_stock(product_id)
-        self.refresh_list()
+    # --- Lógica del Carrito ---
+    
+    def add_to_cart(self, product_id, quantity=1):
+        # Obtener info actual del producto de la BD (para chequear stock real)
+        products = self.model.get_all_products()
+        product = next((p for p in products if p[0] == product_id), None)
+        
+        if not product:
+            return
+
+        # product = (id, nombre, precio, stock, critico)
+        stock_real = product[3]
+        
+        # Calcular stock disponible considerando lo que ya está en el carrito
+        qty_in_cart = 0
+        if product_id in self.cart:
+            qty_in_cart = self.cart[product_id]['qty']
+        
+        if qty_in_cart + quantity > stock_real:
+            messagebox.showwarning("Stock Insuficiente", f"No hay suficiente stock de '{product[1]}'.\nStock Real: {stock_real}\nEn canasta: {qty_in_cart}\nSolicitado: {quantity}")
+            return
+
+        # Agregar al carrito
+        if product_id not in self.cart:
+            self.cart[product_id] = {'info': product, 'qty': 0}
+        
+        self.cart[product_id]['qty'] += quantity
+        self._refresh_cart_view()
+
+    def remove_from_cart(self, product_id):
+        if product_id in self.cart:
+            del self.cart[product_id]
+            self._refresh_cart_view()
+
+    def clear_cart(self):
+        self.cart = {}
+        self._refresh_cart_view()
+
+    def checkout(self):
+        if not self.cart:
+            return
+
+        if not messagebox.askyesno("Confirmar Venta", "¿Procesar la venta actual?"):
+            return
+
+        # Procesar venta
+        try:
+            for pid, data in self.cart.items():
+                qty = data['qty']
+                self.model.decrease_stock(pid, qty)
+            
+            self.cart = {} # Limpiar carrito
+            self.refresh_list() # Actualizar inventario
+            self._refresh_cart_view() # Limpiar vista carrito
+            messagebox.showinfo("Venta Exitosa", "Venta registrada correctamente.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Ocurrió un error al procesar la venta: {e}")
+
+    def _refresh_cart_view(self):
+        cart_items_display = []
+        total = 0.0
+        
+        for pid, data in self.cart.items():
+            prod = data['info']
+            qty = data['qty']
+            price = prod[2]
+            subtotal = price * qty
+            total += subtotal
+            
+            cart_items_display.append({
+                'id': pid,
+                'nombre': prod[1],
+                'cantidad': qty,
+                'subtotal': subtotal
+            })
+            
+        self.view.update_cart_view(cart_items_display, total)
 
     def refresh_list(self):
         products = self.model.get_all_products()
