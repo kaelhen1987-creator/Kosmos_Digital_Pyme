@@ -199,26 +199,50 @@ def build_pos_view(page: ft.Page, model):
         # --- Dialogo de Selección de Cliente (Para Fiado) ---
         def show_client_selector(e):
             clients = model.get_clients_with_balance()
-            
-            def on_client_click(c_id):
-                finalize_sale('DEUDA', client_id=c_id)
-            
             client_list = ft.ListView(expand=True, height=300)
-            if not clients:
-                client_list.controls.append(ft.Text("No hay clientes registrados. Ve a 'Cuaderno' para crear uno."))
             
-            for c in clients:
-                client_list.controls.append(
-                    ft.ListTile(
-                        leading=ft.Icon(ft.Icons.PERSON),
-                        title=ft.Text(c['nombre']),
-                        subtitle=ft.Text(f"Deuda: ${c['saldo_actual']:,.0f}"),
-                        on_click=lambda e, cid=c['id']: on_client_click(cid)
+            def finalize_with_client(c_id):
+                finalize_sale('DEUDA', client_id=c_id)
+
+            def render_list(search_term="", update_ui=True):
+                client_list.controls.clear()
+                
+                filtered_clients = clients
+                if search_term:
+                    filtered_clients = [c for c in clients if search_term.lower() in c['nombre'].lower()]
+
+                if not filtered_clients:
+                    msg = "No se encontraron clientes." if clients else "No hay clientes registrados. Ve a 'Cuaderno' para crear uno."
+                    client_list.controls.append(ft.Text(msg, color="grey"))
+                
+                for c in filtered_clients:
+                    client_list.controls.append(
+                        ft.ListTile(
+                            leading=ft.Icon(ft.Icons.PERSON),
+                            title=ft.Text(c['nombre']),
+                            subtitle=ft.Text(f"Deuda: ${c['saldo_actual']:,.0f}"),
+                            on_click=lambda e, cid=c['id']: finalize_with_client(cid)
+                        )
                     )
-                )
+                if update_ui and client_list.page:
+                    client_list.update()
+
+            search_field = ft.TextField(
+                hint_text="Buscar cliente...",
+                on_change=lambda e: render_list(e.control.value, update_ui=True),
+                autofocus=True,
+                prefix_icon=ft.Icons.SEARCH
+            )
+            
+            # Render inicial (Sin update para evitar error)
+            render_list(update_ui=False)
             
             dlg_payment.title = ft.Text("Selecciona Cliente")
-            dlg_payment.content = client_list
+            dlg_payment.content = ft.Column([
+                search_field,
+                client_list
+            ], height=400, width=300)
+            
             dlg_payment.actions = [ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_payment))]
             page.update()
 

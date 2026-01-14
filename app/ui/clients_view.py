@@ -71,8 +71,8 @@ def build_clients_view(page: ft.Page, model):
             
             history_rows.append(
                 ft.DataRow(cells=[
-                    ft.DataCell(ft.Text(m_date, size=13, color="black")),
-                    ft.DataCell(ft.Text(m_desc, size=13, color="black", width=150, no_wrap=False)),
+                    ft.DataCell(ft.Text(m_date, size=13, color="white")),
+                    ft.DataCell(ft.Text(m_desc, size=13, color="white", width=150, no_wrap=False)),
                     ft.DataCell(ft.Text(m_type, color=color, weight="bold", size=13)),
                     ft.DataCell(ft.Text(f"{sign}${m_amount:,.0f}", color=color, weight="bold", size=13)),
                 ])
@@ -149,10 +149,10 @@ def build_clients_view(page: ft.Page, model):
             # Diseño de Tarjeta mejorado
             card_content = ft.Column([
                 ft.Row([
-                    ft.Icon(ft.Icons.PERSON, size=30, color="#1976D2"),
+                    ft.Icon(ft.Icons.PERSON, size=30, color="#42A5F5"), # Lighter Blue
                     ft.Column([
-                        ft.Text(c['nombre'], weight="bold", size=16),
-                        ft.Text(c['alias'] if c['alias'] else "Sin Alias", size=12, color="grey"),
+                        ft.Text(c['nombre'], weight="bold", size=16, color="white"),
+                        ft.Text(c['alias'] if c['alias'] else "Sin Alias", size=12, color="white70"),
                     ], spacing=2, expand=True),
                 ], alignment="start"),
                 
@@ -160,11 +160,11 @@ def build_clients_view(page: ft.Page, model):
                 
                 ft.Container(
                     content=ft.Row([
-                        ft.Text("Estado:", size=12, color="grey"),
+                        ft.Text("Estado:", size=12, color="white70"),
                         ft.Text(status_text, color=status_color, weight="bold", size=14)
                     ], alignment="spaceBetween"),
                     padding=5,
-                    border=ft.border.all(1, "#eeeeee"),
+                    border=ft.border.all(1, "#424242"), # Darker Grey Border
                     border_radius=8
                 ),
                 
