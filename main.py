@@ -18,7 +18,7 @@ class InventarioModel:
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS productos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                nombre TEXT NOT NULL,
+                nombre TEXT UNIQUE NOT NULL,
                 precio REAL NOT NULL,
                 stock INTEGER NOT NULL,
                 stock_critico INTEGER NOT NULL
@@ -37,31 +37,31 @@ class InventarioModel:
         return resultados
 
     def add_product(self, nombre, precio, stock, stock_critico):
-        """Agrega un producto o suma stock si ya existe (por nombre)."""
+        """Agrega un nuevo producto. Lanza IntegrityError si ya existe."""
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
-        
-        # Verificar si existe por nombre (case insensitive)
-        cursor.execute("SELECT id, stock FROM productos WHERE lower(nombre) = ?", (nombre.lower(),))
-        existing = cursor.fetchone()
-        
-        if existing:
-            # Si existe, actualizamos stock y precio/critico (Upsert)
-            product_id, current_stock = existing
-            new_stock = current_stock + stock
-            cursor.execute("""
-                UPDATE productos 
-                SET stock = ?, precio = ?, stock_critico = ? 
-                WHERE id = ?
-            """, (new_stock, precio, stock_critico, product_id))
-        else:
-            # Si no existe, insertamos
+        try:
             cursor.execute("INSERT INTO productos (nombre, precio, stock, stock_critico) VALUES (?, ?, ?, ?)",
                            (nombre, precio, stock, stock_critico))
-        
+            conn.commit()
+        finally:
+            conn.close()
+
+    def increase_stock_by_name(self, nombre, cantidad):
+        """Suma stock a un producto existente buscado por nombre."""
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE productos SET stock = stock + ? WHERE nombre = ?", (cantidad, nombre))
         conn.commit()
         conn.close()
-        return existing is not None # Return True if updated, False if created
+
+    def increase_stock_by_id(self, product_id, cantidad):
+        """Suma stock a un producto existente buscado por ID."""
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE productos SET stock = stock + ? WHERE id = ?", (cantidad, product_id))
+        conn.commit()
+        conn.close()
 
     def delete_product(self, product_id):
         """Elimina un producto por ID."""
@@ -123,11 +123,16 @@ class POSView:
         self.on_add_product = None
         self.on_delete_product = None
         self.on_update_product = None
+        self.on_add_stock = None # Nuevo
         # Callbacks Carrito
         self.on_add_to_cart = None
         self.on_remove_from_cart = None
         self.on_checkout = None
         self.on_clear_cart = None
+
+        # Estado de Edición
+        self.edit_mode = False
+        self.editing_product_id = None
 
     def _setup_inventario_tab(self):
         # Frame Formulario
@@ -157,8 +162,11 @@ class POSView:
         self.btn_agregar = ttk.Button(btn_frame, text="Agregar Producto", command=self._handle_add)
         self.btn_agregar.pack(side="left", padx=5)
         
-        self.btn_editar = ttk.Button(btn_frame, text="Guardar Cambios", command=self._handle_update)
+        self.btn_editar = ttk.Button(btn_frame, text="Editar Producto", command=self._handle_edit_toggle)
         self.btn_editar.pack(side="left", padx=5)
+
+        self.btn_sumar_stock = ttk.Button(btn_frame, text="Sumar Stock (+)", command=self._handle_add_stock_btn)
+        self.btn_sumar_stock.pack(side="left", padx=5)
 
         self.btn_eliminar = ttk.Button(btn_frame, text="Eliminar Seleccionado", command=self._handle_delete)
         self.btn_eliminar.pack(side="left", padx=5)
@@ -185,9 +193,11 @@ class POSView:
         scrollbar.pack(side="right", fill="y")
 
         # Configurar tags para el Semáforo de Stock
-        self.tree.tag_configure("critical", background="#ffcccc") # Rojo
-        self.tree.tag_configure("warning", background="#ffffe0")  # Amarillo
-        self.tree.tag_configure("normal", background="white")     # Blanco
+        # Se fuerza foreground="black" para asegurar legibilidad en Modo Oscuro de macOS
+        # Colores más intensos: Rojo (#ff8080) y Amarillo (#ffff80)
+        self.tree.tag_configure("critical", background="#ff8080", foreground="black") # Rojo más fuerte
+        self.tree.tag_configure("warning", background="#ffff80", foreground="black")  # Amarillo más puro
+        self.tree.tag_configure("normal", background="white", foreground="black")     # Blanco
 
         # Evento de selección
         self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
@@ -271,6 +281,10 @@ class POSView:
 
     # --- Métodos de Interfaz interna ---
     def _handle_add(self):
+        if self.edit_mode:
+            messagebox.showwarning("Modo Edición", "Termine de editar el producto actual antes de agregar uno nuevo.")
+            return
+
         try:
             nombre = self.entry_nombre.get()
             precio = float(self.entry_precio.get())
@@ -288,32 +302,71 @@ class POSView:
         except ValueError:
             messagebox.showerror("Error", "Por favor ingrese valores numéricos válidos para Precio y Stock")
 
-    def _handle_update(self):
+    def _handle_edit_toggle(self):
+        if not self.edit_mode:
+            # ENTRAR EN MODO EDICIÓN
+            selected = self.tree.selection()
+            if not selected:
+                messagebox.showwarning("Selección", "Seleccione un producto primero para entrar en modo edición")
+                return
+            
+            item = self.tree.item(selected[0])
+            self.editing_product_id = item['values'][0]
+            
+            # Cambiar UI
+            self.edit_mode = True
+            self.btn_editar.config(text="Finalizar Edición")
+            self.btn_agregar.state(['disabled'])
+            self.btn_eliminar.state(['disabled'])
+            self.btn_sumar_stock.state(['disabled'])
+            self.entry_nombre.focus() # Foco al formulario
+            
+        else:
+            # GUARDAR CAMBIOS (SALIR MODO EDICIÓN)
+            try:
+                nombre = self.entry_nombre.get()
+                precio = float(self.entry_precio.get())
+                stock = int(self.entry_stock.get())
+                critico = int(self.entry_stock_critico.get())
+                
+                if not nombre:
+                    messagebox.showwarning("Faltan datos", "El nombre es obligatorio")
+                    return
+
+                if self.on_update_product:
+                    self.on_update_product(self.editing_product_id, nombre, precio, stock, critico)
+                    messagebox.showinfo("Éxito", "Producto actualizado correctamente")
+                
+                # Restaurar UI
+                self._exit_edit_mode()
+                
+            except ValueError:
+                messagebox.showerror("Error", "Por favor ingrese valores numéricos válidos")
+
+    def _exit_edit_mode(self):
+        self.edit_mode = False
+        self.editing_product_id = None
+        self.btn_editar.config(text="Editar Producto")
+        self.btn_agregar.state(['!disabled'])
+        self.btn_eliminar.state(['!disabled'])
+        self.btn_sumar_stock.state(['!disabled'])
+        self._clear_form()
+
+    def _handle_add_stock_btn(self):
         selected = self.tree.selection()
         if not selected:
-            messagebox.showwarning("Selección", "Seleccione un producto para editar")
+            messagebox.showwarning("Selección", "Seleccione un producto para sumar stock")
             return
         
         item = self.tree.item(selected[0])
         product_id = item['values'][0]
+        product_name = item['values'][1]
 
-        try:
-            nombre = self.entry_nombre.get()
-            precio = float(self.entry_precio.get())
-            stock = int(self.entry_stock.get())
-            critico = int(self.entry_stock_critico.get())
-            
-            if not nombre:
-                messagebox.showwarning("Faltan datos", "El nombre es obligatorio")
-                return
-
-            if self.on_update_product:
-                self.on_update_product(product_id, nombre, precio, stock, critico)
-                messagebox.showinfo("Éxito", "Producto actualizado correctamente")
-            
-            self._clear_form()
-        except ValueError:
-            messagebox.showerror("Error", "Por favor ingrese valores numéricos válidos")
+        cantidad = simpledialog.askinteger("Sumar Stock", f"¿Cuántas unidades deseas sumar a '{product_name}'?", 
+                                         parent=self.root, minvalue=1)
+        if cantidad:
+            if self.on_add_stock:
+                self.on_add_stock(product_id, cantidad)
 
     def _handle_delete(self):
         selected = self.tree.selection()
@@ -385,6 +438,12 @@ class POSView:
         self.lbl_total.config(text=f"TOTAL: ${total:,.0f}")
 
     def _clear_form(self):
+        if self.edit_mode:
+             # Si el usuario intenta limpiar en modo edición, salimos del modo?
+             # Por ahora cancelamos la edición (reset básico)
+             self._exit_edit_mode()
+             return
+
         self.entry_nombre.delete(0, tk.END)
         self.entry_precio.delete(0, tk.END)
         self.entry_stock.delete(0, tk.END)
@@ -394,6 +453,11 @@ class POSView:
             self.tree.selection_remove(self.tree.selection()[0])
 
     def _on_tree_select(self, event):
+        if self.edit_mode:
+            # Si intenta cambiar de producto mientras edita, simplemente ignoramos
+            # para no sobrescribir el formulario con datos de otro producto
+            return 
+
         selected = self.tree.selection()
         if not selected:
             return
@@ -455,6 +519,7 @@ class POSController:
         self.view.on_add_product = self.add_product
         self.view.on_delete_product = self.delete_product
         self.view.on_update_product = self.update_product
+        self.view.on_add_stock = self.add_stock # Nuevo callback
         
         # Callbacks del Carrito
         self.view.on_add_to_cart = self.add_to_cart
@@ -466,17 +531,29 @@ class POSController:
         self.refresh_list()
 
     def add_product(self, nombre, precio, stock, stock_critico):
-        updated = self.model.add_product(nombre, precio, stock, stock_critico)
-        if updated:
-            messagebox.showinfo("Stock Actualizado", f"El producto '{nombre}' ya existía. Se sumó el stock.")
-        else:
-            # messagebox.showinfo("Agregado", "Producto nuevo agregado.") # Opcional, para no ser invasivo
-            pass
+        try:
+            self.model.add_product(nombre, precio, stock, stock_critico)
+            messagebox.showinfo("Éxito", "Producto agregado correctamente.")
+            self.refresh_list()
+        except sqlite3.IntegrityError:
+            # Caso de Redistribución Inteligente
+            if messagebox.askyesno("Producto ya existe", 
+                                   f"El producto '{nombre}' ya existe.\n¿Deseas sumar stock al existente?"):
+                self.model.increase_stock_by_name(nombre, stock)
+                messagebox.showinfo("Stock Actualizado", f"Se sumaron {stock} unidades a '{nombre}'.")
+                self.refresh_list()
+
+    def add_stock(self, product_id, cantidad):
+        self.model.increase_stock_by_id(product_id, cantidad)
+        messagebox.showinfo("Éxito", "Stock actualizado.")
         self.refresh_list()
 
     def update_product(self, product_id, nombre, precio, stock, stock_critico):
-        self.model.update_product(product_id, nombre, precio, stock, stock_critico)
-        self.refresh_list()
+        try:
+            self.model.update_product(product_id, nombre, precio, stock, stock_critico)
+            self.refresh_list()
+        except sqlite3.IntegrityError:
+            messagebox.showerror("Error", "Ya existe otro producto con ese nombre.")
 
     def delete_product(self, product_id):
         self.model.delete_product(product_id)
