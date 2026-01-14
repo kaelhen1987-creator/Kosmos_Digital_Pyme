@@ -141,16 +141,29 @@ def build_dashboard_view(page: ft.Page, model):
     expense_form = ft.Container(
         content=ft.Column([
             ft.Text("REGISTRAR GASTO", weight="bold", size=16, color="#D32F2F"),
+            ft.Container(height=10),  # Espaciado
             ft.ResponsiveRow([
-                ft.Column([desc_field], col={"xs": 12, "md": 8}),
-                ft.Column([amount_field], col={"xs": 12, "md": 4}),
-            ]),
-            ft.ElevatedButton("Registrar Gasto", on_click=add_expense_click, bgcolor="#F44336", color="white")
-        ]),
+                ft.Column([desc_field], col={"xs": 10, "sm": 10, "md": 8}),
+                ft.Column([amount_field], col={"xs": 10, "sm": 10, "md": 4}),
+            ], alignment=ft.MainAxisAlignment.CENTER),
+            ft.ElevatedButton(
+                "Registrar Gasto", 
+                on_click=add_expense_click, 
+                bgcolor="#F44336", 
+                color="white",
+                width=200,
+            )
+        ], spacing=10, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
         bgcolor="white",
-        padding=15,
+        padding=20,
         border_radius=10,
-        border=ft.border.all(1, "grey")
+        border=ft.border.all(1, "#E0E0E0"),
+        shadow=ft.BoxShadow(
+            spread_radius=0,
+            blur_radius=4,
+            color=ft.Colors.with_opacity(0.1, "black"),
+            offset=ft.Offset(0, 2),
+        )
     )
 
     # ==========================
