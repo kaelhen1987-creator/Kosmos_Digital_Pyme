@@ -1,10 +1,9 @@
-import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+#!/opt/homebrew/bin/python3
+import flet as ft
 import sqlite3
 
 # =============================================================================
-# MODELO (MODEL)
-# Maneja la lógica de datos y la interacción con la base de datos SQLite.
+# MODELO (MODEL) - LOGICA PURA
 # =============================================================================
 class InventarioModel:
     def __init__(self, db_name='inventario.db'):
@@ -12,7 +11,6 @@ class InventarioModel:
         self._init_db()
 
     def _init_db(self):
-        """Inicializa la base de datos y crea la tabla si no existe."""
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         cursor.execute('''
@@ -28,27 +26,25 @@ class InventarioModel:
         conn.close()
 
     def get_all_products(self):
-        """Obtiene todos los productos de la base de datos."""
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM productos")
-        resultados = cursor.fetchall()
+        res = cursor.fetchall()
         conn.close()
-        return resultados
+        return res
 
     def add_product(self, nombre, precio, stock, stock_critico):
-        """Agrega un nuevo producto. Lanza IntegrityError si ya existe."""
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         try:
             cursor.execute("INSERT INTO productos (nombre, precio, stock, stock_critico) VALUES (?, ?, ?, ?)",
                            (nombre, precio, stock, stock_critico))
             conn.commit()
+            return True
         finally:
             conn.close()
 
     def increase_stock_by_name(self, nombre, cantidad):
-        """Suma stock a un producto existente buscado por nombre."""
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         cursor.execute("UPDATE productos SET stock = stock + ? WHERE nombre = ?", (cantidad, nombre))
@@ -56,23 +52,13 @@ class InventarioModel:
         conn.close()
 
     def increase_stock_by_id(self, product_id, cantidad):
-        """Suma stock a un producto existente buscado por ID."""
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         cursor.execute("UPDATE productos SET stock = stock + ? WHERE id = ?", (cantidad, product_id))
         conn.commit()
         conn.close()
 
-    def delete_product(self, product_id):
-        """Elimina un producto por ID."""
-        conn = sqlite3.connect(self.db_name)
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM productos WHERE id = ?", (product_id,))
-        conn.commit()
-        conn.close()
-
     def update_product(self, product_id, nombre, precio, stock, stock_critico):
-        """Actualiza un producto existente."""
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         cursor.execute("UPDATE productos SET nombre = ?, precio = ?, stock = ?, stock_critico = ? WHERE id = ?",
@@ -80,8 +66,14 @@ class InventarioModel:
         conn.commit()
         conn.close()
 
+    def delete_product(self, product_id):
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM productos WHERE id = ?", (product_id,))
+        conn.commit()
+        conn.close()
+
     def decrease_stock(self, product_id, quantity=1):
-        """Disminuye el stock de un producto (Venta)."""
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         cursor.execute("UPDATE productos SET stock = stock - ? WHERE id = ?", (quantity, product_id))
@@ -90,571 +82,713 @@ class InventarioModel:
 
 
 # =============================================================================
-# VISTA (VIEW)
-# Maneja la Interfaz Gráfica de Usuario (GUI) con Tkinter.
-# No contiene lógica de negocio, solo muestra datos y captura eventos.
+# VISTA (FLET UI)
 # =============================================================================
-class POSView:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Sistema POS y Gestión de Inventario MVP")
-        self.root.geometry("800x600")
-
-        # Configuración de estilos para el Treeview (Semáforo)
-        self.style = ttk.Style()
-        self.style.configure("Treeview", rowheight=25)
-        self.root.option_add('*TCombobox*Listbox.font', ("Arial", 12))
-
-        # Crear Tabs (Pestañas)
-        self.notebook = ttk.Notebook(self.root)
-        self.notebook.pack(expand=True, fill='both')
-
-        # Pestaña 1: Inventario
-        self.tab_inventario = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab_inventario, text='  Gestión de Inventario  ')
-        self._setup_inventario_tab()
-
-        # Pestaña 2: Venta Rápida (POS)
-        self.tab_pos = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab_pos, text='  Venta Rápida (POS)  ')
-        self._setup_pos_tab()
-
-        # Callbacks (Serán asignados por el Controlador)
-        self.on_add_product = None
-        self.on_delete_product = None
-        self.on_update_product = None
-        self.on_add_stock = None # Nuevo
-        # Callbacks Carrito
-        self.on_add_to_cart = None
-        self.on_remove_from_cart = None
-        self.on_checkout = None
-        self.on_clear_cart = None
-
-        # Estado de Edición
-        self.edit_mode = False
-        self.editing_product_id = None
-
-    def _setup_inventario_tab(self):
-        # Frame Formulario
-        form_frame = ttk.LabelFrame(self.tab_inventario, text="Datos del Producto", padding=10)
-        form_frame.pack(fill="x", padx=10, pady=5)
-
-        ttk.Label(form_frame, text="Nombre:").grid(row=0, column=0, padx=5, pady=5)
-        self.entry_nombre = ttk.Entry(form_frame)
-        self.entry_nombre.grid(row=0, column=1, padx=5, pady=5)
-
-        ttk.Label(form_frame, text="Precio:").grid(row=0, column=2, padx=5, pady=5)
-        self.entry_precio = ttk.Entry(form_frame)
-        self.entry_precio.grid(row=0, column=3, padx=5, pady=5)
-
-        ttk.Label(form_frame, text="Stock Inicial:").grid(row=1, column=0, padx=5, pady=5)
-        self.entry_stock = ttk.Entry(form_frame)
-        self.entry_stock.grid(row=1, column=1, padx=5, pady=5)
-
-        ttk.Label(form_frame, text="Stock Crítico:").grid(row=1, column=2, padx=5, pady=5)
-        self.entry_stock_critico = ttk.Entry(form_frame)
-        self.entry_stock_critico.grid(row=1, column=3, padx=5, pady=5)
-
-        # Botones Acción
-        btn_frame = ttk.Frame(form_frame)
-        btn_frame.grid(row=2, column=0, columnspan=4, pady=10)
-        
-        self.btn_agregar = ttk.Button(btn_frame, text="Agregar Producto", command=self._handle_add)
-        self.btn_agregar.pack(side="left", padx=5)
-        
-        self.btn_editar = ttk.Button(btn_frame, text="Editar Producto", command=self._handle_edit_toggle)
-        self.btn_editar.pack(side="left", padx=5)
-
-        self.btn_sumar_stock = ttk.Button(btn_frame, text="Sumar Stock (+)", command=self._handle_add_stock_btn)
-        self.btn_sumar_stock.pack(side="left", padx=5)
-
-        self.btn_eliminar = ttk.Button(btn_frame, text="Eliminar Seleccionado", command=self._handle_delete)
-        self.btn_eliminar.pack(side="left", padx=5)
-
-        self.btn_limpiar = ttk.Button(btn_frame, text="Limpiar Formulario", command=self._clear_form)
-        self.btn_limpiar.pack(side="left", padx=5)
-
-        # Tabla de Inventario (Treeview)
-        tree_frame = ttk.Frame(self.tab_inventario)
-        tree_frame.pack(fill="both", expand=True, padx=10, pady=5)
-
-        columns = ("ID", "Nombre", "Precio", "Stock", "Crítico")
-        self.tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=15)
-        
-        for col in columns:
-            self.tree.heading(col, text=col)
-            self.tree.column(col, width=100 if col != "Nombre" else 300)
-
-        # Scrollbar
-        scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscroll=scrollbar.set)
-        
-        self.tree.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        # Configurar tags para el Semáforo de Stock
-        # Se fuerza foreground="black" para asegurar legibilidad en Modo Oscuro de macOS
-        # Colores más intensos: Rojo (#ff8080) y Amarillo (#ffff80)
-        self.tree.tag_configure("critical", background="#ff8080", foreground="black") # Rojo más fuerte
-        self.tree.tag_configure("warning", background="#ffff80", foreground="black")  # Amarillo más puro
-        self.tree.tag_configure("normal", background="white", foreground="black")     # Blanco
-
-        # Evento de selección
-        self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
-
-    def _setup_pos_tab(self):
-        # Frame Principal POS (Contenedor Horizontal)
-        main_frame = ttk.Frame(self.tab_pos, padding=10)
-        main_frame.pack(fill="both", expand=True)
-
-        # === SECCIÓN IZQUIERDA: LISTA DE PRODUCTOS ===
-        left_frame = ttk.LabelFrame(main_frame, text="1. Seleccionar Productos", padding=5)
-        left_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
-
-        # Buscador (Opcional TODO) - Por ahora solo la lista
-        columns_pos = ("ID", "Nombre", "Precio", "Stock")
-        self.tree_pos = ttk.Treeview(left_frame, columns=columns_pos, show="headings")
-        self.tree_pos.heading("ID", text="ID")
-        self.tree_pos.heading("Nombre", text="Nombre")
-        self.tree_pos.heading("Precio", text="Precio")
-        self.tree_pos.heading("Stock", text="Stock")
-        
-        self.tree_pos.column("ID", width=40)
-        self.tree_pos.column("Nombre", width=150)
-        self.tree_pos.column("Precio", width=80)
-        self.tree_pos.column("Stock", width=60)
-        
-        # Scrollbar Izquierda
-        scroll_pos = ttk.Scrollbar(left_frame, orient="vertical", command=self.tree_pos.yview)
-        self.tree_pos.configure(yscroll=scroll_pos.set)
-        
-        self.tree_pos.pack(side="left", fill="both", expand=True)
-        scroll_pos.pack(side="right", fill="y")
-        
-        # Botón Agregar al Carrito (Debajo de la lista izquierda)
-        btn_add = ttk.Button(left_frame, text="Agregar al Carrito >>", command=self._handle_add_to_cart)
-        btn_add.pack(side="bottom", fill="x", pady=5)
-        self.tree_pos.bind("<Double-1>", lambda e: self._handle_add_to_cart()) # Doble click para agregar
-
-        # === SECCIÓN DERECHA: CARRITO DE COMPRAS ===
-        right_frame = ttk.LabelFrame(main_frame, text="2. Carrito de Compras", padding=5)
-        right_frame.pack(side="right", fill="both", expand=True, padx=(5, 0))
-
-        # Lista del Carrito
-        columns_cart = ("ID", "Producto", "Cant", "Total")
-        self.tree_cart = ttk.Treeview(right_frame, columns=columns_cart, show="headings")
-        self.tree_cart.heading("ID", text="ID")
-        self.tree_cart.heading("Producto", text="Producto")
-        self.tree_cart.heading("Cant", text="Cant")
-        self.tree_cart.heading("Total", text="Total")
-        
-        self.tree_cart.column("ID", width=40)
-        self.tree_cart.column("Producto", width=150)
-        self.tree_cart.column("Cant", width=50)
-        self.tree_cart.column("Total", width=80)
-
-        # Scrollbar Derecha
-        scroll_cart = ttk.Scrollbar(right_frame, orient="vertical", command=self.tree_cart.yview)
-        self.tree_cart.configure(yscroll=scroll_cart.set)
-        
-        self.tree_cart.pack(side="top", fill="both", expand=True)
-        scroll_cart.pack(side="right", fill="y")
-
-        # Botón Quitar del Carrito
-        btn_remove = ttk.Button(right_frame, text="Quitar Item Seleccionado", command=self._handle_remove_from_cart)
-        btn_remove.pack(fill="x", pady=5)
-
-        # TOTAL A PAGAR
-        self.lbl_total = ttk.Label(right_frame, text="TOTAL: $0.0", font=("Arial", 20, "bold"), anchor="e")
-        self.lbl_total.pack(fill="x", pady=10)
-
-        # === BOTONES DE ACCIÓN (Confirmar / Cancelar) ===
-        action_frame = ttk.Frame(right_frame)
-        action_frame.pack(side="bottom", fill="x", pady=10)
-
-        self.btn_pagar = ttk.Button(action_frame, text="CONFIRMAR VENTA", command=self._handle_checkout)
-        self.btn_pagar.pack(side="left", fill="x", expand=True, padx=2)
-        
-        self.btn_cancelar = ttk.Button(action_frame, text="CANCELAR", command=self._handle_clear_cart)
-        self.btn_cancelar.pack(side="left", fill="x", expand=True, padx=2)
-
-
-    # --- Métodos de Interfaz interna ---
-    def _handle_add(self):
-        if self.edit_mode:
-            messagebox.showwarning("Modo Edición", "Termine de editar el producto actual antes de agregar uno nuevo.")
-            return
-
-        try:
-            nombre = self.entry_nombre.get()
-            precio = float(self.entry_precio.get())
-            stock = int(self.entry_stock.get())
-            critico = int(self.entry_stock_critico.get())
-            
-            if not nombre:
-                messagebox.showwarning("Faltan datos", "El nombre es obligatorio")
-                return
-
-            if self.on_add_product:
-                self.on_add_product(nombre, precio, stock, critico)
-            
-            self._clear_form()
-        except ValueError:
-            messagebox.showerror("Error", "Por favor ingrese valores numéricos válidos para Precio y Stock")
-
-    def _handle_edit_toggle(self):
-        if not self.edit_mode:
-            # ENTRAR EN MODO EDICIÓN
-            selected = self.tree.selection()
-            if not selected:
-                messagebox.showwarning("Selección", "Seleccione un producto primero para entrar en modo edición")
-                return
-            
-            item = self.tree.item(selected[0])
-            self.editing_product_id = item['values'][0]
-            
-            # Cambiar UI
-            self.edit_mode = True
-            self.btn_editar.config(text="Finalizar Edición")
-            self.btn_agregar.state(['disabled'])
-            self.btn_eliminar.state(['disabled'])
-            self.btn_sumar_stock.state(['disabled'])
-            self.entry_nombre.focus() # Foco al formulario
-            
-        else:
-            # GUARDAR CAMBIOS (SALIR MODO EDICIÓN)
-            try:
-                nombre = self.entry_nombre.get()
-                precio = float(self.entry_precio.get())
-                stock = int(self.entry_stock.get())
-                critico = int(self.entry_stock_critico.get())
-                
-                if not nombre:
-                    messagebox.showwarning("Faltan datos", "El nombre es obligatorio")
-                    return
-
-                if self.on_update_product:
-                    self.on_update_product(self.editing_product_id, nombre, precio, stock, critico)
-                    messagebox.showinfo("Éxito", "Producto actualizado correctamente")
-                
-                # Restaurar UI
-                self._exit_edit_mode()
-                
-            except ValueError:
-                messagebox.showerror("Error", "Por favor ingrese valores numéricos válidos")
-
-    def _exit_edit_mode(self):
-        self.edit_mode = False
-        self.editing_product_id = None
-        self.btn_editar.config(text="Editar Producto")
-        self.btn_agregar.state(['!disabled'])
-        self.btn_eliminar.state(['!disabled'])
-        self.btn_sumar_stock.state(['!disabled'])
-        self._clear_form()
-
-    def _handle_add_stock_btn(self):
-        selected = self.tree.selection()
-        if not selected:
-            messagebox.showwarning("Selección", "Seleccione un producto para sumar stock")
-            return
-        
-        item = self.tree.item(selected[0])
-        product_id = item['values'][0]
-        product_name = item['values'][1]
-
-        cantidad = simpledialog.askinteger("Sumar Stock", f"¿Cuántas unidades deseas sumar a '{product_name}'?", 
-                                         parent=self.root, minvalue=1)
-        if cantidad:
-            if self.on_add_stock:
-                self.on_add_stock(product_id, cantidad)
-
-    def _handle_delete(self):
-        selected = self.tree.selection()
-        if not selected:
-            messagebox.showwarning("Selección", "Seleccione un producto para eliminar")
-            return
-        
-        item = self.tree.item(selected[0])
-        product_id = item['values'][0]
-        
-        if messagebox.askyesno("Confirmar", "¿Está seguro de eliminar este producto?"):
-            if self.on_delete_product:
-                self.on_delete_product(product_id)
-            self._clear_form()
-
-    # --- Métodos de Interfaz interna (POS Actualizado) ---
-    def _handle_add_to_cart(self):
-        selected = self.tree_pos.selection()
-        if not selected:
-            return # Nada seleccionado
-        
-        item = self.tree_pos.item(selected[0])
-        product_id = item['values'][0]
-        product_name = item['values'][1]
-        
-        # Pedir cantidad al usuario
-        cantidad = simpledialog.askinteger("Cantidad", f"Ingrese cantidad para '{product_name}':", 
-                                         parent=self.root, minvalue=1, initialvalue=1)
-        
-        if cantidad is not None and self.on_add_to_cart:
-            self.on_add_to_cart(product_id, cantidad)
-
-    def _handle_remove_from_cart(self):
-        selected = self.tree_cart.selection()
-        if not selected:
-             messagebox.showwarning("Selección", "Seleccione un producto del carrito para quitar")
-             return
-
-        item = self.tree_cart.item(selected[0])
-        product_id = item['values'][0]
-        
-        if self.on_remove_from_cart:
-            self.on_remove_from_cart(product_id)
-
-    def _handle_checkout(self):
-        if self.on_checkout:
-            self.on_checkout()
-
-    def _handle_clear_cart(self):
-        if self.on_clear_cart:
-            self.on_clear_cart()
-
-    def update_cart_view(self, cart_items, total):
-        """Actualiza la tabla del carrito."""
-        # Limpiar
-        for i in self.tree_cart.get_children():
-            self.tree_cart.delete(i)
-        
-        # Llenar
-        for item in cart_items:
-            # item = {id, nombre, precio, cantidad, subtotal}
-            self.tree_cart.insert("", "end", values=(
-                item['id'],
-                item['nombre'],
-                item['cantidad'],
-                f"${item['subtotal']:.0f}"
-            ))
-        
-        self.lbl_total.config(text=f"TOTAL: ${total:,.0f}")
-
-    def _clear_form(self):
-        if self.edit_mode:
-             # Si el usuario intenta limpiar en modo edición, salimos del modo?
-             # Por ahora cancelamos la edición (reset básico)
-             self._exit_edit_mode()
-             return
-
-        self.entry_nombre.delete(0, tk.END)
-        self.entry_precio.delete(0, tk.END)
-        self.entry_stock.delete(0, tk.END)
-        self.entry_stock_critico.delete(0, tk.END)
-        # Deseleccionar árbol para evitar confusiones
-        if self.tree.selection():
-            self.tree.selection_remove(self.tree.selection()[0])
-
-    def _on_tree_select(self, event):
-        if self.edit_mode:
-            # Si intenta cambiar de producto mientras edita, simplemente ignoramos
-            # para no sobrescribir el formulario con datos de otro producto
-            return 
-
-        selected = self.tree.selection()
-        if not selected:
-            return
-        
-        item = self.tree.item(selected[0])
-        values = item['values']
-        
-        # values = [id, nombre, precio, stock, critico]
-        # Llenar formulario
-        self.entry_nombre.delete(0, tk.END)
-        self.entry_nombre.insert(0, values[1])
-        
-        self.entry_precio.delete(0, tk.END)
-        self.entry_precio.insert(0, values[2])
-        
-        self.entry_stock.delete(0, tk.END)
-        self.entry_stock.insert(0, values[3])
-        
-        self.entry_stock_critico.delete(0, tk.END)
-        self.entry_stock_critico.insert(0, values[4])
-
-    def update_product_list(self, products):
-        """Actualiza ambas tablas (Inventario y POS) con los datos y aplica colores."""
-        # Limpiar tablas
-        for i in self.tree.get_children():
-            self.tree.delete(i)
-        for i in self.tree_pos.get_children():
-            self.tree_pos.delete(i)
-
-        for p in products:
-            # p = (id, nombre, precio, stock, stock_critico)
-            p_id, nombre, precio, stock, critico = p
-            
-            # Lógica del Semáforo
-            tag = "normal"
-            if stock <= critico:
-                tag = "critical"
-            elif stock <= (critico + 5):
-                tag = "warning"
-
-            # Insertar en Inventario con color
-            self.tree.insert("", "end", values=p, tags=(tag,))
-            
-            # Insertar en POS (sin colores o con colores si se prefiere, aquí simple)
-            self.tree_pos.insert("", "end", values=(p_id, nombre, precio, stock))
-
-
-# =============================================================================
-# CONTROLADOR (CONTROLLER)
-# Une el Modelo y la Vista. Escucha eventos de la Vista y actualiza el Modelo.
-# =============================================================================
-class POSController:
-    def __init__(self, model, view):
-        self.model = model
-        self.view = view
-        self.cart = {} # {product_id: {'info': tuple_prod, 'qty': int}}
-
-        # Asignar callbacks de la vista
-        self.view.on_add_product = self.add_product
-        self.view.on_delete_product = self.delete_product
-        self.view.on_update_product = self.update_product
-        self.view.on_add_stock = self.add_stock # Nuevo callback
-        
-        # Callbacks del Carrito
-        self.view.on_add_to_cart = self.add_to_cart
-        self.view.on_remove_from_cart = self.remove_from_cart
-        self.view.on_checkout = self.checkout
-        self.view.on_clear_cart = self.clear_cart
-
-        # Cargar datos iniciales
-        self.refresh_list()
-
-    def add_product(self, nombre, precio, stock, stock_critico):
-        try:
-            self.model.add_product(nombre, precio, stock, stock_critico)
-            messagebox.showinfo("Éxito", "Producto agregado correctamente.")
-            self.refresh_list()
-        except sqlite3.IntegrityError:
-            # Caso de Redistribución Inteligente
-            if messagebox.askyesno("Producto ya existe", 
-                                   f"El producto '{nombre}' ya existe.\n¿Deseas sumar stock al existente?"):
-                self.model.increase_stock_by_name(nombre, stock)
-                messagebox.showinfo("Stock Actualizado", f"Se sumaron {stock} unidades a '{nombre}'.")
-                self.refresh_list()
-
-    def add_stock(self, product_id, cantidad):
-        self.model.increase_stock_by_id(product_id, cantidad)
-        messagebox.showinfo("Éxito", "Stock actualizado.")
-        self.refresh_list()
-
-    def update_product(self, product_id, nombre, precio, stock, stock_critico):
-        try:
-            self.model.update_product(product_id, nombre, precio, stock, stock_critico)
-            self.refresh_list()
-        except sqlite3.IntegrityError:
-            messagebox.showerror("Error", "Ya existe otro producto con ese nombre.")
-
-    def delete_product(self, product_id):
-        self.model.delete_product(product_id)
-        self.refresh_list()
-
-    # --- Lógica del Carrito ---
+def main(page: ft.Page):
+    page.title = "SOS Digital PyME - POS"
+    page.bgcolor = "#f5f5f5"
+    page.padding = 0
+    page.scroll = ft.ScrollMode.AUTO
     
-    def add_to_cart(self, product_id, quantity=1):
-        # Obtener info actual del producto de la BD (para chequear stock real)
-        products = self.model.get_all_products()
-        product = next((p for p in products if p[0] == product_id), None)
-        
-        if not product:
-            return
-
-        # product = (id, nombre, precio, stock, critico)
-        stock_real = product[3]
-        
-        # Calcular stock disponible considerando lo que ya está en el carrito
-        qty_in_cart = 0
-        if product_id in self.cart:
-            qty_in_cart = self.cart[product_id]['qty']
-        
-        if qty_in_cart + quantity > stock_real:
-            messagebox.showwarning("Stock Insuficiente", f"No hay suficiente stock de '{product[1]}'.\nStock Real: {stock_real}\nEn canasta: {qty_in_cart}\nSolicitado: {quantity}")
-            return
-
-        # Agregar al carrito
-        if product_id not in self.cart:
-            self.cart[product_id] = {'info': product, 'qty': 0}
-        
-        self.cart[product_id]['qty'] += quantity
-        self._refresh_cart_view()
-
-    def remove_from_cart(self, product_id):
-        if product_id in self.cart:
-            del self.cart[product_id]
-            self._refresh_cart_view()
-
-    def clear_cart(self):
-        self.cart = {}
-        self._refresh_cart_view()
-
-    def checkout(self):
-        if not self.cart:
-            return
-
-        if not messagebox.askyesno("Confirmar Venta", "¿Procesar la venta actual?"):
-            return
-
-        # Procesar venta
-        try:
-            for pid, data in self.cart.items():
-                qty = data['qty']
-                self.model.decrease_stock(pid, qty)
-            
-            self.cart = {} # Limpiar carrito
-            self.refresh_list() # Actualizar inventario
-            self._refresh_cart_view() # Limpiar vista carrito
-            messagebox.showinfo("Venta Exitosa", "Venta registrada correctamente.")
-        except Exception as e:
-            messagebox.showerror("Error", f"Ocurrió un error al procesar la venta: {e}")
-
-    def _refresh_cart_view(self):
-        cart_items_display = []
-        total = 0.0
-        
-        for pid, data in self.cart.items():
-            prod = data['info']
-            qty = data['qty']
-            price = prod[2]
-            subtotal = price * qty
-            total += subtotal
-            
-            cart_items_display.append({
-                'id': pid,
-                'nombre': prod[1],
-                'cantidad': qty,
-                'subtotal': subtotal
-            })
-            
-        self.view.update_cart_view(cart_items_display, total)
-
-    def refresh_list(self):
-        products = self.model.get_all_products()
-        self.view.update_product_list(products)
-
-
-# =============================================================================
-# MAIN (PUNTO DE ENTRADA)
-# =============================================================================
-if __name__ == "__main__":
-    # Inicializar Base de Datos (Modelo)
+    # Configuración responsive
+    page.window.min_width = 350
+    page.window.min_height = 600
+    
     model = InventarioModel()
+    cart = {}
+    current_view = ft.Ref[ft.Container]()
+    current_tab_index = {"index": 0}
+    
+    # Detectar si es móvil por el ancho
+    def is_mobile():
+        if page.window.width:
+            return page.window.width < 600
+        return False
+    
+    def show_message(msg, color="blue"):
+        snack = ft.SnackBar(ft.Text(msg, color="white"), bgcolor=color, open=True)
+        page.overlay.append(snack)
+        page.update()
+    
+    # ========== VISTA POS CON CARRITO ==========
+    def build_pos_view():
+        product_list = ft.ListView(spacing=10, padding=10, expand=True)
+        cart_list = ft.ListView(spacing=5, padding=10, expand=True)
+        total_text = ft.Text("Total: $0", size=24, weight="bold", color="black")
+        
+        # Campo de búsqueda
+        search_field = ft.TextField(
+            hint_text="🔍 Buscar producto...",
+            on_change=lambda e: refresh_products(e.control.value),
+            bgcolor="white",
+            color="black",
+            border_color="#2196F3",
+            height=50,
+            text_size=16,
+        )
+        
+        def refresh_products(search_query=""):
+            product_list.controls.clear()
+            products = model.get_all_products()
+            
+            # Filtrar por búsqueda
+            if search_query:
+                products = [p for p in products if search_query.lower() in p[1].lower()]
+            
+            if not products:
+                product_list.controls.append(
+                    ft.Container(
+                        content=ft.Text("No hay productos.\nVe a Inventario para agregar.", 
+                                      size=16, color="black", text_align="center"),
+                        bgcolor="#fff3cd",
+                        padding=30,
+                        border_radius=10,
+                    )
+                )
+            else:
+                for p in products:
+                    p_id, p_name, p_price, p_stock, p_crit = p
+                    
+                    stock_color = "green"
+                    if p_stock <= p_crit:
+                        stock_color = "red"
+                    elif p_stock <= p_crit + 5:
+                        stock_color = "orange"
+                    
+                    product_list.controls.append(
+                        ft.Container(
+                            content=ft.Column([
+                                ft.Text(p_name, size=20, weight="bold", color="black"),
+                                ft.Text(f"Precio: ${p_price:,.0f}", size=18, color="green", weight="bold"),
+                                ft.Text(f"Stock: {p_stock}", size=16, color=stock_color, weight="bold"),
+                                ft.Text("👆 Click para agregar al carrito", size=12, color="grey", italic=True),
+                            ], spacing=5),
+                            bgcolor="white",
+                            padding=20,
+                            border_radius=10,
+                            border=ft.border.all(3, "#2196F3"),
+                            on_click=lambda e, pid=p_id, pinfo=p: add_to_cart(pid, pinfo),
+                            ink=True,
+                        )
+                    )
+            page.update()
+        
+        def refresh_cart():
+            cart_list.controls.clear()
+            total = 0
+            
+            if not cart:
+                cart_list.controls.append(
+                    ft.Text("Carrito vacío\nClick en productos para agregar", 
+                          size=14, color="grey", text_align="center")
+                )
+            else:
+                for pid, item in cart.items():
+                    info = item['info']
+                    qty = item['qty']
+                    subtotal = info[2] * qty
+                    total += subtotal
+                    
+                    cart_list.controls.append(
+                        ft.Container(
+                            content=ft.Row([
+                                ft.Column([
+                                    ft.Text(info[1], size=14, color="black", weight="bold"),
+                                    ft.Text(f"${info[2]:,.0f} x {qty}", size=12, color="grey"),
+                                ], expand=True, spacing=2),
+                                ft.Text(f"${subtotal:,.0f}", size=14, color="green", weight="bold"),
+                                ft.TextButton(
+                                    "🗑️",
+                                    on_click=lambda e, p=pid: remove_from_cart(p),
+                                    style=ft.ButtonStyle(color="red"),
+                                )
+                            ], alignment="center"),
+                            bgcolor="white",
+                            padding=10,
+                            border_radius=5,
+                            border=ft.border.all(1, "#e0e0e0"),
+                        )
+                    )
+            
+            total_text.value = f"Total: ${total:,.0f}"
+            page.update()
+        
+        def add_to_cart(product_id, product_info):
+            if product_id not in cart:
+                cart[product_id] = {'info': product_info, 'qty': 0}
+            cart[product_id]['qty'] += 1
+            
+            if cart[product_id]['qty'] > product_info[3]:
+                cart[product_id]['qty'] -= 1
+                show_message("¡Stock insuficiente!", "red")
+                return
+            
+            refresh_cart()
+            show_message(f"✓ {product_info[1]} agregado", "green")
+        
+        def remove_from_cart(product_id):
+            if product_id in cart:
+                del cart[product_id]
+            refresh_cart()
+        
+        def checkout(e):
+            if not cart:
+                show_message("El carrito está vacío", "orange")
+                return
+            
+            for pid, item in cart.items():
+                model.decrease_stock(pid, item['qty'])
+            
+            cart.clear()
+            refresh_cart()
+            refresh_products()
+            show_message("¡Venta exitosa! ✓", "green")
+        
+        refresh_products()
+        refresh_cart()
+        
+        # Layout Responsive Robusto con ResponsiveRow
+        return ft.ResponsiveRow([
+            # 1. Carrito (Primero en el código = Arriba en móvil / Izquierda en desktop)
+            ft.Container(
+                content=ft.Column([
+                    ft.Container(
+                        content=ft.Row([
+                            ft.Text("🛒 CARRITO", size=20, weight="bold", color="white"),
+                            total_text
+                        ], alignment="space_between"),
+                        bgcolor="#4CAF50",
+                        padding=15,
+                        border_radius=ft.border_radius.only(top_left=10, top_right=10),
+                    ),
+                    ft.Container(
+                        content=cart_list,
+                        # Altura dinámica: se ajusta al contenido
+                        padding=5,
+                    ),
+                    ft.Divider(height=1, color="grey"),
+                    ft.Container(
+                        content=ft.Column([
+                            ft.ElevatedButton(
+                                "COBRAR",
+                                on_click=checkout,
+                                bgcolor="#4CAF50",
+                                color="white",
+                                height=50,
+                                width=None, # Ancho automático
+                                expand=True, # Expandir en ancho
+                            ),
+                        ], spacing=10, horizontal_alignment="center"),
+                        padding=10,
+                    ),
+                ], spacing=0),
+                bgcolor="white",
+                border_radius=10,
+                border=ft.border.all(1, "#e0e0e0"),
+                col={"xs": 12, "md": 4}, # 12 columnas en móvil, 4 en desktop
+            ),
 
-    # Inicializar GUI (Vista)
-    root = tk.Tk()
-    view = POSView(root)
+            # 2. Productos (Segundo en el código = Abajo en móvil / Derecha en desktop)
+            # Nota: En ResponsiveRow el orden visual sigue el orden del código.
+            # Al poner el carrito primero, en desktop quedará a la izquierda.
+            
+            ft.Container(
+                content=ft.Column([
+                    ft.Container(
+                        content=ft.Text("PRODUCTOS", size=20, weight="bold", color="white"),
+                        bgcolor="#2196F3",
+                        padding=15,
+                        border_radius=ft.border_radius.only(top_left=10, top_right=10),
+                    ),
+                    ft.Container(
+                        content=search_field,
+                        padding=10,
+                        bgcolor="white",
+                    ),
+                    ft.Container(
+                        content=product_list,
+                        height=400 if is_mobile() else 600,
+                    ),
+                ], spacing=0),
+                bgcolor="white",
+                border_radius=10,
+                border=ft.border.all(1, "#e0e0e0"),
+                col={"xs": 12, "md": 8}, # 12 columnas en móvil, 8 en desktop
+            ),
+        ], spacing=10)
+    
+    # ========== VISTA INVENTARIO ==========
+    def build_inventory_view():
+        name_field = ft.TextField(
+            label="Nombre del Producto",
+            bgcolor="white",
+            color="black",
+            border_color="#2196F3",
+            hint_text="Ej: Coca-Cola 2L",
+            expand=True,
+            filled=True,
+            border_width=2,
+        )
+        price_field = ft.TextField(
+            label="Precio sin IVA",
+            bgcolor="white",
+            color="black",
+            keyboard_type=ft.KeyboardType.NUMBER,
+            border_color="#2196F3",
+            hint_text="1000",
+            on_change=lambda e: update_price_preview(),
+            filled=True,
+            border_width=2,
+            expand=1,
+        )
+        stock_field = ft.TextField(
+            label="Stock Inicial",
+            bgcolor="white",
+            color="black",
+            keyboard_type=ft.KeyboardType.NUMBER,
+            border_color="#2196F3",
+            hint_text="50",
+            filled=True,
+            border_width=2,
+            expand=1,
+        )
+        critic_field = ft.TextField(
+            label="Stock Crítico",
+            bgcolor="white",
+            color="black",
+            keyboard_type=ft.KeyboardType.NUMBER,
+            border_color="#2196F3",
+            hint_text="5",
+            filled=True,
+            border_width=2,
+            expand=1,
+        )
+        
+        # Preview del precio con IVA
+        price_preview = ft.Text(
+            "Precio con IVA (19%): $0",
+            size=14,
+            color="green",
+            weight="bold",
+        )
+        
+        def update_price_preview():
+            try:
+                if price_field.value:
+                    precio_sin_iva = float(price_field.value)
+                    precio_con_iva = precio_sin_iva * 1.19
+                    price_preview.value = f"💵 Precio con IVA (19%): ${precio_con_iva:,.0f}"
+                else:
+                    price_preview.value = "Precio con IVA (19%): $0"
+                price_preview.update()
+            except ValueError:
+                price_preview.value = "Precio con IVA (19%): $0"
+                price_preview.update()
+        
+        product_list = ft.ListView(spacing=10, padding=10, expand=True)
+        
+        # Campo de búsqueda para inventario
+        search_inventory = ft.TextField(
+            hint_text="🔍 Buscar en inventario...",
+            on_change=lambda e: refresh_products(e.control.value),
+            bgcolor="white",
+            color="black",
+            border_color="#2196F3",
+            height=50,
+            text_size=16,
+            expand=True,  # Se expande para ocupar todo el ancho
+        )
+        
+        def refresh_products(search_query=""):
+            product_list.controls.clear()
+            products = model.get_all_products()
+            
+            # Filtrar por búsqueda
+            if search_query:
+                products = [p for p in products if search_query.lower() in p[1].lower()]
+            
+            if not products:
+                product_list.controls.append(
+                    ft.Container(
+                        content=ft.Text(
+                            "📦 No hay productos registrados\n\n👆 Usa el formulario arriba para agregar productos",
+                            size=16,
+                            color="grey",
+                            text_align="center"
+                        ),
+                        padding=40,
+                    )
+                )
+            else:
+                for p in products:
+                    p_id, p_name, p_price, p_stock, p_crit = p
+                    
+                    bg_color = "white"
+                    status_emoji = "✅"
+                    if p_stock <= p_crit:
+                        bg_color = "#ffcccc"
+                        status_emoji = "⚠️"
+                    elif p_stock <= p_crit + 5:
+                        bg_color = "#fff9c4"
+                        status_emoji = "⚡"
+                    
+                    product_list.controls.append(
+                        ft.Container(
+                            content=ft.Column([
+                                # Fila 1: Nombre del producto con emoji de estado
+                                ft.Row([
+                                    ft.Text(
+                                        f"{status_emoji} {p_name}", 
+                                        size=18, 
+                                        weight="bold", 
+                                        color="black"
+                                    ),
+                                ]),
+                                # Fila 2: Info y botones
+                                ft.Row([
+                                    # Columna izquierda: Datos del producto
+                                    ft.Column([
+                                        ft.Row([
+                                            ft.Text("💰", size=14),
+                                            ft.Text(f"${p_price:,.0f}", size=14, color="black", weight="bold"),
+                                        ], spacing=5),
+                                        ft.Row([
+                                            ft.Text("📦", size=14),
+                                            ft.Text(f"Stock: {p_stock}", size=14, color="black"),
+                                        ], spacing=5),
+                                        ft.Row([
+                                            ft.Text("🔔", size=14),
+                                            ft.Text(f"Crítico: {p_crit}", size=14, color="black"),
+                                        ], spacing=5),
+                                    ], spacing=3, expand=True),
+                                    # Columna derecha: Botones de acción (todos verticales)
+                                    ft.Column([
+                                        ft.TextButton(
+                                            "➕ Stock",
+                                            on_click=lambda e, pid=p_id: open_add_stock_dialog(pid),
+                                            style=ft.ButtonStyle(color="blue"),
+                                        ),
+                                        ft.TextButton(
+                                            "✏️ Editar",
+                                            on_click=lambda e, pid=p_id, pdata=p: open_edit_dialog(pid, pdata),
+                                            style=ft.ButtonStyle(color="orange"),
+                                        ),
+                                        ft.TextButton(
+                                            "🗑️ Eliminar",
+                                            on_click=lambda e, pid=p_id: delete_product(pid),
+                                            style=ft.ButtonStyle(color="red"),
+                                        ),
+                                    ], spacing=5, horizontal_alignment="end"),
+                                ], alignment="spaceBetween"),
+                            ], spacing=10),
+                            bgcolor=bg_color,
+                            padding=15,
+                            border_radius=10,
+                            border=ft.border.all(2, "grey"),
+                        )
+                    )
+            page.update()
+        
+        def add_product(e):
+            try:
+                nombre = name_field.value.strip()
+                if not nombre:
+                    show_message("⚠️ Ingresa el nombre del producto", "orange")
+                    return
+                
+                precio_sin_iva = float(price_field.value)
+                stock = int(stock_field.value)
+                critico = int(critic_field.value)
+                
+                if precio_sin_iva <= 0 or stock < 0 or critico < 0:
+                    show_message("⚠️ Los valores deben ser positivos", "orange")
+                    return
+                
+                # Calcular precio con IVA (19%)
+                precio_con_iva = precio_sin_iva * 1.19
+                
+                model.add_product(nombre, precio_con_iva, stock, critico)
+                show_message(f"✅ '{nombre}' agregado - Precio final: ${precio_con_iva:,.0f} (IVA incluido)", "green")
+                
+                name_field.value = ""
+                price_field.value = ""
+                stock_field.value = ""
+                critic_field.value = ""
+                price_preview.value = "Precio con IVA (19%): $0"
+                
+                refresh_products()
+            except sqlite3.IntegrityError:
+                show_message(f"⚠️ '{nombre}' ya existe en el inventario", "orange")
+            except ValueError:
+                show_message("❌ Error: Verifica que precio y stock sean números válidos", "red")
+            except Exception as ex:
+                show_message(f"❌ Error: {str(ex)}", "red")
+        
+        def delete_product(product_id):
+            model.delete_product(product_id)
+            show_message("🗑️ Producto eliminado", "blue")
+            refresh_products()
+        
+        def open_add_stock_dialog(product_id):
+            qty_field = ft.TextField(
+                label="Cantidad a agregar",
+                keyboard_type=ft.KeyboardType.NUMBER,
+                hint_text="10",
+                autofocus=True,
+            )
+            
+            def add_stock(e):
+                try:
+                    cantidad = int(qty_field.value)
+                    if cantidad <= 0:
+                        show_message("⚠️ La cantidad debe ser positiva", "orange")
+                        return
+                    
+                    model.increase_stock_by_id(product_id, cantidad)
+                    dlg.open = False
+                    page.update()
+                    show_message(f"✅ Stock aumentado en {cantidad} unidades", "green")
+                    refresh_products()
+                except ValueError:
+                    show_message("❌ Ingresa un número válido", "red")
+            
+            dlg = ft.AlertDialog(
+                title=ft.Text("➕ Sumar Stock"),
+                content=qty_field,
+                actions=[
+                    ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg)),
+                    ft.TextButton("Agregar", on_click=add_stock),
+                ],
+            )
+            page.overlay.append(dlg)
+            dlg.open = True
+            page.update()
+        
+        def open_edit_dialog(product_id, product_data):
+            p_id, p_name, p_price, p_stock, p_crit = product_data
+            
+            edit_name = ft.TextField(label="Nombre", value=p_name)
+            edit_price = ft.TextField(label="Precio", value=str(p_price), keyboard_type=ft.KeyboardType.NUMBER)
+            edit_stock = ft.TextField(label="Stock", value=str(p_stock), keyboard_type=ft.KeyboardType.NUMBER)
+            edit_critic = ft.TextField(label="Crítico", value=str(p_crit), keyboard_type=ft.KeyboardType.NUMBER)
+            
+            def save_edit(e):
+                try:
+                    nombre = edit_name.value.strip()
+                    precio = float(edit_price.value)
+                    stock = int(edit_stock.value)
+                    critico = int(edit_critic.value)
+                    
+                    if not nombre or precio <= 0 or stock < 0 or critico < 0:
+                        show_message("⚠️ Verifica los valores", "orange")
+                        return
+                    
+                    model.update_product(product_id, nombre, precio, stock, critico)
+                    dlg_edit.open = False
+                    page.update()
+                    show_message(f"✅ '{nombre}' actualizado correctamente", "green")
+                    refresh_products()
+                except ValueError:
+                    show_message("❌ Error: Verifica los números", "red")
+            
+            dlg_edit = ft.AlertDialog(
+                title=ft.Text("✏️ Editar Producto"),
+                content=ft.Column([
+                    edit_name,
+                    edit_price,
+                    edit_stock,
+                    edit_critic,
+                ], tight=True, height=250),
+                actions=[
+                    ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_edit)),
+                    ft.TextButton("Guardar", on_click=save_edit),
+                ],
+            )
+            page.overlay.append(dlg_edit)
+            dlg_edit.open = True
+            page.update()
+        
+        def close_dialog(dlg):
+            dlg.open = False
+            page.update()
+        
+        refresh_products()
+        
+        # Preparar layout de campos según tamaño de pantalla
+        if is_mobile():
+            # Móvil: todos los campos apilados verticalmente
+            form_fields = ft.Column([
+                name_field,
+                price_field,
+                stock_field,
+                critic_field,
+            ], spacing=10)
+        else:
+            # Desktop: nombre arriba, otros 3 en fila
+            form_fields = ft.Column([
+                name_field,
+                ft.Row([
+                    price_field,
+                    stock_field,
+                    critic_field,
+                ], spacing=10),
+            ], spacing=10)
+        
+        return ft.Container(
+            content=ft.Column([
+                # Header
+                ft.Container(
+                    content=ft.Text("📋 GESTIÓN DE INVENTARIO", size=24, weight="bold", color="white"),
+                    bgcolor="#2196F3",
+                    padding=20,
+                    border_radius=ft.border_radius.only(top_left=10, top_right=10),
+                ),
+                # Instrucciones
+                ft.Container(
+                    content=ft.Text(
+                        "➕ Completa el formulario para agregar nuevos productos:",
+                        size=14,
+                        color="black",
+                        weight="bold"
+                    ),
+                    bgcolor="#e3f2fd",
+                    padding=10,
+                ),
+                # Formulario y Buscador (lado a lado en desktop, apilados en móvil)
+                # Formulario y Buscador con ResponsiveRow
+                ft.ResponsiveRow([
+                    # Formulario (12/12 en móvil, 8/12 en desktop)
+                    ft.Container(
+                        content=ft.Column([
+                            form_fields,
+                            ft.Column([
+                                price_preview,
+                                ft.ElevatedButton(
+                                    "➕ AGREGAR PRODUCTO",
+                                    on_click=add_product,
+                                    bgcolor="#4CAF50",
+                                    color="white",
+                                    height=50,
+                                    expand=True,
+                                ),
+                            ], spacing=10, horizontal_alignment="start", expand=True),
+                        ], spacing=15),
+                        bgcolor="#f5f5f5",
+                        padding=20,
+                        border_radius=10,
+                        border=ft.border.all(2, "#2196F3"),
+                        col={"xs": 12, "md": 8},
+                    ),
+                    # Buscador (12/12 en móvil, 4/12 en desktop)
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Text("🔍 BUSCAR PRODUCTOS", size=16, weight="bold", color="black", text_align="center"),
+                            search_inventory,
+                        ], spacing=10, horizontal_alignment="center"),
+                        bgcolor="white",
+                        padding=20,
+                        border_radius=10,
+                        border=ft.border.all(2, "#2196F3"),
+                        col={"xs": 12, "md": 4},
+                    ),
+                ], spacing=10),
+                # Título de la lista
+                ft.Container(
+                    content=ft.Text("📦 PRODUCTOS REGISTRADOS", size=18, weight="bold", color="black"),
+                    bgcolor="#e3f2fd",
+                    padding=10,
+                    margin=ft.margin.only(left=10, right=10),
+                ),
+                # Lista
+                ft.Container(
+                    content=product_list,
+                    expand=True,
+                    margin=ft.margin.only(left=10, right=10, bottom=10),
+                ),
+            ], spacing=0, expand=True),
+            bgcolor="white",
+            border_radius=10,
+            margin=10,
+            expand=True,
+        )
+    
+    # ========== NAVEGACIÓN CON PESTAÑAS SUPERIORES ==========
+    current_tab = {"index": 0}  # 0 = Venta, 1 = Inventario
+    main_content = ft.Ref[ft.Container]()
+    
+    def switch_tab(index):
+        current_tab["index"] = index
+        
+        # Actualizar contenido
+        if index == 0:
+            main_content.current.content = build_pos_view()
+        else:
+            main_content.current.content = build_inventory_view()
+        
+        # Actualizar colores de botones
+        btn_venta.bgcolor = "#2196F3" if index == 0 else "#90CAF9"
+        btn_venta.color = "white" if index == 0 else "black"
+        btn_inventario.bgcolor = "#2196F3" if index == 1 else "#90CAF9"
+        btn_inventario.color = "white" if index == 1 else "black"
+        
+        page.update()
+    
+    # Botones de navegación
+    btn_venta = ft.ElevatedButton(
+        "🛒 PUNTO DE VENTA" if not is_mobile() else "🛒 Venta",
+        on_click=lambda e: switch_tab(0),
+        bgcolor="#2196F3",
+        color="white",
+        height=50,
+        expand=True,
+    )
+    
+    btn_inventario = ft.ElevatedButton(
+        "📋 INVENTARIO" if not is_mobile() else "📋 Inventario",
+        on_click=lambda e: switch_tab(1),
+        bgcolor="#90CAF9",
+        color="black",
+        height=50,
+        expand=True,
+    )
+    
+    # Barra de navegación superior
+    nav_bar = ft.Container(
+        content=ft.Row([
+            btn_venta,
+            btn_inventario,
+        ], spacing=10, alignment="center"),
+        bgcolor="#f5f5f5",
+        padding=10,
+        border=ft.border.only(bottom=ft.BorderSide(2, "#2196F3")),
+    )
+    
+    # Contenedor principal
+    content_container = ft.Container(ref=main_content, expand=True)
+    content_container.content = build_pos_view()
+    
+    # Layout principal
+    page.add(
+        ft.Column([
+            nav_bar,
+            content_container,
+        ], spacing=0, expand=True)
+    )
+    page.update()
 
-    # Inicializar Lógica (Controlador)
-    controller = POSController(model, view)
-
-    # Iniciar Loop de la Aplicación
-    root.mainloop()
+if __name__ == "__main__":
+    import sys
+    
+    # Soporte para modo web (móvil/navegador)
+    if "--web" in sys.argv:
+        port = 8000
+        if "--port" in sys.argv:
+            port_index = sys.argv.index("--port")
+            port = int(sys.argv[port_index + 1])
+        
+        print(f"🌐 Servidor web iniciado en puerto {port}")
+        print(f"📱 Accede desde tu celular: http://TU_IP_LOCAL:{port}")
+        ft.app(main, view=ft.AppView.WEB_BROWSER, port=port)
+    else:
+        # Modo desktop (ventana nativa)
+        ft.app(main)
