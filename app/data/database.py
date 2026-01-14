@@ -68,6 +68,32 @@ class InventarioModel:
                 categoria TEXT
             )
         ''')
+
+        # 5. Tabla Clientes (Cuaderno Digital)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS clientes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nombre TEXT UNIQUE NOT NULL,
+                telefono TEXT,
+                alias TEXT,
+                limite_credito REAL DEFAULT 0
+            )
+        ''')
+
+        # 6. Tabla Movimientos Cuenta (Deudas/Pagos)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS movimientos_cuenta (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cliente_id INTEGER NOT NULL,
+                fecha TEXT NOT NULL,
+                tipo TEXT NOT NULL, -- 'DEUDA' o 'PAGO'
+                monto REAL NOT NULL,
+                descripcion TEXT,
+                venta_id INTEGER,
+                FOREIGN KEY (cliente_id) REFERENCES clientes (id),
+                FOREIGN KEY (venta_id) REFERENCES ventas (id)
+            )
+        ''')
         
         conn.commit()
         conn.close()
@@ -210,4 +236,78 @@ class InventarioModel:
         res = cursor.fetchall()
         conn.close()
         return res
+
+    # ==========================================
+    # METODOS CUADERNO DIGITAL (CLIENTES/DEUDAS)
+    # ==========================================
+
+    def add_client(self, nombre, telefono="", alias="", limite_credito=0):
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("INSERT INTO clientes (nombre, telefono, alias, limite_credito) VALUES (?, ?, ?, ?)",
+                           (nombre, telefono, alias, limite_credito))
+            conn.commit()
+            return cursor.lastrowid
+        finally:
+            conn.close()
+
+    def get_clients_with_balance(self):
+        """Retorna lista de clientes con su saldo calculado (Deuda - Pagos)"""
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        
+        # Consulta optimizada: Clientes con saldo
+        query = '''
+            SELECT 
+                c.id, c.nombre, c.telefono, c.alias, c.limite_credito,
+                COALESCE(SUM(CASE WHEN m.tipo = 'DEUDA' THEN m.monto ELSE 0 END), 0) as total_deuda,
+                COALESCE(SUM(CASE WHEN m.tipo = 'PAGO' THEN m.monto ELSE 0 END), 0) as total_pagado
+            FROM clientes c
+            LEFT JOIN movimientos_cuenta m ON c.id = m.cliente_id
+            GROUP BY c.id
+            ORDER BY c.nombre
+        '''
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        
+        clients = []
+        for r in rows:
+            balance = r[5] - r[6] # Deuda - Pagado
+            clients.append({
+                "id": r[0],
+                "nombre": r[1],
+                "telefono": r[2],
+                "alias": r[3],
+                "limite": r[4],
+                "deuda_total": r[5],
+                "pagado_total": r[6],
+                "saldo_actual": balance
+            })
+            
+        conn.close()
+        return clients
+
+    def get_client_movements(self, cliente_id):
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM movimientos_cuenta WHERE cliente_id = ? ORDER BY fecha DESC", (cliente_id,))
+        res = cursor.fetchall()
+        conn.close()
+        return res
+
+    def add_movement(self, cliente_id, tipo, monto, descripcion, venta_id=None):
+        import datetime
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        try:
+            fecha_actual = datetime.datetime.now().isoformat()
+            cursor.execute('''
+                INSERT INTO movimientos_cuenta (cliente_id, fecha, tipo, monto, descripcion, venta_id)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (cliente_id, fecha_actual, tipo, monto, descripcion, venta_id))
+            conn.commit()
+            return True
+        finally:
+            conn.close()
 

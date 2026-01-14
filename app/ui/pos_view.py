@@ -169,17 +169,87 @@ def build_pos_view(page: ft.Page, model):
         if not cart:
             show_message(page, "El carrito está vacío", "orange")
             return
-        
-        try:
-            # Registrar venta completa (Cabecera + Detalles + Descuento Stock)
-            venta_id = model.register_sale(cart)
             
-            cart.clear()
-            refresh_cart()
-            refresh_products()
-            show_message(page, f"Venta #{venta_id} exitosa", "green")
-        except Exception as ex:
-            show_message(page, f"Error al procesar venta: {str(ex)}", "red")
+        def finalize_sale(payment_type, client_id=None):
+            try:
+                # 1. Registrar venta física (baja de stock)
+                venta_id = model.register_sale(cart)
+                
+                # 2. Si es FIADO, registrar deuda
+                if payment_type == 'DEUDA' and client_id:
+                    total_amount = sum(item['qty'] * item['info'][2] for item in cart.values())
+                    model.add_movement(client_id, 'DEUDA', total_amount, f"Compra #{venta_id} (Fiado)", venta_id)
+                
+                # 3. Limpiar y refrescar
+                cart.clear()
+                refresh_cart()
+                refresh_products()
+                
+                dlg_payment.open = False
+                page.update()
+                
+                msg = f"Venta #{venta_id} exitosa"
+                if payment_type == 'DEUDA':
+                    msg += " (Registrada en Cuaderno)"
+                show_message(page, msg, "green")
+                
+            except Exception as ex:
+                show_message(page, f"Error: {str(ex)}", "red")
+
+        # --- Dialogo de Selección de Cliente (Para Fiado) ---
+        def show_client_selector(e):
+            clients = model.get_clients_with_balance()
+            
+            def on_client_click(c_id):
+                finalize_sale('DEUDA', client_id=c_id)
+            
+            client_list = ft.ListView(expand=True, height=300)
+            if not clients:
+                client_list.controls.append(ft.Text("No hay clientes registrados. Ve a 'Cuaderno' para crear uno."))
+            
+            for c in clients:
+                client_list.controls.append(
+                    ft.ListTile(
+                        leading=ft.Icon(ft.Icons.PERSON),
+                        title=ft.Text(c['nombre']),
+                        subtitle=ft.Text(f"Deuda: ${c['saldo_actual']:,.0f}"),
+                        on_click=lambda e, cid=c['id']: on_client_click(cid)
+                    )
+                )
+            
+            dlg_payment.title = ft.Text("Selecciona Cliente")
+            dlg_payment.content = client_list
+            dlg_payment.actions = [ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_payment))]
+            page.update()
+
+        # --- Dialogo Principal de Pago ---
+        dlg_payment = ft.AlertDialog(
+            title=ft.Text("Método de Pago"),
+            content=ft.Column([
+                ft.ElevatedButton(
+                    "Efectivo / Transferencia", 
+                    icon="money", 
+                    style=ft.ButtonStyle(bgcolor="green", color="white"),
+                    on_click=lambda e: finalize_sale('EFECTIVO'),
+                    height=50
+                ),
+                ft.ElevatedButton(
+                    "Fiado / Cuaderno", 
+                    icon="book", 
+                    style=ft.ButtonStyle(bgcolor="red", color="white"),
+                    on_click=show_client_selector,
+                    height=50
+                ),
+            ], tight=True, spacing=10),
+        )
+
+        def close_dialog(dlg):
+            dlg.open = False
+            page.update()
+
+        page.overlay.append(dlg_payment)
+        dlg_payment.open = True
+        page.update()
     
     refresh_products()
     refresh_cart()

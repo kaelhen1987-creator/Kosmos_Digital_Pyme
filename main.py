@@ -4,6 +4,7 @@ from app.data.database import InventarioModel
 from app.ui.pos_view import build_pos_view
 from app.ui.inventory_view import build_inventory_view
 from app.ui.dashboard_view import build_dashboard_view
+from app.ui.clients_view import build_clients_view
 from app.utils.helpers import is_mobile
 
 # =============================================================================
@@ -36,11 +37,13 @@ def main(page: ft.Page):
             content_container.content = build_pos_view(page, model)
         elif index == 1:
             content_container.content = build_inventory_view(page, model)
-        else:
+        elif index == 2:
             content_container.content = build_dashboard_view(page, model)
+        else:
+            content_container.content = build_clients_view(page, model)
         
         # Actualizar colores de botones
-        for i, btn in enumerate([btn_pos, btn_inv, btn_dash]):
+        for i, btn in enumerate([btn_pos, btn_inv, btn_dash, btn_clients]):
             if i == index:
                 btn.bgcolor = "#2196F3"
                 btn.color = "white"
@@ -80,6 +83,16 @@ def main(page: ft.Page):
         expand=True,
         height=50,
     )
+
+    btn_clients = ft.ElevatedButton(
+        "Cuaderno",
+        icon="people",
+        on_click=lambda e: switch_tab(3),
+        bgcolor="white",
+        color="#2196F3",
+        expand=True,
+        height=50,
+    )
     
     # Contenedor principal
     content_container = ft.Container(
@@ -93,7 +106,7 @@ def main(page: ft.Page):
         ft.Column([
             # Barra de navegación superior
             ft.Container(
-                content=ft.Row([btn_pos, btn_inv, btn_dash], spacing=5),
+                content=ft.Row([btn_pos, btn_inv, btn_dash, btn_clients], spacing=5),
                 bgcolor="#f5f5f5",
                 padding=10,
             ),
