@@ -9,10 +9,32 @@ def build_pos_view(page: ft.Page, model):
     # Estado local del carrito
     cart = {}
 
-    # Campo de búsqueda
+    def handle_barcode_scan(e):
+        """Maneja el escaneo de código de barras (Enter automático)"""
+        barcode = search_field.value.strip()
+        if not barcode:
+            return
+        
+        # Buscar producto por código de barras
+        product = model.get_product_by_barcode(barcode)
+        
+        if product:
+            # Producto encontrado: agregar al carrito automáticamente
+            product_id = product[0]
+            add_to_cart(product_id, product)
+            search_field.value = ""  # Limpiar campo para siguiente escaneo
+            refresh_products()  # Mostrar todos los productos nuevamente
+            search_field.update()
+            show_message(page, f"✓ {product[1]} agregado al carrito", "green")
+        else:
+            # No encontrado por barcode: buscar por nombre (fallback)
+            refresh_products(barcode)
+
+    # Campo de búsqueda con soporte para código de barras
     search_field = ft.TextField(
-        hint_text="Buscar producto...",
+        hint_text="Buscar producto o escanear código de barras...",
         on_change=lambda e: refresh_products(e.control.value),
+        on_submit=handle_barcode_scan,  # Detecta Enter del lector
         bgcolor="white",
         color="black",
         border_color="#2196F3",
@@ -24,9 +46,11 @@ def build_pos_view(page: ft.Page, model):
         product_list.controls.clear()
         products = model.get_all_products()
         
-        # Filtrar por búsqueda
+        # Filtrar por búsqueda (nombre o código de barras)
         if search_query:
-            products = [p for p in products if search_query.lower() in p[1].lower()]
+            products = [p for p in products if 
+                       search_query.lower() in p[1].lower() or  # Buscar en nombre
+                       (len(p) >= 6 and p[5] and search_query.lower() in str(p[5]).lower())]  # Buscar en barcode
         
         if not products:
             product_list.controls.append(
@@ -40,7 +64,12 @@ def build_pos_view(page: ft.Page, model):
             )
         else:
             for p in products:
-                p_id, p_name, p_price, p_stock, p_crit = p
+                # Desempaquetar producto (ahora incluye codigo_barras)
+                if len(p) >= 6:
+                    p_id, p_name, p_price, p_stock, p_crit, p_barcode = p
+                else:
+                    p_id, p_name, p_price, p_stock, p_crit = p
+                    p_barcode = None
                 
                 stock_color = "green"
                 if p_stock <= p_crit:

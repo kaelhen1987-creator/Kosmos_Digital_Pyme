@@ -13,6 +13,16 @@ def build_inventory_view(page: ft.Page, model):
         filled=True,
         border_width=2,
     )
+    barcode_field = ft.TextField(
+        label="Código de Barras (Opcional)",
+        bgcolor="white",
+        color="black",
+        border_color="#2196F3",
+        hint_text="Ej: 7891234567890",
+        expand=True,
+        filled=True,
+        border_width=2,
+    )
     price_field = ft.TextField(
         label="Precio sin IVA",
         bgcolor="white",
@@ -105,7 +115,12 @@ def build_inventory_view(page: ft.Page, model):
             )
         else:
             for p in products:
-                p_id, p_name, p_price, p_stock, p_crit = p
+                # Desempaquetar producto (ahora incluye codigo_barras)
+                if len(p) >= 6:
+                    p_id, p_name, p_price, p_stock, p_crit, p_barcode = p
+                else:
+                    p_id, p_name, p_price, p_stock, p_crit = p
+                    p_barcode = None
                 
                 bg_color = "white"
                 if p_stock <= p_crit:
@@ -177,6 +192,7 @@ def build_inventory_view(page: ft.Page, model):
                 show_message(page, "Ingresa el nombre del producto", "orange")
                 return
             
+            codigo_barras = barcode_field.value.strip() if barcode_field.value else None
             precio_sin_iva = float(price_field.value)
             stock = int(stock_field.value)
             critico = int(critic_field.value)
@@ -188,10 +204,11 @@ def build_inventory_view(page: ft.Page, model):
             # Calcular precio con IVA (19%)
             precio_con_iva = precio_sin_iva * 1.19
             
-            model.add_product(nombre, precio_con_iva, stock, critico)
+            model.add_product(nombre, precio_con_iva, stock, critico, codigo_barras)
             show_message(page, f"'{nombre}' agregado - Precio final: ${precio_con_iva:,.0f} (IVA incluido)", "green")
             
             name_field.value = ""
+            barcode_field.value = ""
             price_field.value = ""
             stock_field.value = ""
             critic_field.value = ""
@@ -246,9 +263,15 @@ def build_inventory_view(page: ft.Page, model):
         page.update()
     
     def open_edit_dialog(product_id, product_data):
-        p_id, p_name, p_price, p_stock, p_crit = product_data
+        # Extraer datos del producto (ahora incluye codigo_barras si existe)
+        if len(product_data) >= 6:
+            p_id, p_name, p_price, p_stock, p_crit, p_barcode = product_data
+        else:
+            p_id, p_name, p_price, p_stock, p_crit = product_data
+            p_barcode = None
         
         edit_name = ft.TextField(label="Nombre", value=p_name)
+        edit_barcode = ft.TextField(label="Código de Barras", value=p_barcode if p_barcode else "")
         edit_price = ft.TextField(label="Precio", value=str(p_price), keyboard_type=ft.KeyboardType.NUMBER)
         edit_stock = ft.TextField(label="Stock", value=str(p_stock), keyboard_type=ft.KeyboardType.NUMBER)
         edit_critic = ft.TextField(label="Crítico", value=str(p_crit), keyboard_type=ft.KeyboardType.NUMBER)
@@ -256,6 +279,7 @@ def build_inventory_view(page: ft.Page, model):
         def save_edit(e):
             try:
                 nombre = edit_name.value.strip()
+                codigo_barras = edit_barcode.value.strip() if edit_barcode.value else None
                 precio = float(edit_price.value)
                 stock = int(edit_stock.value)
                 critico = int(edit_critic.value)
@@ -264,7 +288,7 @@ def build_inventory_view(page: ft.Page, model):
                     show_message(page, "Verifica los valores", "orange")
                     return
                 
-                model.update_product(product_id, nombre, precio, stock, critico)
+                model.update_product(product_id, nombre, precio, stock, critico, codigo_barras)
                 dlg_edit.open = False
                 page.update()
                 show_message(page, f"'{nombre}' actualizado correctamente", "green")
@@ -276,10 +300,11 @@ def build_inventory_view(page: ft.Page, model):
             title=ft.Text("Editar Producto"),
             content=ft.Column([
                 edit_name,
+                edit_barcode,
                 edit_price,
                 edit_stock,
                 edit_critic,
-            ], tight=True, height=250),
+            ], tight=True, height=300),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_edit)),
                 ft.TextButton("Guardar", on_click=save_edit),
@@ -300,14 +325,16 @@ def build_inventory_view(page: ft.Page, model):
         # Móvil: todos los campos apilados verticalmente
         form_fields = ft.Column([
             name_field,
+            barcode_field,
             price_field,
             stock_field,
             critic_field,
         ], spacing=10)
     else:
-        # Desktop: nombre arriba, otros 3 en fila
+        # Desktop: nombre y barcode arriba, otros 3 en fila
         form_fields = ft.Column([
             name_field,
+            barcode_field,
             ft.Row([
                 price_field,
                 stock_field,

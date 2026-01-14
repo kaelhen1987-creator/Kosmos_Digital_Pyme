@@ -16,8 +16,23 @@ class InventarioModel:
                 nombre TEXT UNIQUE NOT NULL,
                 precio REAL NOT NULL,
                 stock INTEGER NOT NULL,
-                stock_critico INTEGER NOT NULL
+                stock_critico INTEGER NOT NULL,
+                codigo_barras TEXT
             )
+        ''')
+        
+        # Migración: Agregar columna codigo_barras si no existe
+        try:
+            cursor.execute("ALTER TABLE productos ADD COLUMN codigo_barras TEXT")
+            conn.commit()
+        except sqlite3.OperationalError:
+            # La columna ya existe
+            pass
+        
+        # Crear índice para búsqueda rápida por código de barras
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_codigo_barras 
+            ON productos(codigo_barras)
         ''')
         
         # 2. Tabla Ventas (Cabecera)
@@ -65,12 +80,12 @@ class InventarioModel:
         conn.close()
         return res
 
-    def add_product(self, nombre, precio, stock, stock_critico):
+    def add_product(self, nombre, precio, stock, stock_critico, codigo_barras=None):
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         try:
-            cursor.execute("INSERT INTO productos (nombre, precio, stock, stock_critico) VALUES (?, ?, ?, ?)",
-                           (nombre, precio, stock, stock_critico))
+            cursor.execute("INSERT INTO productos (nombre, precio, stock, stock_critico, codigo_barras) VALUES (?, ?, ?, ?, ?)",
+                           (nombre, precio, stock, stock_critico, codigo_barras))
             conn.commit()
             return True
         finally:
@@ -90,11 +105,11 @@ class InventarioModel:
         conn.commit()
         conn.close()
 
-    def update_product(self, product_id, nombre, precio, stock, stock_critico):
+    def update_product(self, product_id, nombre, precio, stock, stock_critico, codigo_barras=None):
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
-        cursor.execute("UPDATE productos SET nombre = ?, precio = ?, stock = ?, stock_critico = ? WHERE id = ?",
-                       (nombre, precio, stock, stock_critico, product_id))
+        cursor.execute("UPDATE productos SET nombre = ?, precio = ?, stock = ?, stock_critico = ?, codigo_barras = ? WHERE id = ?",
+                       (nombre, precio, stock, stock_critico, codigo_barras, product_id))
         conn.commit()
         conn.close()
 
@@ -111,6 +126,16 @@ class InventarioModel:
         cursor.execute("UPDATE productos SET stock = stock - ? WHERE id = ?", (quantity, product_id))
         conn.commit()
         conn.close()
+    
+    def get_product_by_barcode(self, codigo_barras):
+        """Buscar producto por código de barras (búsqueda exacta, case-insensitive)"""
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM productos WHERE LOWER(codigo_barras) = LOWER(?) AND codigo_barras IS NOT NULL", 
+                       (codigo_barras,))
+        res = cursor.fetchone()
+        conn.close()
+        return res
 
     # ==========================================
     # NUEVOS METODOS (VENTAS Y GASTOS)
