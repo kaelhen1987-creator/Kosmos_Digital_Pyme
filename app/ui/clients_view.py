@@ -1,5 +1,5 @@
 import flet as ft
-from app.utils.helpers import show_message
+from app.utils.helpers import show_message, is_mobile
 
 def build_clients_view(page: ft.Page, model):
     # --- Estado Local ---
@@ -192,16 +192,27 @@ def build_clients_view(page: ft.Page, model):
                     height=200, # Alto fijo
                 ),
                 elevation=2,
+                color="#212121", # Fondo oscuro para contraste
             )
             clients_grid.controls.append(card)
         
         page.update()
 
     # --- Layout Principal ---
-    header = ft.Row([
-        ft.Text("El Cuaderno Digital", size=24, weight="bold", color="#1976D2"),
-        ft.ElevatedButton("Nuevo Cliente", icon="add", on_click=open_new_client_dialog, bgcolor="#1976D2", color="white")
-    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+    # Header Responsivo
+    title_text = ft.Text("El Cuaderno Digital", size=24, weight="bold", color="#1976D2")
+    new_btn = ft.ElevatedButton("Nuevo Cliente", icon="add", on_click=open_new_client_dialog, bgcolor="#1976D2", color="white")
+    
+    if is_mobile(page):
+        header = ft.Column([
+            title_text,
+            new_btn
+        ], spacing=10, alignment=ft.MainAxisAlignment.START)
+    else:
+        header = ft.Row([
+            title_text,
+            new_btn
+        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
 
     # Initial Load
     refresh_clients()
