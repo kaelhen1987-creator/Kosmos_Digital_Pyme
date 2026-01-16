@@ -57,38 +57,39 @@ def build_clients_view(page: ft.Page, model):
         # Cargar historial
         movements = model.get_client_movements(client['id'])
         
-        # Tabla de Movimientos
-        history_rows = []
+        # Lista de Movimientos (Mobile Friendly)
+        history_items = []
         for mov in movements:
-            # mov: id, client_id, date, type, amount, desc, sale_id
-            m_date = mov[2][:10] # Solo fecha
+            m_date = mov[2][:10]
             m_type = mov[3]
             m_amount = mov[4]
             m_desc = mov[5]
             
-            color = "red" if m_type == 'DEUDA' else "green"
-            sign = "-" if m_type == 'DEUDA' else "+"
+            is_debt = m_type == 'DEUDA'
+            color = "red" if is_debt else "green"
+            icon = ft.Icons.REMOVE_CIRCLE_OUTLINE if is_debt else ft.Icons.ADD_CIRCLE_OUTLINE
+            sign = "-" if is_debt else "+"
             
-            history_rows.append(
-                ft.DataRow(cells=[
-                    ft.DataCell(ft.Text(m_date, size=13, color="white")),
-                    ft.DataCell(ft.Text(m_desc, size=13, color="white", width=150, no_wrap=False)),
-                    ft.DataCell(ft.Text(m_type, color=color, weight="bold", size=13)),
-                    ft.DataCell(ft.Text(f"{sign}${m_amount:,.0f}", color=color, weight="bold", size=13)),
-                ])
+            history_items.append(
+                ft.Container(
+                    content=ft.Row([
+                        ft.Icon(icon, color=color, size=20),
+                        ft.Column([
+                            ft.Text(m_desc, color="white", weight="bold", size=14, overflow=ft.TextOverflow.ELLIPSIS),
+                            ft.Text(f"{m_date} • {m_type}", color="white54", size=12),
+                        ], expand=True, spacing=2),
+                        ft.Text(f"{sign}${m_amount:,.0f}", color=color, weight="bold", size=14),
+                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                    padding=10,
+                    border=ft.border.only(bottom=ft.border.BorderSide(1, "#333333")),
+                )
             )
 
-        history_table = ft.DataTable(
-            columns=[
-                ft.DataColumn(ft.Text("Fecha", color="white", weight="bold")),
-                ft.DataColumn(ft.Text("Descripción", color="white", weight="bold")),
-                ft.DataColumn(ft.Text("Tipo", color="white", weight="bold")),
-                ft.DataColumn(ft.Text("Monto", color="white", weight="bold")),
-            ],
-            rows=history_rows,
-            border=ft.border.all(1, "#424242"), # Borde gris oscuro
-            vertical_lines=ft.border.all(1, "#424242"),
-            heading_row_color="#303030", # Fondo encabezado oscuro
+        history_list = ft.ListView(
+            controls=history_items,
+            expand=True,
+            spacing=0,
+            padding=0,
         )
 
         def open_payment_dialog(e):
@@ -130,12 +131,9 @@ def build_clients_view(page: ft.Page, model):
                 actions_row,
                 ft.Divider(color="white24"),
                 ft.Text("Historial de Movimientos", weight="bold", color="white"),
-                # Tabla con Scroll Horizontal y Vertical
-                ft.Column([
-                    ft.Row([history_table], scroll=ft.ScrollMode.ALWAYS, expand=True)
-                ], scroll=ft.ScrollMode.AUTO, height=300),
+                ft.Container(content=history_list, height=300, padding=0),
             ], width=600, height=400),
-            bgcolor="#212121", # Fondo Negro/Oscuro
+            bgcolor="#212121",
             padding=20,
             border_radius=10
         )
