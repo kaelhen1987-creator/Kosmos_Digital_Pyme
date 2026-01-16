@@ -180,7 +180,7 @@ def build_clients_view(page: ft.Page, model):
                     border_radius=8
                 ),
                 
-                ft.Container(expand=True), # Spacer
+                # spacer eliminado para pegar el boton
                 
                 ft.ElevatedButton(
                     "Ver Historial",
@@ -191,17 +191,17 @@ def build_clients_view(page: ft.Page, model):
                         shape=ft.RoundedRectangleBorder(radius=8),
                     ),
                     on_click=lambda e, cl=c: open_client_detail(cl),
-                    height=30, # Un poco más compacto
+                    height=30,
                     width=None,
                 )
-            ], spacing=5)
+            ], spacing=4) # Spacing controlado a 4px
 
             card = ft.Card(
                 content=ft.Container(
                     content=card_content,
-                    padding=10, # Reducir padding
+                    padding=10,
                     width=250, 
-                    height=165, # Reducir altura de 200 -> 165
+                    height=None, # Altura automatica (ajustada al contenido)
                     bgcolor="#212121", 
                     border_radius=12, 
                 ),
