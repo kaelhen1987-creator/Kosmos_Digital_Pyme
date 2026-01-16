@@ -7,7 +7,7 @@ def build_clients_view(page: ft.Page, model):
         expand=True,
         runs_count=5,
         max_extent=300,
-        child_aspect_ratio=1.0,
+        child_aspect_ratio=1.7, # Ratio ajustado para tarjetas más cortas (rectangulares)
         spacing=10,
         run_spacing=10,
     )
