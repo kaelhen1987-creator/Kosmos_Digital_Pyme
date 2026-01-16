@@ -55,17 +55,22 @@ def build_reports_view(page: ft.Page, model):
             ref=value_ref,
             label=label, 
             value=str(default_val), 
-            width=150, 
+            text_size=14,
+            height=40,
+            content_padding=10,
             on_submit=refresh_report,
             keyboard_type=ft.KeyboardType.DATETIME
         )
     
     filter_bar = ft.Container(
-        content=ft.Row([
-            date_field("Fecha Inicio", start_date_ref, first_day),
-            date_field("Fecha Fin", end_date_ref, today),
-            ft.ElevatedButton("Filtrar", icon=ft.Icons.FILTER_LIST, on_click=refresh_report)
-        ], alignment=ft.MainAxisAlignment.CENTER),
+        content=ft.ResponsiveRow([
+            ft.Container(date_field("Fecha Inicio", start_date_ref, first_day), col={"xs": 6, "md": 3}),
+            ft.Container(date_field("Fecha Fin", end_date_ref, today), col={"xs": 6, "md": 3}),
+            ft.Container(
+                ft.ElevatedButton("Filtrar", icon=ft.Icons.FILTER_LIST, on_click=refresh_report, bgcolor="#37474F", color="white", height=40),
+                col={"xs": 12, "md": 2} # Full width button on mobile
+            )
+        ], vertical_alignment=ft.CrossAxisAlignment.END),
         padding=10,
         bgcolor="white",
         border_radius=8
@@ -81,18 +86,18 @@ def build_reports_view(page: ft.Page, model):
             padding=15,
             border_radius=10,
             border=ft.border.all(1, "#f0f0f0"),
-            expand=True
+            col={"xs": 12, "md": 4} # Mobile: Stacked (12), Desktop: 3 cols (4)
         )
 
     # Cards Row 1: The Big Three
-    row_1 = ft.Row([
+    row_1 = ft.ResponsiveRow([
         stat_card("Ventas Brutas", txt_sales, ft.Icons.STORE, "blue"),
         stat_card("Gastos Operativos", txt_expenses, ft.Icons.MONEY_OFF, "red"),
         stat_card("Utilidad (Aprox)", txt_profit, ft.Icons.MONETIZATION_ON, "green"),
     ])
     
     # Cards Row 2: Cash Flow Details
-    row_2 = ft.Row([
+    row_2 = ft.ResponsiveRow([
         stat_card("Dinero REAL en Caja (Entradas)", txt_cash_in, ft.Icons.SAVINGS, "blue"),
         stat_card("Vendido al Fiado (Crédito)", txt_credit, ft.Icons.CREDIT_CARD, "orange"),
         stat_card("Deudas Pagadas (Abonos)", txt_debt_paid, ft.Icons.ASSIGNMENT_RETURN, "purple"),
