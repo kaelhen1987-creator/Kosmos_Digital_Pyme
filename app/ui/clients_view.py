@@ -199,7 +199,8 @@ def build_clients_view(page: ft.Page, model):
             card = ft.Card(
                 content=ft.Container(
                     content=card_content,
-                    padding=10,
+                    # Padding específico: 10 a los lados/arriba, pero solo 4 abajo
+                    padding=ft.padding.only(left=10, top=10, right=10, bottom=4),
                     width=250, 
                     height=None, # Altura automatica (ajustada al contenido)
                     bgcolor="#212121", 
