@@ -38,7 +38,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
             grid_container.visible = True
         else:
             current_mode = "scanner"
-            btn_mode.icon = ft.Icons.grid_view
+            btn_mode.icon = ft.Icons.GRID_VIEW
             btn_mode.text = "Modo Visual"
             search_field.visible = True
             category_tabs.visible = False
