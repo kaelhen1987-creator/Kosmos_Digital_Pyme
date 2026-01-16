@@ -130,7 +130,10 @@ def build_clients_view(page: ft.Page, model):
                 actions_row,
                 ft.Divider(color="white24"),
                 ft.Text("Historial de Movimientos", weight="bold", color="white"),
-                ft.Column([history_table], scroll=ft.ScrollMode.AUTO, height=300),
+                # Tabla con Scroll Horizontal y Vertical
+                ft.Column([
+                    ft.Row([history_table], scroll=ft.ScrollMode.ALWAYS, expand=True)
+                ], scroll=ft.ScrollMode.AUTO, height=300),
             ], width=600, height=400),
             bgcolor="#212121", # Fondo Negro/Oscuro
             padding=20,
