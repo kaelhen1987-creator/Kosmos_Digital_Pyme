@@ -60,3 +60,35 @@ jobs:
         with:
           name: windows-app
           path: build/windows/**/*.exe # Check exact output path or zip folder
+
+  macos_app:
+    name: Build macOS App
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Install Dependencies
+        run: |
+          pip install flet
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Flet Build macOS
+        run: |
+          flet build macos --verbose --yes
+          
+      # Compressing the .app is recommended as it's a folder structure
+      - name: Compress App
+        run: |
+          cd build/macos
+          tar -czf SOSDigitalPyME.app.tar.gz *.app
+          
+      - name: Upload macOS Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-app
+          path: build/macos/SOSDigitalPyME.app.tar.gz
