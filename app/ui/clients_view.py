@@ -209,19 +209,19 @@ def build_clients_view(page: ft.Page, model):
 
     # --- Layout Principal ---
     # Header Responsivo
-    title_text = ft.Text("El Cuaderno Digital", size=24, weight="bold", color="#1976D2")
-    new_btn = ft.ElevatedButton("Nuevo Cliente", icon="add", on_click=open_new_client_dialog, bgcolor="#1976D2", color="white")
-    
-    if is_mobile(page):
-        header = ft.Column([
-            title_text,
-            new_btn
-        ], spacing=10, alignment=ft.MainAxisAlignment.START)
-    else:
-        header = ft.Row([
-            title_text,
-            new_btn
-        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+    # Header Responsivo con Grilla
+    header = ft.ResponsiveRow([
+        ft.Container(
+            content=ft.Text("El Cuaderno Digital", size=24, weight="bold", color="#1976D2"),
+            col={"xs": 12, "md": 8},
+            alignment=ft.Alignment(-1, 0), # Center Left
+        ),
+        ft.Container(
+            content=ft.ElevatedButton("Nuevo Cliente", icon="add", on_click=open_new_client_dialog, bgcolor="#1976D2", color="white", width=500), 
+            col={"xs": 12, "md": 4},
+            alignment=ft.Alignment(-1, 0) if is_mobile(page) else ft.Alignment(1, 0), # Center Left (Mobile) / Center Right (Desktop)
+        )
+    ], vertical_alignment=ft.CrossAxisAlignment.CENTER)
 
     # Initial Load
     refresh_clients()
