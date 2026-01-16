@@ -191,7 +191,7 @@ def build_clients_view(page: ft.Page, model):
                         shape=ft.RoundedRectangleBorder(radius=8),
                     ),
                     on_click=lambda e, cl=c: open_client_detail(cl),
-                    height=35,
+                    height=30, # Un poco más compacto
                     width=None,
                 )
             ], spacing=5)
@@ -199,11 +199,11 @@ def build_clients_view(page: ft.Page, model):
             card = ft.Card(
                 content=ft.Container(
                     content=card_content,
-                    padding=15,
-                    width=250, # Ancho fijo para consistencia
-                    height=200, # Alto fijo
-                    bgcolor="#212121", # Fondo oscuro movido aquí
-                    border_radius=12, # Asegurar bordes redondeados
+                    padding=10, # Reducir padding
+                    width=250, 
+                    height=165, # Reducir altura de 200 -> 165
+                    bgcolor="#212121", 
+                    border_radius=12, 
                 ),
                 elevation=2,
             )
