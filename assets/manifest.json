@@ -1,0 +1,22 @@
+{
+    "short_name": "SOS PyME",
+    "name": "SOS Digital PyME",
+    "icons": [
+        {
+            "src": "icon.png",
+            "type": "image/png",
+            "sizes": "192x192"
+        },
+        {
+            "src": "icon.png",
+            "type": "image/png",
+            "sizes": "512x512"
+        }
+    ],
+    "start_url": "/",
+    "background_color": "#2196F3",
+    "display": "standalone",
+    "scope": "/",
+    "theme_color": "#2196F3",
+    "description": "Sistema POS para PyMEs"
+}
