@@ -12,9 +12,9 @@ Sistema de Punto de Venta (POS) completo desarrollado con **Flet**, diseñado es
 SOS Digital PyME es una solución integral que profesionaliza la gestión de tu negocio. No solo registra ventas, sino que te ofrece "La Verdad Financiera" de tu operación.
 
 El sistema permite:
-- **Gestionar Ventas e Inventario** con código de barras y alertas de stock.
-- **Controlar Turnos y Caja** (Apertura y Cierre con rendición de dinero).
-- **Manejar "Fiados" (Créditos)** mediante un Cuaderno Digital.
+- **Gestionar Ventas e Inventario** con código de barras, alertas de stock y **Promociones Dinámicas**.
+- **Controlar Turnos y Caja** (Apertura y Cierre con validación de montos).
+- **Manejar "Fiados" (Créditos)** con control de límites y gestión de abonos.
 - **Visualizar Reportes Reales** calculando utilidad, flujo de caja y deudas.
 
 ## ✨ Características Principales
@@ -29,8 +29,15 @@ El sistema permite:
 - **Cierre de Caja**: Rendición de monto final y desconexión segura.
 - **Cálculo de Efectivo**: El sistema sabe exactamente cuánto dinero debería haber en el cajón (Monto Inicial + Ventas Efectivo + Abonos - Gastos).
 
+### 📦 Gestión de Inventario y Promociones
+- **Catálogo Completo**: CRUD de productos con categorías y alertas de stock.
+- **Promociones (Packs)**: Creación de combos (ej: "Promo Desayuno") con stock dinámico. El sistema calcula automáticamente cuántas promos puedes vender basándose en el stock de los productos individuales.
+- **Stock Crítico**: Indicadores visuales y alertas para reposición.
+- **Soporte Scan**: Integración fluida con lectores de código de barras.
+
 ### 👥 Cuaderno Digital (Gestión de Clientes)
 - **Registro de Clientes**: Nombre, teléfono y alias.
+- **Límite de Crédito**: Define un monto máximo de deuda por cliente. El sistema bloqueará automáticamente nuevas ventas fiadas si se excede este límite.
 - **Cuenta Corriente**:
   - Dar Fiado (Venta a crédito).
   - Registrar Abonos/Pagos.
@@ -39,16 +46,11 @@ El sistema permite:
 
 ### 📊 La Verdad Financiera (Reportes)
 - **Reporte por Fechas**: Filtra por día, mes o rango personalizado.
-- **Métricas Clave**:
-  - **Ventas Brutas**: Todo lo vendido (Efectivo + Crédito).
-  - **Dinero REAL en Caja**: Flujo de caja neto (descuenta lo fiado, suma los abonos).
-  - **Utilidad Operativa**: Ventas - Gastos.
-- **Trazabilidad**: Diferenciación clara entre dinero físico y cuentas por cobrar.
-
-### 📦 Gestión de Inventario
-- CRUD completo de productos.
-- Cálculo automático de Stock Crítico.
-- Soporte para Códigos de Barras.
+- **Consolidación Real**:
+   - **Ventas Brutas**: Todo lo vendido (Efectivo + Crédito).
+   - **Dinero REAL en Caja**: Flujo de caja neto (Monto Inicial + Ventas Efectivo + Abonos - Gastos).
+   - **Utilidad Operativa**: Ganancia calculada descontando costos.
+- **Trazabilidad**: Diferenciación clara entre dinero físico hoy y cuentas por cobrar.
 
 ## 🚀 Instalación
 

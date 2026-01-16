@@ -17,64 +17,138 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
     expenses_list = ft.ListView(spacing=5, height=200, padding=10)
     
     def refresh_data():
-        sales = model.get_sales_report()
-        expenses = model.get_expenses_report()
+        # Obtener turno activo
+        turno = model.get_active_turno()
         
-        # Calcular totales
-        total_s = sum(row[2] for row in sales) if sales else 0
-        total_e = sum(row[2] for row in expenses) if expenses else 0
-        profit = total_s - total_e
-        
-        # Actualizar tarjetas
-        txt_total_ventas.value = f"${total_s:,.0f}"
-        txt_total_gastos.value = f"${total_e:,.0f}"
-        txt_ganancia.value = f"${profit:,.0f}"
-        
-        # Color dinámico para ganancia
-        if profit >= 0:
-            card_profit.bgcolor = "#4CAF50" # Verde
-            txt_ganancia.color = "white"
-        else:
-            card_profit.bgcolor = "#F44336" # Rojo
-            txt_ganancia.color = "white"
+        if turno:
+            # turno: (id, fecha_inicio, fecha_fin, monto_inicial, monto_final, usuario)
+            _, t_inicio, _, _, _, _ = turno
             
-        # Llenar lista de ventas (Ultimas 10)
-        sales_list.controls.clear()
-        if not sales:
-            sales_list.controls.append(ft.Text("No hay ventas registradas", color="grey"))
-        else:
-            for s in sales[:10]: # Solo las 10 ultimas
-                sid, fecha, total = s
-                # Formatear fecha simple (cortando segundos si es ISO)
-                fecha_fmt = fecha.split('T')[0] 
-                sales_list.controls.append(
-                    ft.Container(
-                        content=ft.Row([
-                            ft.Text(f"#{sid} - {fecha_fmt}", size=12),
-                            ft.Text(f"${total:,.0f}", weight="bold", color="green"),
-                        ], alignment="space_between"),
-                        bgcolor="white", padding=5, border_radius=5
-                    )
-                )
+            # Obtener reporte financiero DESDE el inicio del turno hasta AHORA
+            fin_report = model.get_financial_report(start_date=t_inicio)
+            
+            # Usamos "total_ventas" (Bruto) o "efectivo_ventas" (Real en caja). 
+            # El usuario pidió "Ventas diarias de la sesion", usaré Bruto para "Ventas" 
+            # y Utilidad u otro para Ganancia.
+            total_s = fin_report["total_ventas"]
+            total_e = fin_report["total_gastos"]
+            total_a = fin_report.get("total_abonos", 0) # Abonos
+            
+            # Ajuste solicitado: Ganancia = Ventas + Abonos - Gastos
+            profit = total_s + total_a - total_e
+            
+            # Actualizar tarjetas
+            txt_total_ventas.value = f"${total_s:,.0f}"
+            txt_total_gastos.value = f"${total_e:,.0f}"
+            txt_ganancia.value = f"${profit:,.0f}"
+            
+            # Color dinámico para ganancia
+            if profit >= 0:
+                card_profit.bgcolor = "#4CAF50" # Verde
+                txt_ganancia.color = "white"
+            else:
+                card_profit.bgcolor = "#F44336" # Rojo
+                txt_ganancia.color = "white"
                 
-        # Llenar lista de gastos
-        expenses_list.controls.clear()
-        if not expenses:
-            expenses_list.controls.append(ft.Text("No hay gastos registrados", color="grey"))
-        else:
-            for e in expenses[:10]:
-                eid, desc, monto, fecha, cat = e
-                fecha_fmt = fecha.split('T')[0]
-                expenses_list.controls.append(
-                    ft.Container(
-                        content=ft.Row([
-                            ft.Text(f"{desc} ({fecha_fmt})", size=12),
-                            ft.Text(f"-${monto:,.0f}", weight="bold", color="red"),
-                        ], alignment="space_between"),
-                        bgcolor="white", padding=5, border_radius=5
+            # --- LISTAS ---
+            # Filtrar listas para mostrar solo lo de esta sesion
+            
+            # 1. Ventas
+            sales = model.get_sales_report() 
+            session_sales = [s for s in sales if s[1] >= t_inicio] if sales else []
+
+            # 2. Abonos (Pagos de Deudas)
+            payments = model.get_payments_report()
+            session_payments = [p for p in payments if p[2] >= t_inicio] if payments else [] # fecha is index 2 in movimientos_cuenta? Check schema.
+            # Schema: id(0), cliente_id(1), fecha(2), tipo(3), monto(4), descripcion(5), venta_id(6) -> Correct, fecha is 2.
+            
+            # Combinar y Ordenar por fecha desc
+            # Format sales: (id, fecha, total, 'VENTA')
+            # Format payments: (id, fecha, monto, 'ABONO')
+            combined_income = []
+            for s in session_sales:
+                combined_income.append({
+                    "date": s[1], 
+                    "label": f"Venta #{s[0]}", 
+                    "amount": s[2], 
+                    "color": "green",
+                    "type": "VENTA"
+                })
+            for p in session_payments:
+                combined_income.append({
+                    "date": p[2], 
+                    "label": f"Abono #{p[0]}", 
+                    "amount": p[4], 
+                    "color": "blue",
+                    "type": "ABONO"
+                })
+            
+            # Sort desc
+            combined_income.sort(key=lambda x: x["date"], reverse=True)
+
+            sales_list.controls.clear()
+            if not combined_income:
+                 sales_list.controls.append(ft.Text("Sin ingresos en esta sesión", color="grey"))
+            else:
+                for item in combined_income[:15]: 
+                    # Mostrar Hora
+                    raw_date = item["date"]
+                    hora_fmt = raw_date.split('T')[1][:5] if 'T' in raw_date else raw_date
+                    
+                    sales_list.controls.append(
+                        ft.Container(
+                            content=ft.Row([
+                                ft.Row([
+                                    ft.Icon(ft.Icons.RECEIPT if item["type"]=="VENTA" else ft.Icons.PAYMENT, size=16, color="grey"),
+                                    ft.Text(f"{item['label']} - {hora_fmt}", size=12),
+                                ]),
+                                ft.Text(f"${item['amount']:,.0f}", weight="bold", color=item["color"]),
+                            ], alignment="space_between"),
+                            bgcolor="white", padding=5, border_radius=5
+                        )
                     )
-                )
-        
+            
+            expenses = model.get_expenses_report() # Trae todo
+            
+            expenses_list.controls.clear()
+            if not expenses:
+                expenses_list.controls.append(ft.Text("No hay gastos registrados", color="grey"))
+            else:
+                # Filtrar gastos >= t_inicio
+                session_expenses = [e for e in expenses if e[3] >= t_inicio]
+                
+                if not session_expenses:
+                    expenses_list.controls.append(ft.Text("Sin gastos en esta sesión", color="grey"))
+                else:
+                    for e in session_expenses[:10]:
+                        eid, desc, monto, fecha, cat = e
+                        # Si `fecha` tiene T, sacamos hora. 
+                        # Nota: gastos tiene estructura (id, desc, monto, fecha, cat)
+                        hora_fmt = fecha.split('T')[1][:5] if 'T' in fecha else fecha
+                        expenses_list.controls.append(
+                            ft.Container(
+                                content=ft.Row([
+                                    ft.Text(f"{desc} ({hora_fmt})", size=12),
+                                    ft.Text(f"-${monto:,.0f}", weight="bold", color="red"),
+                                ], alignment="space_between"),
+                                bgcolor="white", padding=5, border_radius=5
+                            )
+                        )
+
+        else:
+            # NO HAY TURNO ACTIVO -> Mostrar Zeros o Mensaje
+            txt_total_ventas.value = "$0"
+            txt_total_gastos.value = "$0"
+            txt_ganancia.value = "$0"
+            card_profit.bgcolor = "grey"
+            card_profit.bgcolor = "#9E9E9E"
+            
+            sales_list.controls.clear()
+            sales_list.controls.append(ft.Text("Caja Cerrada. Inicie turno.", color="grey", italic=True))
+            
+            expenses_list.controls.clear()
+            expenses_list.controls.append(ft.Text("Caja Cerrada.", color="grey", italic=True))
+            
         page.update()
 
     # ==========================
@@ -147,11 +221,10 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
                 ft.Column([desc_field], col={"xs": 10, "sm": 10, "md": 8}),
                 ft.Column([amount_field], col={"xs": 10, "sm": 10, "md": 4}),
             ], alignment=ft.MainAxisAlignment.CENTER),
-            ft.ElevatedButton(
+            ft.FilledButton(
                 "Registrar Gasto", 
                 on_click=add_expense_click, 
-                bgcolor="#F44336", 
-                color="white",
+                style=ft.ButtonStyle(bgcolor="#F44336", color="white"),
                 width=200,
             )
         ], spacing=10, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
@@ -191,7 +264,7 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
                 ft.Column([
                     ft.Container(
                         content=ft.Column([
-                            ft.Text("Historial de Ventas", weight="bold", size=16, color="#2E7D32"), 
+                            ft.Text("Historial de Ingresos (Ventas y Abonos)", weight="bold", size=16, color="#2E7D32"), 
                             sales_list
                         ]),
                         bgcolor="#E8F5E9", padding=10, border_radius=10

@@ -112,6 +112,18 @@ class InventarioModel:
                 usuario TEXT
             )
         ''')
+
+        # 8. Tabla Items de Promocion
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS promocion_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                promocion_id INTEGER NOT NULL,
+                producto_id INTEGER NOT NULL,
+                cantidad INTEGER NOT NULL,
+                FOREIGN KEY (promocion_id) REFERENCES productos (id),
+                FOREIGN KEY (producto_id) REFERENCES productos (id)
+            )
+        ''')
         
         conn.commit()
         conn.close()
@@ -125,8 +137,41 @@ class InventarioModel:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM productos")
         res = cursor.fetchall()
+        
+        # Procesar para calcular stock dinámico de Promociones
+        final_res = []
+        for p in res:
+            # Schema: id, nombre, precio, stock, critico, barcode, categoria
+            # Check length just in case
+            p_cat = "General"
+            if len(p) >= 7: p_cat = p[6]
+            
+            if p_cat == "Promociones":
+                # Calcular stock máximo disponible basado en componentes
+                cursor.execute("SELECT producto_id, cantidad FROM promocion_items WHERE promocion_id = ?", (p[0],))
+                comps = cursor.fetchall()
+                if not comps:
+                    real_stock = 0
+                else:
+                    possible_stocks = []
+                    for c_pid, c_qty in comps:
+                        cursor.execute("SELECT stock FROM productos WHERE id = ?", (c_pid,))
+                        c_res = cursor.fetchone()
+                        c_stock = c_res[0] if c_res else 0
+                        # Cuantos paquetes puedo armar con este item?
+                        possible_stocks.append(c_stock // c_qty)
+                    real_stock = min(possible_stocks) if possible_stocks else 0
+                
+                # Reconstruir tupla con nuevo stock
+                # Tuplas son inmutables
+                p_list = list(p)
+                p_list[3] = real_stock # Index 3 is stock
+                final_res.append(tuple(p_list))
+            else:
+                final_res.append(p)
+
         conn.close()
-        return res
+        return final_res
 
     def add_product(self, nombre, precio, stock, stock_critico, codigo_barras=None, categoria="General"):
         conn = sqlite3.connect(self.db_name)
@@ -192,6 +237,74 @@ class InventarioModel:
         cursor.execute("SELECT * FROM productos WHERE LOWER(codigo_barras) = LOWER(?) AND codigo_barras IS NOT NULL", 
                        (codigo_barras,))
         res = cursor.fetchone()
+        
+        # Si es promo, calcular stock
+        if res:
+            p_cat = "General"
+            if len(res) >= 7: p_cat = res[6]
+            
+            if p_cat == "Promociones":
+                cursor.execute("SELECT producto_id, cantidad FROM promocion_items WHERE promocion_id = ?", (res[0],))
+                comps = cursor.fetchall()
+                real_stock = 0
+                if comps:
+                    possible_stocks = []
+                    for c_pid, c_qty in comps:
+                        cursor.execute("SELECT stock FROM productos WHERE id = ?", (c_pid,))
+                        c_res = cursor.fetchone()
+                        c_stock = c_res[0] if c_res else 0
+                        possible_stocks.append(c_stock // c_qty)
+                    real_stock = min(possible_stocks) if possible_stocks else 0
+                
+                p_list = list(res)
+                p_list[3] = real_stock
+                res = tuple(p_list)
+
+        conn.close()
+        return res
+
+    # ==========================================
+    # LOGICA DE PROMOCIONES
+    # ==========================================
+
+    def add_promotion(self, nombre, precio, componentes):
+        """
+        Crea una promoción (Producto ficticio) y sus items.
+        componentes: lista de tuplas (producto_id, cantidad)
+        """
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        try:
+            # 1. Crear producto tipo "Promoción"
+            # Stock ficticio 0, pero no importa porque no se descuenta.
+            # Se puede usar stock para limitar la promo, pero por ahora ilimitado (controlado por componentes)
+            cursor.execute('''
+                INSERT INTO productos (nombre, precio, stock, stock_critico, codigo_barras, categoria)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (nombre, precio, 0, 0, None, "Promociones"))
+            promo_id = cursor.lastrowid
+            
+            # 2. Insertar componentes
+            for pid, qty in componentes:
+                cursor.execute('''
+                    INSERT INTO promocion_items (promocion_id, producto_id, cantidad)
+                    VALUES (?, ?, ?)
+                ''', (promo_id, pid, qty))
+            
+            conn.commit()
+            return promo_id
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+
+    def get_promotion_items(self, promo_id):
+        """Retorna componentes de una promo: [(prod_id, cant_requerida)]"""
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute("SELECT producto_id, cantidad FROM promocion_items WHERE promocion_id = ?", (promo_id,))
+        res = cursor.fetchall()
         conn.close()
         return res
 
@@ -219,28 +332,55 @@ class InventarioModel:
             
             # 2. Insertar detalles y descontar stock
             for pid, item in items.items():
-                cantidad = item['qty']
+                cantidad_venta = item['qty']
                 precio_unit = item['info'][2]
-                subtotal = cantidad * precio_unit
+                subtotal = cantidad_venta * precio_unit
                 
-                # VERIFICACION DE INTEGRIDAD (Anti-Race Condition)
-                cursor.execute("SELECT stock, nombre FROM productos WHERE id = ?", (pid,))
-                curr = cursor.fetchone()
-                if not curr:
-                    raise Exception(f"Producto ID {pid} no existe")
-                
-                current_stock, prod_name = curr
-                if current_stock < cantidad:
-                    raise Exception(f"Stock insuficiente para {prod_name}. Stock actual: {current_stock}")
-
-                # Insertar detalle
+                # Insertar detalle de venta (lo que el cliente ve)
                 cursor.execute('''
                     INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario, subtotal)
                     VALUES (?, ?, ?, ?, ?)
-                ''', (venta_id, pid, cantidad, precio_unit, subtotal))
+                ''', (venta_id, pid, cantidad_venta, precio_unit, subtotal))
+
+                # --- LOGICA DE STOCK (Normal vs Promoción) ---
                 
-                # Descontar stock
-                cursor.execute("UPDATE productos SET stock = stock - ? WHERE id = ?", (cantidad, pid))
+                # Chequear si es promo
+                cursor.execute("SELECT producto_id, cantidad FROM promocion_items WHERE promocion_id = ?", (pid,))
+                promo_components = cursor.fetchall()
+                
+                if promo_components:
+                    # ES UNA PROMO: Descontar stock de sus componentes
+                    for comp_pid, comp_qty in promo_components:
+                        total_deduct = comp_qty * cantidad_venta
+                        
+                        # Verificar Stock Componente
+                        cursor.execute("SELECT stock, nombre FROM productos WHERE id = ?", (comp_pid,))
+                        curr = cursor.fetchone()
+                        if not curr:
+                            raise Exception(f"Componente ID {comp_pid} no existe")
+                        
+                        c_stock, c_name = curr
+                        if c_stock < total_deduct:
+                             raise Exception(f"Stock insuficiente de componente '{c_name}' para la promoción.")
+                             
+                        cursor.execute("UPDATE productos SET stock = stock - ? WHERE id = ?", (total_deduct, comp_pid))
+                
+                else:
+                    # PRODUCTO NORMAL
+                    cursor.execute("SELECT stock, nombre FROM productos WHERE id = ?", (pid,))
+                    curr = cursor.fetchone()
+                    if not curr:
+                        raise Exception(f"Producto ID {pid} no existe")
+                    
+                    current_stock, prod_name = curr
+                    
+                    # Ignoramos stock check si es solo 'Promociones' category sin components? 
+                    # No, debería tener componentes si es promo. Si no tiene, se comporta como normal.
+                    
+                    if current_stock < cantidad_venta:
+                        raise Exception(f"Stock insuficiente para {prod_name}. Stock actual: {current_stock}")
+                    
+                    cursor.execute("UPDATE productos SET stock = stock - ? WHERE id = ?", (cantidad_venta, pid))
             
             conn.commit()
             return venta_id
@@ -275,6 +415,15 @@ class InventarioModel:
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM gastos ORDER BY fecha DESC")
+        res = cursor.fetchall()
+        conn.close()
+        return res
+
+    def get_payments_report(self):
+        """Retorna todos los movimientos de tipo PAGO (Abonos)"""
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM movimientos_cuenta WHERE tipo='PAGO' ORDER BY fecha DESC")
         res = cursor.fetchall()
         conn.close()
         return res
@@ -409,14 +558,27 @@ class InventarioModel:
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         
-        # Sumar ventas DESDE el inicio del turno
-        # Nota: Asumimos ventas en efectivo/todo suma a caja. 
-        # Si hubiera medios de pago, habría que filtrar.
+        # 1. Sumar ventas DESDE el inicio del turno
         cursor.execute("SELECT SUM(total) FROM ventas WHERE fecha >= ?", (t_inicio,))
         res = cursor.fetchone()
         ventas_total = res[0] if res[0] else 0
         
+        # 2. Sumar ABONOS (Pagos) DESDE el inicio del turno
+        # Estos son dinero real que entra a la caja
+        cursor.execute("SELECT SUM(monto) FROM movimientos_cuenta WHERE tipo='PAGO' AND fecha >= ?", (t_inicio,))
+        res = cursor.fetchone()
+        abonos_total = res[0] if res[0] else 0
+        
+        # 3. Sumar GASTOS (Salidas) DESDE el inicio del turno
+        # Para que el teorico en caja sea REAL (Entradas - Salidas)
+        cursor.execute("SELECT SUM(monto) FROM gastos WHERE fecha >= ?", (t_inicio,))
+        res = cursor.fetchone()
+        gastos_total = res[0] if res[0] else 0
+        
         conn.close()
+        
+        # Teorico = Inicial + Ventas + Abonos - Gastos
+        teorico = t_inicial + ventas_total + abonos_total - gastos_total
         
         return {
             "turno_id": t_id,
@@ -424,7 +586,9 @@ class InventarioModel:
             "inicio": t_inicio,
             "monto_inicial": t_inicial,
             "ventas_turno": ventas_total,
-            "teorico_en_caja": t_inicial + ventas_total
+            "abonos_turno": abonos_total,
+            "gastos_turno": gastos_total,
+            "teorico_en_caja": teorico
         }
 
     def get_financial_report(self, start_date=None, end_date=None):

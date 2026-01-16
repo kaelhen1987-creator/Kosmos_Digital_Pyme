@@ -52,7 +52,11 @@ def main(page: ft.Page):
 
         # --- LOGICA CIERRE DE CAJA GLOBAL ---
         def handle_close_turn_global(e):
-             # Campo para ingresar monto final
+            # Obtener datos del turno actual para mostrar "Monto Esperado"
+            stats = model.get_current_shift_stats()
+            monto_esperado = stats["teorico_en_caja"] if stats else 0
+            
+            # Campo para ingresar monto final
             final_amount_field = ft.TextField(
                 label="Dinero Total en Caja",
                 hint_text="Monto final contado",
@@ -60,12 +64,26 @@ def main(page: ft.Page):
                 text_align="right",
                 autofocus=True
             )
-    
+
+            # Texto para mostrar errores o advertencias
+            error_text = ft.Text("", color="red", size=12)
+            
             def confirm_close(e):
                 try:
                     monto_final = 0
                     if final_amount_field.value:
                         monto_final = float(final_amount_field.value)
+                    
+                    # Validación simple: si hay diferencia, pedir confirmación extra o solo mostrar alerta
+                    # Por ahora, si hay diferencia, mostramos un error primero, y si el usuario insiste...
+                    diferencia = monto_final - monto_esperado
+                    
+                    # Si es la primera vez que intenta cerrar con diferencia, mostramos advertencia
+                    if abs(diferencia) > 0 and error_text.value == "":
+                        msg = f"Diferencia de ${diferencia:,.0f}. Vuelve a confirmar para cerrar igual."
+                        error_text.value = msg
+                        error_text.update()
+                        return # No cerramos, esperamos segunda confirmación
                     
                     # Cerrar Turno en DB
                     model.cerrar_turno(monto_final)
@@ -79,21 +97,24 @@ def main(page: ft.Page):
                     handle_logout()
                         
                 except ValueError:
-                    show_message(page, "Monto inválido", "red")
+                    error_text.value = "Monto inválido"
+                    error_text.update()
                 except Exception as ex:
                     show_message(page, f"Error: {str(ex)}", "red")
-    
+            
             dlg_close = ft.AlertDialog(
                 title=ft.Text("Cerrar Turno"),
                 content=ft.Column([
                     ft.Text("¿Confirmas que deseas cerrar la caja del día?"),
+                    ft.Text(f"Monto Esperado: ${monto_esperado:,.0f}", weight=ft.FontWeight.BOLD),
                     ft.Container(height=10),
                     final_amount_field,
+                    error_text,
                     ft.Text("Al confirmar, se cerrará la sesión.", size=12, color="grey")
-                ], height=150, tight=True),
+                ], height=200, tight=True),
                 actions=[
                     ft.TextButton("Cancelar", on_click=lambda e: setattr(dlg_close, 'open', False) or page.update()),
-                    ft.ElevatedButton("Confirmar", on_click=confirm_close, bgcolor="red", color="white")
+                    ft.FilledButton("Confirmar", on_click=confirm_close, style=ft.ButtonStyle(bgcolor="red", color="white"))
                 ],
                 actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             )
@@ -101,7 +122,7 @@ def main(page: ft.Page):
             dlg_close.open = True
             page.update()
 
-        btn_close_global = ft.ElevatedButton(
+        btn_close_global = ft.FilledButton(
             "Cerrar Caja",
             icon=ft.Icons.LOGOUT,
             style=ft.ButtonStyle(bgcolor="#D32F2F", color="white"),
@@ -215,15 +236,17 @@ def main(page: ft.Page):
         
         # Botones de navegación (textos cortos para móvil)
         def create_nav_btn(text, icon, idx):
-            return ft.ElevatedButton(
+            return ft.FilledButton(
                 text,
                 icon=icon,
                 on_click=lambda e: switch_tab(idx),
-                bgcolor="#2196F3" if idx == 0 else "white",
-                color="white" if idx == 0 else "#2196F3",
+                style=ft.ButtonStyle(
+                    bgcolor="#2196F3" if idx == 0 else "white",
+                    color="white" if idx == 0 else "#2196F3",
+                    shape=ft.RoundedRectangleBorder(radius=5)
+                ),
                 expand=True,
-                height=50,
-                style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=5))
+                height=50
             )
 
         btn_pos = create_nav_btn("Ventas", "shopping_cart", 0)
@@ -345,9 +368,9 @@ if __name__ == "__main__":
         print(f"💻 LOCALHOST:      http://127.0.0.1:{port}\n")
         
         # host='0.0.0.0' expone el servidor a la red local
-        ft.app(main, view=ft.AppView.WEB_BROWSER, port=port, host='0.0.0.0')
+        ft.run(main, view=ft.AppView.WEB_BROWSER, port=port, host='0.0.0.0')
     else:
         # Modo desktop (ventana nativa)
-        ft.app(main)
+        ft.run(main)
 
 

@@ -7,7 +7,7 @@ def build_clients_view(page: ft.Page, model):
         expand=True,
         runs_count=5,
         max_extent=300,
-        child_aspect_ratio=1.7, # Ratio ajustado para tarjetas más cortas (rectangulares)
+        child_aspect_ratio=1.2, # Ratio ajustado para tarjetas más altas (evita corte de botón)
         spacing=10,
         run_spacing=10,
     )
@@ -28,6 +28,7 @@ def build_clients_view(page: ft.Page, model):
         name_field = ft.TextField(label="Nombre", autofocus=True)
         phone_field = ft.TextField(label="Teléfono", keyboard_type=ft.KeyboardType.PHONE)
         alias_field = ft.TextField(label="Alias (Opcional)")
+        limit_field = ft.TextField(label="Límite de Crédito (Opcional)", value="0", keyboard_type=ft.KeyboardType.NUMBER)
         
         def save_client(e):
             nombre = name_field.value.strip()
@@ -36,17 +37,20 @@ def build_clients_view(page: ft.Page, model):
                 return
             
             try:
-                model.add_client(nombre, phone_field.value, alias_field.value)
+                limite = float(limit_field.value) if limit_field.value else 0
+                model.add_client(nombre, phone_field.value, alias_field.value, limite)
                 close_dialog(dlg_new_client)
                 show_message(page, f"Cliente '{nombre}' creado", "green")
                 refresh_clients()
+            except ValueError:
+                show_message(page, "El límite debe ser un número", "red")
             except Exception as ex:
                 show_message(page, f"Error: {ex}", "red")
 
-        dlg_new_client.content = ft.Column([name_field, phone_field, alias_field], tight=True, width=300)
+        dlg_new_client.content = ft.Column([name_field, phone_field, alias_field, limit_field], tight=True, width=300)
         dlg_new_client.actions = [
             ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_new_client)),
-            ft.ElevatedButton("Guardar", on_click=save_client, bgcolor="blue", color="white")
+            ft.FilledButton("Guardar", on_click=save_client, style=ft.ButtonStyle(bgcolor="blue", color="white"))
         ]
         if dlg_new_client not in page.overlay:
             page.overlay.append(dlg_new_client)
@@ -112,7 +116,7 @@ def build_clients_view(page: ft.Page, model):
             dlg_payment.content = amount_field
             dlg_payment.actions = [
                 ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_payment)),
-                ft.ElevatedButton("Confirmar", on_click=save_payment, bgcolor="green", color="white")
+                ft.FilledButton("Confirmar", on_click=save_payment, style=ft.ButtonStyle(bgcolor="green", color="white"))
             ]
             dlg_payment.actions_alignment = ft.MainAxisAlignment.SPACE_BETWEEN # Alinear extremos
             
@@ -123,7 +127,7 @@ def build_clients_view(page: ft.Page, model):
         
         # Botones de Acción
         actions_row = ft.Row([
-            ft.ElevatedButton("Registrar Pago", icon="attach_money", bgcolor="green", color="white", on_click=open_payment_dialog),
+            ft.FilledButton("Registrar Pago", icon="attach_money", style=ft.ButtonStyle(bgcolor="green", color="white"), on_click=open_payment_dialog),
         ], alignment=ft.MainAxisAlignment.CENTER)
 
         # Dialogo con Tema Oscuro
@@ -165,6 +169,7 @@ def build_clients_view(page: ft.Page, model):
                     ft.Column([
                         ft.Text(c['nombre'], weight="bold", size=16, color="white"),
                         ft.Text(c['alias'] if c['alias'] else "Sin Alias", size=12, color="white70"),
+                        ft.Text(f"Límite: ${c['limite']:,.0f}" if c['limite'] > 0 else "Sin Límite", size=11, color="grey"),
                     ], spacing=2, expand=True),
                 ], alignment="start"),
                 
@@ -182,7 +187,7 @@ def build_clients_view(page: ft.Page, model):
                 
                 # spacer eliminado para pegar el boton
                 
-                ft.ElevatedButton(
+                ft.FilledButton(
                     "Ver Historial",
                     icon="visibility",
                     style=ft.ButtonStyle(
@@ -222,7 +227,7 @@ def build_clients_view(page: ft.Page, model):
             alignment=ft.Alignment(-1, 0), # Center Left
         ),
         ft.Container(
-            content=ft.ElevatedButton("Nuevo Cliente", icon="add", on_click=open_new_client_dialog, bgcolor="#1976D2", color="white", width=500), 
+            content=ft.FilledButton("Nuevo Cliente", icon="add", on_click=open_new_client_dialog, style=ft.ButtonStyle(bgcolor="#1976D2", color="white"), width=500), 
             col={"xs": 12, "md": 4},
             alignment=ft.Alignment(-1, 0) if is_mobile(page) else ft.Alignment(1, 0), # Center Left (Mobile) / Center Right (Desktop)
         )

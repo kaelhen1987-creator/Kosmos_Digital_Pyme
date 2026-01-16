@@ -15,7 +15,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
     )
     cart_list = ft.Column(spacing=5, expand=False)
     
-    total_text = ft.Text("Total: $0", size=24, weight="bold", color="black")
+    total_text = ft.Text("Total: $0", size=24, weight="bold", color="white")
     
     # Estado del carrito (Persistente si se pasa shared_cart)
     cart = shared_cart if shared_cart is not None else {}
@@ -48,11 +48,11 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
         refresh_products()
         page.update()
 
-    btn_mode = ft.ElevatedButton(
+    btn_mode = ft.FilledButton(
         "Modo Visual", 
         icon=ft.Icons.GRID_VIEW, 
         on_click=toggle_mode,
-        bgcolor="#FF9800", color="white"
+        style=ft.ButtonStyle(bgcolor="#FF9800", color="white")
     )
 
     # Tabs de Categorías (Solo Visual)
@@ -63,7 +63,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
 
     # Opción: Generaremos los tabs dinámicamente si es posible, o fijos. 
     # Por ahora fijos con los del inventory_view
-    cats = ["Todas", "Bebidas", "Cafés", "Sandwiches", "Pastelería", "Almacén", "Cigarros", "Lácteos", "Aseo", "General"]
+    cats = ["Todas", "Promociones", "Bebidas", "Cafés", "Sandwiches", "Pastelería", "Almacén", "Cigarros", "Lácteos", "Aseo", "General"]
     category_tabs = ft.Row(
         controls=[
             ft.TextButton(cat, data=cat, on_click=filter_category) for cat in cats
@@ -290,8 +290,42 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
             clients = model.get_clients_with_balance()
             client_list = ft.ListView(expand=True, height=300)
             
-            def finalize_with_client(c_id):
-                finalize_sale('DEUDA', client_id=c_id)
+            def finalize_with_client(client_data):
+                # Calcular total venta
+                current_total = sum(item['qty'] * item['info'][2] for item in cart.values())
+                
+                # Verificar Limite de Credito
+                # client_data keys: id, nombre, telefono, alias, limite, deuda_total, pagado_total, saldo_actual
+                limit = client_data.get('limite', 0)
+                current_balance = client_data.get('saldo_actual', 0)
+                
+                if limit > 0:
+                    new_balance = current_balance + current_total
+                    if new_balance > limit:
+                        # Bloquear venta
+                        def close_alert(e):
+                            dlg_limit.open = False
+                            page.update()
+                            
+                        dlg_limit = ft.AlertDialog(
+                            title=ft.Text("Límite de Crédito Excedido", color="red"),
+                            content=ft.Column([
+                                ft.Text(f"El cliente {client_data['nombre']} tiene un límite de ${limit:,.0f}."),
+                                ft.Text(f"Deuda Actual: ${current_balance:,.0f}"),
+                                ft.Text(f"Esta Compra: ${current_total:,.0f}"),
+                                ft.Divider(),
+                                ft.Text(f"Nuevo Saldo: ${new_balance:,.0f}", weight="bold"),
+                                ft.Text("No se puede fiar esta venta.", color="red"),
+                            ], tight=True),
+                            actions=[ft.TextButton("Entendido", on_click=close_alert)]
+                        )
+                        page.overlay.append(dlg_limit)
+                        dlg_limit.open = True
+                        page.update()
+                        return
+
+                # Si pasa validación, procesar
+                finalize_sale('DEUDA', client_id=client_data['id'])
 
             def render_list(search_term="", update_ui=True):
                 client_list.controls.clear()
@@ -309,8 +343,8 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                         ft.ListTile(
                             leading=ft.Icon(ft.Icons.PERSON),
                             title=ft.Text(c['nombre']),
-                            subtitle=ft.Text(f"Deuda: ${c['saldo_actual']:,.0f}"),
-                            on_click=lambda e, cid=c['id']: finalize_with_client(cid)
+                            subtitle=ft.Text(f"Deuda: ${c['saldo_actual']:,.0f} | Límite: {'$' + format(c['limite'], ',.0f') if c['limite'] > 0 else '∞'}"),
+                            on_click=lambda e, cl=c: finalize_with_client(cl)
                         )
                     )
                 if update_ui and client_list.page:
@@ -339,7 +373,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
         dlg_payment = ft.AlertDialog(
             title=ft.Text("Método de Pago"),
             content=ft.Row([
-                ft.ElevatedButton(
+                ft.FilledButton(
                     "Efectivo / Transf", # Texto acortado para móvil
                     icon="money", 
                     style=ft.ButtonStyle(bgcolor="green", color="white", shape=ft.RoundedRectangleBorder(radius=5)),
@@ -347,7 +381,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                     height=60,
                     expand=True
                 ),
-                ft.ElevatedButton(
+                ft.FilledButton(
                     "Fiado / Cuenta", 
                     icon="book", 
                     style=ft.ButtonStyle(bgcolor="red", color="white", shape=ft.RoundedRectangleBorder(radius=5)),
@@ -373,12 +407,14 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
     layout = ft.ResponsiveRow([
         # 1. Carrito (Primero en el código = Arriba en móvil / Izquierda en desktop)
         ft.Container(
-            content=ft.Column([
+            content=ft.Column(
+                horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+                controls=[
                 ft.Container(
-                    content=ft.Row([
-                        ft.Text("CARRITO", size=20, weight="bold", color="white"),
+                    content=ft.Column([
+                        ft.Text("CARRITO", size=24, weight="bold", color="white"),
                         total_text
-                    ], alignment="space_between"),
+                    ], alignment="center", horizontal_alignment="center", spacing=5),
                     bgcolor="#4CAF50",
                     padding=15,
                     border_radius=ft.border_radius.only(top_left=10, top_right=10),
@@ -391,11 +427,10 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                 ft.Divider(height=1, color="grey"),
                 ft.Container(
                     content=ft.Column([
-                        ft.ElevatedButton(
+                        ft.FilledButton(
                             "COBRAR",
                             on_click=checkout,
-                            bgcolor="#4CAF50",
-                            color="white",
+                            style=ft.ButtonStyle(bgcolor="#4CAF50", color="white"),
                             height=50,
                             width=None, # Ancho automático
                             expand=True, # Expandir en ancho

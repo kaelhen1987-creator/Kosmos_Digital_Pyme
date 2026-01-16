@@ -67,7 +67,7 @@ def build_reports_view(page: ft.Page, model):
             ft.Container(date_field("Fecha Inicio", start_date_ref, first_day), col={"xs": 6, "md": 3}),
             ft.Container(date_field("Fecha Fin", end_date_ref, today), col={"xs": 6, "md": 3}),
             ft.Container(
-                ft.ElevatedButton("Filtrar", icon=ft.Icons.FILTER_LIST, on_click=refresh_report, bgcolor="#37474F", color="white", height=40),
+                ft.FilledButton("Filtrar", icon=ft.Icons.FILTER_LIST, on_click=refresh_report, style=ft.ButtonStyle(bgcolor="#37474F", color="white"), height=40),
                 col={"xs": 12, "md": 2} # Full width button on mobile
             )
         ], vertical_alignment=ft.CrossAxisAlignment.END),

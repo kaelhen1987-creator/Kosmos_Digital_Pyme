@@ -78,7 +78,7 @@ def build_shift_view(page: ft.Page, model, on_success_callback):
             ft.Divider(height=10, color="transparent"),
             amount_field,
             ft.Divider(height=20, color="transparent"),
-            ft.ElevatedButton(
+            ft.FilledButton(
                 "ABRIR CAJA",
                 icon=ft.Icons.CHECK,
                 on_click=handle_open_shift,

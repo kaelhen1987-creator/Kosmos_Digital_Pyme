@@ -34,6 +34,7 @@ def build_inventory_view(page: ft.Page, model):
         expand=True,
         options=[
             ft.dropdown.Option("General"),
+            ft.dropdown.Option("Promociones"),
             ft.dropdown.Option("Bebidas"),
             ft.dropdown.Option("Cafés"),
             ft.dropdown.Option("Sandwiches"),
@@ -297,6 +298,130 @@ def build_inventory_view(page: ft.Page, model):
         dlg_stock.open = True
         page.update()
     
+    def open_promo_dialog(e):
+        # Estados Locales del Dialogo
+        promo_components = {} # {pid: {'name': name, 'qty': qty}}
+        
+        # UI Elements
+        p_name = ft.TextField(label="Nombre Promoción", autofocus=True)
+        p_price = ft.TextField(label="Precio", keyboard_type=ft.KeyboardType.NUMBER)
+        p_search = ft.TextField(label="Buscar producto componente...", suffix_icon=ft.Icons.SEARCH)
+        
+        comp_list = ft.Column(scroll=ft.ScrollMode.AUTO, height=200)
+        search_results = ft.Column(visible=False) # Resultados busqueda dropdown
+        
+        def refresh_components():
+            comp_list.controls.clear()
+            if not promo_components:
+                comp_list.controls.append(ft.Text("Agrega productos al paquete", color="grey"))
+            else:
+                for pid, data in promo_components.items():
+                    qty = data['qty']
+                    comp_list.controls.append(
+                        ft.Container(
+                            content=ft.Row([
+                                ft.Text(f"{data['name']}", size=14, expand=True),
+                                ft.Row([
+                                    ft.IconButton(ft.Icons.REMOVE_CIRCLE, icon_color="red", on_click=lambda e, i=pid: update_qty(i, -1)),
+                                    ft.Text(f"{qty}", weight="bold"),
+                                    ft.IconButton(ft.Icons.ADD_CIRCLE, icon_color="green", on_click=lambda e, i=pid: update_qty(i, 1)),
+                                ], spacing=0)
+                            ]),
+                            bgcolor="#f0f0f0", padding=5, border_radius=5
+                        )
+                    )
+            dlg_promo.update()
+        
+        def update_qty(pid, delta):
+            if pid in promo_components:
+                promo_components[pid]['qty'] += delta
+                if promo_components[pid]['qty'] <= 0:
+                    del promo_components[pid]
+            refresh_components()
+
+        def add_component(product):
+            # product: tuple from DB
+            pid, name = product[0], product[1]
+            if pid not in promo_components:
+                promo_components[pid] = {'name': name, 'qty': 0}
+            promo_components[pid]['qty'] += 1
+            
+            p_search.value = ""
+            search_results.visible = False
+            refresh_components()
+            
+        def search_comp(e):
+            query = p_search.value.lower()
+            search_results.controls.clear()
+            if not query:
+                search_results.visible = False
+                dlg_promo.update()
+                return
+
+            all_prods = model.get_all_products()
+            # Filtrar solo productos normales (no Promociones para evitar recursividad infinita simple)
+            matches = [p for p in all_prods if query in p[1].lower() and p[6] != "Promociones"][:5]
+            
+            if matches:
+                search_results.visible = True
+                for p in matches:
+                    search_results.controls.append(
+                        ft.ListTile(
+                            title=ft.Text(p[1]),
+                            subtitle=ft.Text(f"Stock: {p[3]}"),
+                            on_click=lambda e, prod=p: add_component(prod)
+                        )
+                    )
+            else:
+                search_results.visible = False
+            dlg_promo.update()
+
+        p_search.on_change = search_comp
+
+        def save_promo(e):
+            try:
+                name = p_name.value
+                price = float(p_price.value)
+                if not name or price <= 0 or not promo_components:
+                    show_message(page, "Completa nombre, precio y agrega componentes", "orange")
+                    return
+                
+                # Preparar lista [(pid, qty)]
+                comps_list = [(pid, data['qty']) for pid, data in promo_components.items()]
+                
+                model.add_promotion(name, price, comps_list)
+                show_message(page, "Promoción creada exitosamente", "green")
+                dlg_promo.open = False
+                page.update()
+                refresh_products()
+                
+            except Exception as ex:
+                show_message(page, f"Error: {str(ex)}", "red")
+
+        dlg_promo = ft.AlertDialog(
+            title=ft.Text("Nueva Promoción (Pack)"),
+            content=ft.Container(
+                content=ft.Column([
+                    p_name,
+                    p_price,
+                    ft.Divider(),
+                    ft.Text("Componentes:", weight="bold"),
+                    p_search,
+                    ft.Container(content=search_results, bgcolor="white", border=ft.border.all(1, "grey"), border_radius=5),
+                    comp_list
+                ], spacing=10, scroll=ft.ScrollMode.AUTO),
+                width=400, height=500
+            ),
+            actions=[
+                 ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_promo)),
+                 ft.FilledButton("Guardar Pack", on_click=save_promo, style=ft.ButtonStyle(bgcolor="green", color="white"))
+            ]
+        )
+        page.overlay.append(dlg_promo)
+        dlg_promo.open = True
+        page.update()
+        refresh_components()
+    
     def open_edit_dialog(product_id, product_data):
         # Desempaquetar
         p_cat = "General"
@@ -314,6 +439,7 @@ def build_inventory_view(page: ft.Page, model):
             label="Categoría",
             options=[
                 ft.dropdown.Option("General"),
+                ft.dropdown.Option("Promociones"),
                 ft.dropdown.Option("Bebidas"),
                 ft.dropdown.Option("Cafés"),
                 ft.dropdown.Option("Sandwiches"),
@@ -415,14 +541,22 @@ def build_inventory_view(page: ft.Page, model):
                         form_fields,
                         ft.Column([
                             price_preview,
-                            ft.ElevatedButton(
-                                "AGREGAR PRODUCTO",
-                                on_click=add_product,
-                                bgcolor="#4CAF50",
-                                color="white",
-                                height=50,
-                                expand=True,
-                            ),
+                            ft.Row([
+                                ft.FilledButton(
+                                    "AGREGAR PRODUCTO",
+                                    on_click=add_product,
+                                    style=ft.ButtonStyle(bgcolor="#4CAF50", color="white"),
+                                    height=50,
+                                    expand=True,
+                                ),
+                                ft.FilledButton(
+                                    "NUEVA PROMOCIÓN",
+                                    on_click=open_promo_dialog,
+                                    style=ft.ButtonStyle(bgcolor="#FF9800", color="white"),
+                                    height=50,
+                                    expand=True,
+                                ),
+                            ], spacing=10),
                         ], spacing=10, horizontal_alignment="start", expand=True),
                     ], spacing=15),
                     bgcolor="#f5f5f5",
