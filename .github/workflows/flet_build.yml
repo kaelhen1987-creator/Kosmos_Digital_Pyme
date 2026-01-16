@@ -22,15 +22,10 @@ jobs:
           pip install flet
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.24.0' # Use recent stable version or 'stable'
-          
       - name: Flet Build APK
         run: |
           # Flet build command ensures necessary flutter/android tooling
-          flet build apk --verbose
+          flet build apk --verbose --yes
           
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -54,14 +49,9 @@ jobs:
           pip install flet
           if (Test-Path requirements.txt) { pip install -r requirements.txt }
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-          
       - name: Flet Build Windows
         run: |
-          flet build windows --verbose
+          flet build windows --verbose --yes
           
       - name: Upload Windows Build
         uses: actions/upload-artifact@v4
