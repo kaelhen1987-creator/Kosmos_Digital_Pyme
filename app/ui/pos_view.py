@@ -2,8 +2,19 @@ import flet as ft
 from app.utils.helpers import is_mobile, show_message
 
 def build_pos_view(page: ft.Page, model, shared_cart=None):
-    product_list = ft.ListView(spacing=10, padding=10, expand=True)
-    cart_list = ft.ListView(spacing=5, padding=10, expand=True)
+    # Usamos Column en lugar de ListView para que crezcan con el contenido (altura dinámica)
+    # y el scroll sea manejado por la página principal (ft.Column scrollable)
+    product_list = ft.Column(spacing=10, expand=False) 
+    grid_view = ft.GridView(
+        expand=False, # GridView sin expansión forzada
+        runs_count=5,
+        max_extent=200,
+        child_aspect_ratio=0.8,
+        spacing=10,
+        run_spacing=10,
+    )
+    cart_list = ft.Column(spacing=5, expand=False)
+    
     total_text = ft.Text("Total: $0", size=24, weight="bold", color="black")
     
     # Estado del carrito (Persistente si se pasa shared_cart)
@@ -11,8 +22,8 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
     current_mode = "scanner" # "scanner" or "visual"
     current_category = "Todas"
 
-    list_container = ft.Container(content=product_list, expand=True) # Contenedor para vista lista
-    grid_container = ft.Container(expand=True, visible=False) # Contenedor para vista grilla
+    list_container = ft.Container(content=product_list) # Sin expand
+    grid_container = ft.Container(content=grid_view, visible=False) # Sin expand
     
     # Toggle de Modo
     def toggle_mode(e):
@@ -359,7 +370,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
     refresh_cart()
     
     # Layout Responsive Robusto con ResponsiveRow
-    return ft.ResponsiveRow([
+    layout = ft.ResponsiveRow([
         # 1. Carrito (Primero en el código = Arriba en móvil / Izquierda en desktop)
         ft.Container(
             content=ft.Column([
@@ -374,7 +385,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                 ),
                 ft.Container(
                     content=cart_list,
-                    # Altura dinámica
+                    height=None, # Altura dinámica (crece con items), scroll manejado por pagina
                     padding=5,
                 ),
                 ft.Divider(height=1, color="grey"),
@@ -412,13 +423,13 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                     border_radius=ft.border_radius.only(top_left=10, top_right=10),
                 ),
                 ft.Container(
-                    content=ft.Column([search_field, category_tabs]),
+                    content=ft.Column([search_field, category_tabs], spacing=10),
                     padding=10,
                     bgcolor="white",
                 ),
                 ft.Container(
-                    content=ft.Stack([list_container, grid_container]),
-                    height=400 if is_mobile(page) else 600,
+                    content=ft.Column([list_container, grid_container]),
+                    height=None, # Altura dinámica
                     padding=10
                 ),
             ], spacing=0),
@@ -428,3 +439,6 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
             col={"xs": 12, "md": 8}, # 12 columnas en móvil, 8 en desktop
         ),
     ], spacing=10)
+
+    # Envolver en Columna Scrollable para permitir scroll de pagina en movil
+    return ft.Column([layout], scroll=ft.ScrollMode.AUTO, expand=True)
