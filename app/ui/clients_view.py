@@ -190,9 +190,10 @@ def build_clients_view(page: ft.Page, model):
                     padding=15,
                     width=250, # Ancho fijo para consistencia
                     height=200, # Alto fijo
+                    bgcolor="#212121", # Fondo oscuro movido aquí
+                    border_radius=12, # Asegurar bordes redondeados
                 ),
                 elevation=2,
-                color="#212121", # Fondo oscuro para contraste
             )
             clients_grid.controls.append(card)
         
