@@ -60,7 +60,8 @@ def build_clients_view(page: ft.Page, model):
         # Lista de Movimientos (Mobile Friendly)
         history_items = []
         for mov in movements:
-            m_date = mov[2][:10]
+            # mov[2] es "YYYY-MM-DD HH:MM:SS" -> tomamos "YY-MM-DD"
+            m_date = mov[2][2:10] # 2026-01-15 -> 26-01-15
             m_type = mov[3]
             m_amount = mov[4]
             m_desc = mov[5]
