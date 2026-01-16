@@ -110,8 +110,10 @@ def build_clients_view(page: ft.Page, model):
             dlg_payment.content = amount_field
             dlg_payment.actions = [
                 ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_payment)),
-                ft.ElevatedButton("Confirmar Pago", on_click=save_payment, bgcolor="green", color="white")
+                ft.ElevatedButton("Confirmar", on_click=save_payment, bgcolor="green", color="white")
             ]
+            dlg_payment.actions_alignment = ft.MainAxisAlignment.SPACE_BETWEEN # Alinear extremos
+            
             if dlg_payment not in page.overlay:
                 page.overlay.append(dlg_payment)
             dlg_payment.open = True
