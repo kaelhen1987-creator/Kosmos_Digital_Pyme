@@ -80,15 +80,15 @@ def build_clients_view(page: ft.Page, model):
 
         history_table = ft.DataTable(
             columns=[
-                ft.DataColumn(ft.Text("Fecha", color="black", weight="bold")),
-                ft.DataColumn(ft.Text("Descripción", color="black", weight="bold")),
-                ft.DataColumn(ft.Text("Tipo", color="black", weight="bold")),
-                ft.DataColumn(ft.Text("Monto", color="black", weight="bold")),
+                ft.DataColumn(ft.Text("Fecha", color="white", weight="bold")),
+                ft.DataColumn(ft.Text("Descripción", color="white", weight="bold")),
+                ft.DataColumn(ft.Text("Tipo", color="white", weight="bold")),
+                ft.DataColumn(ft.Text("Monto", color="white", weight="bold")),
             ],
             rows=history_rows,
-            border=ft.border.all(1, "#eeeeee"),
-            vertical_lines=ft.border.all(1, "#eeeeee"),
-            heading_row_color="#f0f0f0",
+            border=ft.border.all(1, "#424242"), # Borde gris oscuro
+            vertical_lines=ft.border.all(1, "#424242"),
+            heading_row_color="#303030", # Fondo encabezado oscuro
         )
 
         def open_payment_dialog(e):
@@ -120,16 +120,24 @@ def build_clients_view(page: ft.Page, model):
         # Botones de Acción
         actions_row = ft.Row([
             ft.ElevatedButton("Registrar Pago", icon="attach_money", bgcolor="green", color="white", on_click=open_payment_dialog),
-            # ft.OutlinedButton("Agregar Deuda Manual", icon="remove_circle", on_click=None) # Opcional
         ], alignment=ft.MainAxisAlignment.CENTER)
 
-        dlg_client_detail.title = ft.Text(f"{client['nombre']} - Saldo: ${client['saldo_actual']:,.0f}")
-        dlg_client_detail.content = ft.Column([
-            actions_row,
-            ft.Divider(),
-            ft.Text("Historial de Movimientos", weight="bold"),
-            ft.Column([history_table], scroll=ft.ScrollMode.AUTO, height=300),
-        ], width=600, height=400)
+        # Dialogo con Tema Oscuro
+        dlg_content = ft.Container(
+            content=ft.Column([
+                actions_row,
+                ft.Divider(color="white24"),
+                ft.Text("Historial de Movimientos", weight="bold", color="white"),
+                ft.Column([history_table], scroll=ft.ScrollMode.AUTO, height=300),
+            ], width=600, height=400),
+            bgcolor="#212121", # Fondo Negro/Oscuro
+            padding=20,
+            border_radius=10
+        )
+        
+        dlg_client_detail.title = ft.Text(f"{client['nombre']} - Saldo: ${client['saldo_actual']:,.0f}", color="white")
+        dlg_client_detail.content = dlg_content
+        dlg_client_detail.bgcolor = "#212121" # Fondo del cuadro de diálogo
         
         dlg_client_detail.actions = [ft.TextButton("Cerrar", on_click=lambda e: close_dialog(dlg_client_detail))]
         
