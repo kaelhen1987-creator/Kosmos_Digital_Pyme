@@ -1,14 +1,66 @@
 import flet as ft
 from app.utils.helpers import is_mobile, show_message
 
-def build_pos_view(page: ft.Page, model):
+def build_pos_view(page: ft.Page, model, shared_cart=None):
     product_list = ft.ListView(spacing=10, padding=10, expand=True)
     cart_list = ft.ListView(spacing=5, padding=10, expand=True)
     total_text = ft.Text("Total: $0", size=24, weight="bold", color="black")
     
-    # Estado local del carrito
-    cart = {}
+    # Estado del carrito (Persistente si se pasa shared_cart)
+    cart = shared_cart if shared_cart is not None else {}
+    current_mode = "scanner" # "scanner" or "visual"
+    current_category = "Todas"
 
+    list_container = ft.Container(content=product_list, expand=True) # Contenedor para vista lista
+    grid_container = ft.Container(expand=True, visible=False) # Contenedor para vista grilla
+    
+    # Toggle de Modo
+    def toggle_mode(e):
+        nonlocal current_mode
+        if current_mode == "scanner":
+            current_mode = "visual"
+            btn_mode.icon = ft.Icons.LIST
+            btn_mode.text = "Modo Lista"
+            search_field.visible = False
+            category_tabs.visible = True
+            list_container.visible = False
+            grid_container.visible = True
+        else:
+            current_mode = "scanner"
+            btn_mode.icon = ft.Icons.grid_view
+            btn_mode.text = "Modo Visual"
+            search_field.visible = True
+            category_tabs.visible = False
+            list_container.visible = True
+            grid_container.visible = False
+        
+        refresh_products()
+        page.update()
+
+    btn_mode = ft.ElevatedButton(
+        "Modo Visual", 
+        icon=ft.Icons.GRID_VIEW, 
+        on_click=toggle_mode,
+        bgcolor="#FF9800", color="white"
+    )
+
+    # Tabs de Categorías (Solo Visual)
+    def filter_category(e):
+        nonlocal current_category
+        current_category = e.control.data
+        refresh_products()
+
+    # Opción: Generaremos los tabs dinámicamente si es posible, o fijos. 
+    # Por ahora fijos con los del inventory_view
+    cats = ["Todas", "Bebidas", "Cafés", "Sandwiches", "Pastelería", "Almacén", "Cigarros", "Lácteos", "Aseo", "General"]
+    category_tabs = ft.Row(
+        controls=[
+            ft.TextButton(cat, data=cat, on_click=filter_category) for cat in cats
+        ],
+        scroll=ft.ScrollMode.AUTO,
+        visible=False
+    )
+    
     def handle_barcode_scan(e):
         """Maneja el escaneo de código de barras (Enter automático)"""
         barcode = search_field.value.strip()
@@ -43,69 +95,95 @@ def build_pos_view(page: ft.Page, model):
     )
     
     def refresh_products(search_query=""):
-        product_list.controls.clear()
         products = model.get_all_products()
         
-        # Filtrar por búsqueda (nombre o código de barras)
-        if search_query:
-            products = [p for p in products if 
-                       search_query.lower() in p[1].lower() or  # Buscar en nombre
-                       (len(p) >= 6 and p[5] and search_query.lower() in str(p[5]).lower())]  # Buscar en barcode
-        
-        if not products:
-            product_list.controls.append(
-                ft.Container(
-                    content=ft.Text("No hay productos.\nVe a Inventario para agregar.", 
-                                  size=16, color="black", text_align="center"),
-                    bgcolor="#fff3cd",
-                    padding=30,
-                    border_radius=10,
-                )
-            )
-        else:
-            for p in products:
-                # Desempaquetar producto (ahora incluye codigo_barras)
-                if len(p) >= 6:
-                    p_id, p_name, p_price, p_stock, p_crit, p_barcode = p
-                else:
-                    p_id, p_name, p_price, p_stock, p_crit = p
-                    p_barcode = None
-                
-                stock_color = "green"
-                if p_stock <= p_crit:
-                    stock_color = "red"
-                elif p_stock <= p_crit + 5:
-                    stock_color = "orange"
-                
-                product_list.controls.append(
-                    ft.Container(
-                        content=ft.Column([
-                            ft.Text(p_name, size=18, weight="bold", color="#1976D2"),
-                            ft.Container(height=5),  # Espaciado
-                            ft.Row([
-                                ft.Text("Precio:", size=14, color="#666666", weight="w500"),
-                                ft.Text(f"${p_price:,.0f}", size=16, color="#2E7D32", weight="bold"),
-                            ], spacing=5),
-                            ft.Row([
-                                ft.Text("Stock:", size=14, color="#666666", weight="w500"),
-                                ft.Text(f"{p_stock}", size=16, color=stock_color, weight="bold"),
-                            ], spacing=5),
-                        ], spacing=3),
-                        bgcolor="white",
-                        padding=15,
-                        border_radius=10,
-                        border=ft.border.all(2, "#2196F3"),
-                        on_click=lambda e, pid=p_id, pinfo=p: add_to_cart(pid, pinfo),
-                        ink=True,
-                        shadow=ft.BoxShadow(
-                            spread_radius=0,
-                            blur_radius=4,
-                            color=ft.Colors.with_opacity(0.1, "black"),
-                            offset=ft.Offset(0, 2),
+        if current_mode == "scanner":
+            # Lógica original de filtro
+            # Usamos list_container.content para asegurar referencia
+            p_list = list_container.content 
+            p_list.controls.clear()
+            
+            if search_query:
+                products = [p for p in products if 
+                           search_query.lower() in p[1].lower() or  # Buscar en nombre
+                           (len(p) >= 6 and p[5] and search_query.lower() in str(p[5]).lower())]  # Buscar en barcode
+            
+            if not products:
+                 p_list.controls.append(ft.Text("Sin resultados"))
+            else:
+                 for p in products:
+                    # Desempaquetar
+                    p_cat = "General"
+                    if len(p) >= 7:
+                        p_id, p_name, p_price, p_stock, p_crit, p_barcode, p_cat = p
+                    elif len(p) == 6:
+                        p_id, p_name, p_price, p_stock, p_crit, p_barcode = p
+                    else:
+                        p_id, p_name, p_price, p_stock, p_crit = p
+                        p_barcode = None
+                    
+                    stock_color = "green"
+                    if p_stock <= p_crit: stock_color = "red"
+                    
+                    p_list.controls.append(
+                        ft.Container(
+                            content=ft.Column([
+                                ft.Text(p_name, size=18, weight="bold", color="#1976D2"),
+                                ft.Row([
+                                    ft.Text(f"${p_price:,.0f}", size=16, color="#2E7D32", weight="bold"),
+                                    ft.Text(f"Stock: {p_stock}", size=14, color=stock_color),
+                                ], alignment="spaceBetween")
+                            ]),
+                            bgcolor="white", padding=15, border_radius=10, border=ft.border.all(1, "grey"),
+                            on_click=lambda e, pid=p_id, pinfo=p: add_to_cart(pid, pinfo),
+                            ink=True
                         )
                     )
+        
+        else: # VISUAL MODE (GRID)
+            if not grid_container.content:
+                 grid_container.content = ft.GridView(expand=True, runs_count=5, max_extent=150, spacing=10, run_spacing=10)
+            
+            grid = grid_container.content
+            grid.controls.clear()
+            
+            # Filtro por Categoria
+            if current_category != "Todas":
+                filtered = []
+                for p in products:
+                    p_cat_val = "General"
+                    if len(p) >= 7: p_cat_val = p[6]
+                    if not p_cat_val: p_cat_val = "General"
+                    
+                    if p_cat_val == current_category:
+                        filtered.append(p)
+                products = filtered
+
+            for p in products:
+                # Desempaquetar seguro
+                if len(p) >= 7: p_id, p_name, p_price, p_stock, p_crit, p_barcode, p_cat = p
+                elif len(p) == 6: p_id, p_name, p_price, p_stock, p_crit, p_barcode = p
+                else: p_id, p_name, p_price, p_stock, p_crit = p
+                
+                stock_color = "white"
+                bg_card = "#2196F3" # Blue default
+                if p_stock <= p_crit: bg_card = "#F44336" # Red alert
+                
+                grid.controls.append(
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Text(p_name, size=14, weight="bold", color="white", text_align="center", no_wrap=False),
+                            ft.Text(f"${p_price:,.0f}", size=12, color="white", weight="bold"),
+                        ], alignment="center", horizontal_alignment="center"),
+                        bgcolor=bg_card,
+                        padding=10,
+                        border_radius=8,
+                        alignment=ft.Alignment(0, 0),
+                        on_click=lambda e, pid=p_id, pinfo=p: add_to_cart(pid, pinfo),
+                        ink=True
+                    )
                 )
-        page.update()
+        if page: page.update()
     
     def refresh_cart():
         cart_list.controls.clear()
@@ -249,22 +327,24 @@ def build_pos_view(page: ft.Page, model):
         # --- Dialogo Principal de Pago ---
         dlg_payment = ft.AlertDialog(
             title=ft.Text("Método de Pago"),
-            content=ft.Column([
+            content=ft.Row([
                 ft.ElevatedButton(
-                    "Efectivo / Transferencia", 
+                    "Efectivo / Transf", # Texto acortado para móvil
                     icon="money", 
-                    style=ft.ButtonStyle(bgcolor="green", color="white"),
+                    style=ft.ButtonStyle(bgcolor="green", color="white", shape=ft.RoundedRectangleBorder(radius=5)),
                     on_click=lambda e: finalize_sale('EFECTIVO'),
-                    height=50
+                    height=60,
+                    expand=True
                 ),
                 ft.ElevatedButton(
-                    "Fiado / Cuaderno", 
+                    "Fiado / Cuenta", 
                     icon="book", 
-                    style=ft.ButtonStyle(bgcolor="red", color="white"),
+                    style=ft.ButtonStyle(bgcolor="red", color="white", shape=ft.RoundedRectangleBorder(radius=5)),
                     on_click=show_client_selector,
-                    height=50
+                    height=60,
+                    expand=True
                 ),
-            ], tight=True, spacing=10),
+            ], alignment=ft.MainAxisAlignment.CENTER, spacing=10),
         )
 
         def close_dialog(dlg):
@@ -294,7 +374,7 @@ def build_pos_view(page: ft.Page, model):
                 ),
                 ft.Container(
                     content=cart_list,
-                    # Altura dinámica: se ajusta al contenido
+                    # Altura dinámica
                     padding=5,
                 ),
                 ft.Divider(height=1, color="grey"),
@@ -323,19 +403,23 @@ def build_pos_view(page: ft.Page, model):
         ft.Container(
             content=ft.Column([
                 ft.Container(
-                    content=ft.Text("PRODUCTOS", size=20, weight="bold", color="white"),
+                    content=ft.Row([
+                        ft.Text("PRODUCTOS", size=20, weight="bold", color="white"),
+                        btn_mode
+                    ], alignment="space_between"),
                     bgcolor="#2196F3",
                     padding=15,
                     border_radius=ft.border_radius.only(top_left=10, top_right=10),
                 ),
                 ft.Container(
-                    content=search_field,
+                    content=ft.Column([search_field, category_tabs]),
                     padding=10,
                     bgcolor="white",
                 ),
                 ft.Container(
-                    content=product_list,
+                    content=ft.Stack([list_container, grid_container]),
                     height=400 if is_mobile(page) else 600,
+                    padding=10
                 ),
             ], spacing=0),
             bgcolor="white",

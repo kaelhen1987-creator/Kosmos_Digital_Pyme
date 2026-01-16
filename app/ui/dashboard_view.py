@@ -1,7 +1,8 @@
 import flet as ft
 from app.utils.helpers import is_mobile, show_message
 
-def build_dashboard_view(page: ft.Page, model):
+
+def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
     # ==========================
     # 1. ESTADO Y CALCULOS
     # ==========================
@@ -92,8 +93,8 @@ def build_dashboard_view(page: ft.Page, model):
                 ft.Container(height=5),  # Espaciado
                 value_control
             ], 
-            alignment="center", 
-            horizontal_alignment="center",
+            alignment=ft.MainAxisAlignment.CENTER, 
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             spacing=0),
             bgcolor=color,
             padding=ft.padding.symmetric(vertical=25, horizontal=20),
@@ -166,17 +167,15 @@ def build_dashboard_view(page: ft.Page, model):
         )
     )
 
-    # ==========================
-    # 4. ARMADO FINAL
-    # ==========================
-    
     refresh_data() # Cargar datos iniciales
     
     return ft.Container(
         content=ft.ListView([
-            # Titulo
+            # Cabecera con Titulo
             ft.Container(
-                content=ft.Text("PANEL FINANCIERO", size=24, weight="bold", color="white"),
+                content=ft.Row([
+                    ft.Text("PANEL FINANCIERO", size=24, weight="bold", color="white"),
+                ], alignment=ft.MainAxisAlignment.CENTER),
                 bgcolor="#607D8B", padding=15, border_radius=10
             ),
             # Tarjetas

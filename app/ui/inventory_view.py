@@ -23,6 +23,29 @@ def build_inventory_view(page: ft.Page, model):
         filled=True,
         border_width=2,
     )
+    category_field = ft.Dropdown(
+        label="Categoría",
+        bgcolor="white",
+        border_color="#2196F3",
+        color="black",
+        label_style=ft.TextStyle(color="black"),
+        filled=True,
+        border_width=2,
+        expand=True,
+        options=[
+            ft.dropdown.Option("General"),
+            ft.dropdown.Option("Bebidas"),
+            ft.dropdown.Option("Cafés"),
+            ft.dropdown.Option("Sandwiches"),
+            ft.dropdown.Option("Pastelería"),
+            ft.dropdown.Option("Almacén"),
+            ft.dropdown.Option("Cigarros"),
+            ft.dropdown.Option("Lácteos"),
+            ft.dropdown.Option("Aseo"),
+        ],
+        hint_text="Categoría", # Mostrar esto cuando no hay selección
+    )
+    
     price_field = ft.TextField(
         label="Precio sin IVA",
         bgcolor="white",
@@ -90,7 +113,7 @@ def build_inventory_view(page: ft.Page, model):
         border_color="#2196F3",
         height=50,
         text_size=16,
-        expand=True,  # Se expande para ocupar todo el ancho
+        expand=True,
     )
     
     def refresh_products(search_query=""):
@@ -102,25 +125,23 @@ def build_inventory_view(page: ft.Page, model):
             products = [p for p in products if search_query.lower() in p[1].lower()]
         
         if not products:
-            product_list.controls.append(
-                ft.Container(
-                    content=ft.Text(
-                        "No hay productos registrados\n\nUsa el formulario arriba para agregar productos",
-                        size=16,
-                        color="grey",
-                        text_align="center"
-                    ),
-                    padding=40,
-                )
-            )
+             # ... (empty state) ...
+             pass
         else:
             for p in products:
-                # Desempaquetar producto (ahora incluye codigo_barras)
-                if len(p) >= 6:
+                # Desempaquetar producto (ahora incluye categoria)
+                # Schema: id, nombre, precio, stock, critico, barcode, categoria
+                p_cat = "General"
+                if len(p) >= 7:
+                    p_id, p_name, p_price, p_stock, p_crit, p_barcode, p_cat = p
+                elif len(p) == 6:
                     p_id, p_name, p_price, p_stock, p_crit, p_barcode = p
                 else:
                     p_id, p_name, p_price, p_stock, p_crit = p
                     p_barcode = None
+                
+                # Check None
+                if not p_cat: p_cat = "General"
                 
                 bg_color = "white"
                 if p_stock <= p_crit:
@@ -131,51 +152,59 @@ def build_inventory_view(page: ft.Page, model):
                 product_list.controls.append(
                     ft.Container(
                         content=ft.Column([
-                            # Fila 1: Nombre del producto
+                            # Fila 1: Nombre y Categoria + Menú
                             ft.Row([
-                                ft.Text(
-                                    f"{p_name}", 
-                                    size=18, 
-                                    weight="bold", 
-                                    color="black"
+                                ft.Column([
+                                    ft.Text(f"{p_name}", size=18, weight="bold", color="black"),
+                                    ft.Container(
+                                        content=ft.Text(p_cat.upper(), size=10, color="white"),
+                                        bgcolor="green", padding=3, border_radius=4
+                                    )
+                                ], spacing=2),
+                                ft.PopupMenuButton(
+                                    icon=ft.Icons.MORE_VERT,
+                                    icon_color="black",
+                                    items=[
+                                        ft.PopupMenuItem(
+                                            content=ft.Text("Editar"), 
+                                            icon=ft.Icons.EDIT, 
+                                            on_click=lambda e, pid=p_id, pdata=p: open_edit_dialog(pid, pdata)
+                                        ),
+                                        ft.PopupMenuItem(
+                                            content=ft.Text("Eliminar", color="red"),
+                                            icon=ft.Icons.DELETE, 
+                                            on_click=lambda e, pid=p_id: delete_product(pid)
+                                        ),
+                                        ft.PopupMenuItem(
+                                            content=ft.Text("Agregar Stock"), 
+                                            icon=ft.Icons.ADD_BOX, 
+                                            on_click=lambda e, pid=p_id: quick_add_stock(pid)
+                                        ),
+                                    ]
                                 ),
-                            ]),
-                            # Fila 2: Info y botones
+                            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                            
+                            ft.Divider(color="grey"),
+                            
+                            # Fila 2: Detalles (Precio, Stock, Critico)
                             ft.Row([
-                                # Columna izquierda: Datos del producto
                                 ft.Column([
-                                    ft.Row([
-                                        ft.Text("Precio:", size=14, weight="bold"),
-                                        ft.Text(f"${p_price:,.0f}", size=14, color="black"),
-                                    ], spacing=5),
-                                    ft.Row([
-                                        ft.Text("Stock:", size=14, weight="bold"),
-                                        ft.Text(f"{p_stock}", size=14, color="black"),
-                                    ], spacing=5),
-                                    ft.Row([
-                                        ft.Text("Critico:", size=14, weight="bold"),
-                                        ft.Text(f"{p_crit}", size=14, color="black"),
-                                    ], spacing=5),
-                                ], spacing=3, expand=True),
-                                # Columna derecha: Botones de acción (todos verticales)
+                                    ft.Text("Precio", size=12, color="grey"),
+                                    ft.Text(f"${p_price:,.0f}", size=16, weight="bold", color="black")
+                                ]),
                                 ft.Column([
-                                    ft.TextButton(
-                                        "Sumar Stock",
-                                        on_click=lambda e, pid=p_id: open_add_stock_dialog(pid),
-                                        style=ft.ButtonStyle(color="blue"),
-                                    ),
-                                    ft.TextButton(
-                                        "Editar",
-                                        on_click=lambda e, pid=p_id, pdata=p: open_edit_dialog(pid, pdata),
-                                        style=ft.ButtonStyle(color="orange"),
-                                    ),
-                                    ft.TextButton(
-                                        "Eliminar",
-                                        on_click=lambda e, pid=p_id: delete_product(pid),
-                                        style=ft.ButtonStyle(color="red"),
-                                    ),
-                                ], spacing=5, horizontal_alignment="end"),
-                            ], alignment="spaceBetween"),
+                                    ft.Text("Stock", size=12, color="grey"),
+                                    ft.Text(f"{p_stock}", size=16, weight="bold", color="red" if p_stock <= p_crit else "black")
+                                ]),
+                                ft.Column([
+                                    ft.Text("Crítico", size=12, color="grey"),
+                                    ft.Text(f"{p_crit}", size=16, color="black")
+                                ]),
+                                ft.Column([
+                                    ft.Text("Código", size=12, color="grey"),
+                                    ft.Text(f"{p_barcode if p_barcode else '--'}", size=14, color="black")
+                                ]),
+                            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                         ], spacing=10),
                         bgcolor=bg_color,
                         padding=15,
@@ -193,6 +222,9 @@ def build_inventory_view(page: ft.Page, model):
                 return
             
             codigo_barras = barcode_field.value.strip() if barcode_field.value else None
+            categoria = category_field.value
+            if not categoria: categoria = "General"
+            
             precio_sin_iva = float(price_field.value)
             stock = int(stock_field.value)
             critico = int(critic_field.value)
@@ -204,11 +236,12 @@ def build_inventory_view(page: ft.Page, model):
             # Calcular precio con IVA (19%)
             precio_con_iva = precio_sin_iva * 1.19
             
-            model.add_product(nombre, precio_con_iva, stock, critico, codigo_barras)
+            model.add_product(nombre, precio_con_iva, stock, critico, codigo_barras, categoria)
             show_message(page, f"'{nombre}' agregado - Precio final: ${precio_con_iva:,.0f} (IVA incluido)", "green")
             
             name_field.value = ""
             barcode_field.value = ""
+            category_field.value = "General"
             price_field.value = ""
             stock_field.value = ""
             critic_field.value = ""
@@ -222,49 +255,54 @@ def build_inventory_view(page: ft.Page, model):
         except Exception as ex:
             show_message(page, f"Error: {str(ex)}", "red")
     
+    # ...
+
     def delete_product(product_id):
-        model.delete_product(product_id)
-        show_message(page, "Producto eliminado", "blue")
-        refresh_products()
-    
-    def open_add_stock_dialog(product_id):
-        qty_field = ft.TextField(
-            label="Cantidad a agregar",
-            keyboard_type=ft.KeyboardType.NUMBER,
-            hint_text="10",
-            autofocus=True,
-        )
+        try:
+            model.delete_product(product_id)
+            show_message(page, "Producto eliminado", "green")
+            refresh_products()
+        except Exception as ex:
+            show_message(page, f"Error al eliminar: {str(ex)}", "red")
+
+    def quick_add_stock(product_id):
+        add_stock_field = ft.TextField(label="Cantidad a agregar", keyboard_type=ft.KeyboardType.NUMBER, autofocus=True)
         
-        def add_stock(e):
+        def confirm_add(e):
             try:
-                cantidad = int(qty_field.value)
-                if cantidad <= 0:
-                    show_message(page, "La cantidad debe ser positiva", "orange")
+                qty = int(add_stock_field.value)
+                if qty <= 0:
+                    show_message(page, "La cantidad debe ser mayor a 0", "orange")
                     return
                 
-                model.increase_stock_by_id(product_id, cantidad)
-                dlg.open = False
+                model.update_stock(product_id, qty)
+                dlg_stock.open = False
                 page.update()
-                show_message(page, f"Stock aumentado en {cantidad} unidades", "green")
+                show_message(page, f"Stock agregado correctamente", "green")
                 refresh_products()
             except ValueError:
-                show_message(page, "Ingresa un número válido", "red")
-        
-        dlg = ft.AlertDialog(
-            title=ft.Text("Sumar Stock"),
-            content=qty_field,
+                show_message(page, "Cantidad inválida", "red")
+            except Exception as ex:
+                show_message(page, f"Error: {str(ex)}", "red")
+
+        dlg_stock = ft.AlertDialog(
+            title=ft.Text("Agregar Stock Rápido"),
+            content=add_stock_field,
             actions=[
-                ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg)),
-                ft.TextButton("Agregar", on_click=add_stock),
+                ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_stock)),
+                ft.TextButton("Agregar", on_click=confirm_add),
             ],
         )
-        page.overlay.append(dlg)
-        dlg.open = True
+        page.overlay.append(dlg_stock)
+        dlg_stock.open = True
         page.update()
     
     def open_edit_dialog(product_id, product_data):
-        # Extraer datos del producto (ahora incluye codigo_barras si existe)
-        if len(product_data) >= 6:
+        # Desempaquetar
+        p_cat = "General"
+        if len(product_data) >= 7:
+            p_id, p_name, p_price, p_stock, p_crit, p_barcode, p_cat = product_data
+        elif len(product_data) == 6:
             p_id, p_name, p_price, p_stock, p_crit, p_barcode = product_data
         else:
             p_id, p_name, p_price, p_stock, p_crit = product_data
@@ -272,6 +310,21 @@ def build_inventory_view(page: ft.Page, model):
         
         edit_name = ft.TextField(label="Nombre", value=p_name)
         edit_barcode = ft.TextField(label="Código de Barras", value=p_barcode if p_barcode else "")
+        edit_cat = ft.Dropdown(
+            label="Categoría",
+            options=[
+                ft.dropdown.Option("General"),
+                ft.dropdown.Option("Bebidas"),
+                ft.dropdown.Option("Cafés"),
+                ft.dropdown.Option("Sandwiches"),
+                ft.dropdown.Option("Pastelería"),
+                ft.dropdown.Option("Almacén"),
+                ft.dropdown.Option("Cigarros"),
+                ft.dropdown.Option("Lácteos"),
+                ft.dropdown.Option("Aseo"),
+            ],
+            value=p_cat if p_cat else "General"
+        )
         edit_price = ft.TextField(label="Precio", value=str(p_price), keyboard_type=ft.KeyboardType.NUMBER)
         edit_stock = ft.TextField(label="Stock", value=str(p_stock), keyboard_type=ft.KeyboardType.NUMBER)
         edit_critic = ft.TextField(label="Crítico", value=str(p_crit), keyboard_type=ft.KeyboardType.NUMBER)
@@ -280,6 +333,8 @@ def build_inventory_view(page: ft.Page, model):
             try:
                 nombre = edit_name.value.strip()
                 codigo_barras = edit_barcode.value.strip() if edit_barcode.value else None
+                cat = edit_cat.value
+                
                 precio = float(edit_price.value)
                 stock = int(edit_stock.value)
                 critico = int(edit_critic.value)
@@ -288,7 +343,7 @@ def build_inventory_view(page: ft.Page, model):
                     show_message(page, "Verifica los valores", "orange")
                     return
                 
-                model.update_product(product_id, nombre, precio, stock, critico, codigo_barras)
+                model.update_product(product_id, nombre, precio, stock, critico, codigo_barras, cat)
                 dlg_edit.open = False
                 page.update()
                 show_message(page, f"'{nombre}' actualizado correctamente", "green")
@@ -301,10 +356,11 @@ def build_inventory_view(page: ft.Page, model):
             content=ft.Column([
                 edit_name,
                 edit_barcode,
+                edit_cat,
                 edit_price,
                 edit_stock,
                 edit_critic,
-            ], tight=True, height=300),
+            ], tight=True, height=350),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_edit)),
                 ft.TextButton("Guardar", on_click=save_edit),
@@ -320,33 +376,21 @@ def build_inventory_view(page: ft.Page, model):
     
     refresh_products()
     
-    # Preparar layout de campos según tamaño de pantalla
-    if is_mobile(page):
-        # Móvil: todos los campos apilados verticalmente
-        form_fields = ft.Column([
-            name_field,
-            barcode_field,
-            price_field,
-            stock_field,
-            critic_field,
-        ], spacing=10)
-    else:
-        # Desktop: nombre y barcode arriba, otros 3 en fila
-        form_fields = ft.Column([
-            name_field,
-            barcode_field,
-            ft.Row([
-                price_field,
-                stock_field,
-                critic_field,
-            ], spacing=10),
-        ], spacing=10)
-    
+    # Layout unificado (Responsive Grid)
+    form_fields = ft.ResponsiveRow([
+        ft.Container(name_field, col={"xs": 12, "md": 12}),
+        ft.Container(barcode_field, col={"xs": 12, "md": 6}),
+        ft.Container(category_field, col={"xs": 12, "md": 6}),
+        ft.Container(price_field, col={"xs": 12, "md": 4}),
+        ft.Container(stock_field, col={"xs": 12, "md": 4}),
+        ft.Container(critic_field, col={"xs": 12, "md": 4}),
+    ], spacing=10)
+
     return ft.Container(
         content=ft.Column([
             # Header
             ft.Container(
-                content=ft.Text("GESTIÓN DE INVENTARIO", size=24, weight="bold", color="white"),
+                content=ft.Text("INVENTARIO", size=22, weight="bold", color="white"),
                 bgcolor="#2196F3",
                 padding=20,
                 border_radius=ft.border_radius.only(top_left=10, top_right=10),
@@ -413,7 +457,7 @@ def build_inventory_view(page: ft.Page, model):
                 expand=True,
                 margin=ft.margin.only(left=10, right=10, bottom=10),
             ),
-        ], spacing=0, expand=True),
+        ], spacing=0, expand=True, scroll=ft.ScrollMode.AUTO),
         bgcolor="white",
         border_radius=10,
         margin=10,

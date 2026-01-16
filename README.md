@@ -1,57 +1,62 @@
 # 🏪 SOS Digital PyME - Sistema POS
 
-Sistema de Punto de Venta (POS) completo desarrollado con **Flet**, diseñado específicamente para pequeñas y medianas empresas (PyMEs). Optimizado para funcionar en modo web con interfaz responsive.
+Sistema de Punto de Venta (POS) completo desarrollado con **Flet**, diseñado específicamente para pequeñas y medianas empresas (PyMEs). Optimizado para funcionar en modo web con interfaz responsive y una arquitectura robusta de control financiero.
 
-![Python](https://img.shields.io/badge/Python-3.14-blue)
+![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![Flet](https://img.shields.io/badge/Flet-0.80.1-green)
 ![SQLite](https://img.shields.io/badge/SQLite-3-orange)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ## 📋 Descripción
 
-SOS Digital PyME es una solución integral para la gestión de ventas, inventario y finanzas de pequeños negocios. El sistema permite:
+SOS Digital PyME es una solución integral que profesionaliza la gestión de tu negocio. No solo registra ventas, sino que te ofrece "La Verdad Financiera" de tu operación.
 
-- **Gestionar ventas** de forma rápida e intuitiva
-- **Controlar inventario** con alertas de stock bajo
-- **Registrar gastos** y visualizar estadísticas financieras
-- **Acceder desde cualquier dispositivo** con navegador web
+El sistema permite:
+- **Gestionar Ventas e Inventario** con código de barras y alertas de stock.
+- **Controlar Turnos y Caja** (Apertura y Cierre con rendición de dinero).
+- **Manejar "Fiados" (Créditos)** mediante un Cuaderno Digital.
+- **Visualizar Reportes Reales** calculando utilidad, flujo de caja y deudas.
 
 ## ✨ Características Principales
 
 ### 🛒 Punto de Venta (POS)
-- **Carrito de compras dinámico** con validación de stock en tiempo real
-- **Búsqueda rápida** de productos
-- **Checkout atómico** que actualiza ventas y stock simultáneamente
-- **Interfaz responsive** adaptable a móvil y desktop
-- **Visualización clara** de precios y disponibilidad
+- **Carrito dinámico**: Validación de stock en tiempo real (impide vender más de lo que tienes).
+- **Integridad de Datos**: Prevención de stock negativo a nivel de base de datos.
+- **Búsqueda e Identificación**: Por nombre o código de barras.
+
+### 🔐 Control de Turnos (Caja)
+- **Apertura de Caja**: Obligatoria al iniciar. Registra usuario y monto inicial.
+- **Cierre de Caja**: Rendición de monto final y desconexión segura.
+- **Cálculo de Efectivo**: El sistema sabe exactamente cuánto dinero debería haber en el cajón (Monto Inicial + Ventas Efectivo + Abonos - Gastos).
+
+### 👥 Cuaderno Digital (Gestión de Clientes)
+- **Registro de Clientes**: Nombre, teléfono y alias.
+- **Cuenta Corriente**:
+  - Dar Fiado (Venta a crédito).
+  - Registrar Abonos/Pagos.
+  - Historial detallado de movimientos.
+- **Semáforo de Deudas**: Visualización rápida de clientes con deuda (Rojo) o al día (Verde).
+
+### 📊 La Verdad Financiera (Reportes)
+- **Reporte por Fechas**: Filtra por día, mes o rango personalizado.
+- **Métricas Clave**:
+  - **Ventas Brutas**: Todo lo vendido (Efectivo + Crédito).
+  - **Dinero REAL en Caja**: Flujo de caja neto (descuenta lo fiado, suma los abonos).
+  - **Utilidad Operativa**: Ventas - Gastos.
+- **Trazabilidad**: Diferenciación clara entre dinero físico y cuentas por cobrar.
 
 ### 📦 Gestión de Inventario
-- **CRUD completo** de productos (Crear, Leer, Actualizar, Eliminar)
-- **Alertas visuales de stock**:
-  - 🔴 Rojo: Stock crítico
-  - 🟡 Amarillo: Stock bajo
-  - ⚪ Blanco: Stock normal
-- **Cálculo automático de IVA** (19%)
-- **Búsqueda en tiempo real**
-- **Edición y suma de stock** sin reemplazar valores
-
-### 💰 Panel Financiero
-- **Tarjetas de estadísticas** con diseño moderno:
-  - Ventas totales (Azul)
-  - Gastos totales (Naranja)
-  - Ganancia neta (Verde/Rojo dinámico)
-- **Registro de gastos** con formulario centrado
-- **Historial** de últimas 10 ventas y gastos
-- **Actualización automática** de totales
+- CRUD completo de productos.
+- Cálculo automático de Stock Crítico.
+- Soporte para Códigos de Barras.
 
 ## 🚀 Instalación
 
 ### Requisitos Previos
 - Python 3.10 o superior
-- pip (gestor de paquetes de Python)
+- pip
 
-### Pasos de Instalación
-
+### Pasos
 1. **Clonar el repositorio**
 ```bash
 git clone https://github.com/kaelhen/sosdigitalpyme.git
@@ -66,168 +71,53 @@ pip install flet
 3. **Ejecutar la aplicación**
 ```bash
 # Modo web (recomendado)
-python3 main.py --web --port 8000
-
-# Modo desktop (ventana nativa)
 python3 main.py
 ```
-
-4. **Acceder a la aplicación**
-- **Computadora local**: http://127.0.0.1:8000
-- **Red local**: http://[TU_IP]:8000 (limitaciones de seguridad en móvil)
+Acceder en navegador: `http://localhost:8080` (o el puerto indicado).
 
 ## 📁 Estructura del Proyecto
 
 ```
 SOSDIGITALPYME/
 ├── main.py                 # Punto de entrada y navegación
-├── inventario.db          # Base de datos SQLite
+├── sos_pyme.db            # Base de datos Principal
 ├── app/
 │   ├── data/
-│   │   └── database.py    # Modelo de datos (SQLite)
+│   │   └── database.py    # Modelo de datos y Lógica Financiera
 │   ├── ui/
-│   │   ├── pos_view.py    # Interfaz de Punto de Venta
-│   │   ├── inventory_view.py  # Interfaz de Inventario
-│   │   └── dashboard_view.py  # Interfaz de Finanzas
+│   │   ├── shift_view.py      # Apertura/Cierre de Turnos
+│   │   ├── pos_view.py        # Ventas
+│   │   ├── inventory_view.py  # Inventario
+│   │   ├── dashboard_view.py  # Finanzas Rápidas y Gastos
+│   │   ├── clients_view.py    # Cuaderno Digital (Fiados)
+│   │   └── reports_view.py    # Reportes Financieros Detallados
 │   └── utils/
-│       └── helpers.py     # Funciones compartidas
 └── README.md
 ```
 
 ## 🗄️ Base de Datos
 
-El sistema utiliza **SQLite** con las siguientes tablas:
-
-### Productos
-```sql
-CREATE TABLE productos (
-    id INTEGER PRIMARY KEY,
-    nombre TEXT NOT NULL,
-    precio REAL NOT NULL,
-    stock INTEGER NOT NULL,
-    stock_critico INTEGER DEFAULT 5
-)
-```
-
-### Ventas
-```sql
-CREATE TABLE ventas (
-    id INTEGER PRIMARY KEY,
-    fecha TEXT NOT NULL,
-    total REAL NOT NULL
-)
-
-CREATE TABLE ventas_detalle (
-    id INTEGER PRIMARY KEY,
-    venta_id INTEGER,
-    producto_id INTEGER,
-    cantidad INTEGER,
-    precio_unitario REAL,
-    FOREIGN KEY (venta_id) REFERENCES ventas(id),
-    FOREIGN KEY (producto_id) REFERENCES productos(id)
-)
-```
-
-### Gastos
-```sql
-CREATE TABLE gastos (
-    id INTEGER PRIMARY KEY,
-    fecha TEXT NOT NULL,
-    descripcion TEXT NOT NULL,
-    monto REAL NOT NULL
-)
-```
+El sistema utiliza **SQLite** (`sos_pyme.db`) con un esquema relacional optimizado:
+- `productos`: Inventario y códigos.
+- `ventas` y `detalle_ventas`: Registro transaccional.
+- `turnos`: Sesiones de caja (inicio/fin/montos).
+- `clientes`: Información de contacto.
+- `movimientos_cuenta`: Registro de deudas y pagos linkeados a ventas o abonos.
+- `gastos`: Egresos operativos.
 
 ## 🎨 Diseño y UX
 
-### Paleta de Colores
-- **Azul** (#2196F3): Acciones principales, ventas
-- **Verde** (#4CAF50): Éxito, ganancias
-- **Naranja** (#FF9800): Advertencias, gastos
-- **Rojo** (#F44336): Alertas críticas, pérdidas
+- **Enfoque Móvil**: Botones grandes, navegación simple.
+- **Feedback Visual**:
+  - Alertas de stock en rojo.
+  - Indicadores de ganancia/pérdida.
+  - Mensajes "Toast" para confirmaciones.
 
-### Características de Diseño
-- ✅ **Sombras suaves** para profundidad visual
-- ✅ **Bordes redondeados** (10-12px) para look moderno
-- ✅ **Responsive** adaptable a móvil, tablet y desktop
-- ✅ **Sin emojis** para máxima compatibilidad
-- ✅ **Tipografía clara** con jerarquía visual
+## 🔧 Soluciones Técnicas Destacadas
 
-## 🔧 Soluciones Técnicas
-
-### Compatibilidad con Flet 0.80.1
-
-Durante el desarrollo se resolvieron varios problemas de compatibilidad:
-
-1. **Navegación**: Uso de botones simples en lugar de `NavigationBar`/`NavigationRail` para evitar crashes
-2. **Iconos**: Sintaxis correcta `ft.Icon(icon_name, ...)` en lugar de `ft.Icon(name=...)`
-3. **Colores**: Uso de `ft.Colors.with_opacity()` (C mayúscula)
-4. **Service Workers**: Acceso vía localhost para evitar bloqueos de seguridad
-
-## 📱 Uso del Sistema
-
-### 1. Configurar Inventario
-1. Ir a la sección **Inventario**
-2. Completar el formulario con:
-   - Nombre del producto
-   - Precio (sin IVA, se calcula automáticamente)
-   - Stock inicial
-   - Stock crítico (alerta)
-3. Hacer clic en **Agregar Producto**
-
-### 2. Realizar Ventas
-1. Ir a **Ventas**
-2. Buscar productos (opcional)
-3. Hacer clic en las tarjetas de productos para agregarlos al carrito
-4. Revisar el carrito (eliminar productos si es necesario)
-5. Hacer clic en **COBRAR** para finalizar la venta
-
-### 3. Registrar Gastos
-1. Ir a **Finanzas**
-2. Completar el formulario de gastos:
-   - Descripción (ej: "Luz", "Internet")
-   - Monto
-3. Hacer clic en **Registrar Gasto**
-
-### 4. Visualizar Estadísticas
-- Las tarjetas superiores muestran totales en tiempo real
-- El historial muestra las últimas 10 transacciones
-- La ganancia se calcula automáticamente (Ventas - Gastos)
-
-## ⚠️ Limitaciones Conocidas
-
-- **Acceso móvil desde red local**: Los navegadores bloquean Service Workers en conexiones HTTP no-localhost. Para acceso desde dispositivos móviles en la red local, se requiere configurar HTTPS.
-- **Modo web recomendado**: El sistema está optimizado para modo web. El modo desktop funciona pero puede tener diferencias visuales.
-
-## 🛠️ Tecnologías Utilizadas
-
-- **[Flet](https://flet.dev/)** 0.80.1 - Framework de UI basado en Flutter
-- **Python** 3.14 - Lenguaje de programación
-- **SQLite** 3 - Base de datos embebida
-- **Material Design** - Sistema de diseño de Google
-
-## 📝 Próximas Mejoras
-
-- [ ] Soporte HTTPS para acceso móvil en red local
-- [ ] Exportación de reportes a PDF/Excel
-- [ ] Gráficos de ventas por período
-- [ ] Sistema de usuarios y permisos
-- [ ] Backup automático de base de datos
-- [ ] Integración con impresoras térmicas
-
-## 🤝 Contribuciones
-
-Las contribuciones son bienvenidas. Por favor:
-
-1. Fork el proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
-
-## 📄 Licencia
-
-Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
+1. **Anti-Race Condition**: Verificación atómica de stock en `register_sale` antes de confirmar la venta.
+2. **Shift Logic persistence**: El sistema recuerda si hay un turno abierto aunque se cierre la pestańa del navegador.
+3. **Responsive Navigation**: Adaptación dinámica del menú según el dispositivo.
 
 ## 👤 Autor
 
@@ -235,11 +125,5 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más det
 - GitHub: [@kaelhen](https://github.com/kaelhen)
 - Proyecto: [sosdigitalpyme](https://github.com/kaelhen/sosdigitalpyme)
 
-## 🙏 Agradecimientos
-
-- Equipo de [Flet](https://flet.dev/) por el excelente framework
-- Comunidad de Python por las herramientas y soporte
-
 ---
-
-⭐ Si este proyecto te fue útil, considera darle una estrella en GitHub!
+⭐ **SOS Digital PyME**: Profesionalizando el comercio de barrio.

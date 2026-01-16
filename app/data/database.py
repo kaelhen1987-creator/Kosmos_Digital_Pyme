@@ -1,7 +1,7 @@
 import sqlite3
 
 class InventarioModel:
-    def __init__(self, db_name='inventario.db'):
+    def __init__(self, db_name='sos_pyme.db'):
         self.db_name = db_name
         self._init_db()
 
@@ -26,8 +26,14 @@ class InventarioModel:
             cursor.execute("ALTER TABLE productos ADD COLUMN codigo_barras TEXT")
             conn.commit()
         except sqlite3.OperationalError:
-            # La columna ya existe
-            pass
+            pass # Ya existe
+            
+        # Migración: Agregar columna categoria si no existe (Modo Café)
+        try:
+            cursor.execute("ALTER TABLE productos ADD COLUMN categoria TEXT DEFAULT 'General'")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass # Ya existe
         
         # Crear índice para búsqueda rápida por código de barras
         cursor.execute('''
@@ -94,10 +100,26 @@ class InventarioModel:
                 FOREIGN KEY (venta_id) REFERENCES ventas (id)
             )
         ''')
+
+        # 7. Tabla Turnos (Control de Caja)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS turnos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fecha_inicio TEXT NOT NULL,
+                fecha_fin TEXT,
+                monto_inicial REAL NOT NULL,
+                monto_final REAL,
+                usuario TEXT
+            )
+        ''')
         
         conn.commit()
         conn.close()
 
+    # ==========================================
+    # METODOS CRUD PRODUCTOS
+    # ==========================================
+    
     def get_all_products(self):
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
@@ -106,16 +128,37 @@ class InventarioModel:
         conn.close()
         return res
 
-    def add_product(self, nombre, precio, stock, stock_critico, codigo_barras=None):
+    def add_product(self, nombre, precio, stock, stock_critico, codigo_barras=None, categoria="General"):
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         try:
-            cursor.execute("INSERT INTO productos (nombre, precio, stock, stock_critico, codigo_barras) VALUES (?, ?, ?, ?, ?)",
-                           (nombre, precio, stock, stock_critico, codigo_barras))
+            cursor.execute('''
+                INSERT INTO productos (nombre, precio, stock, stock_critico, codigo_barras, categoria)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (nombre, precio, stock, stock_critico, codigo_barras, categoria))
             conn.commit()
-            return True
+        except sqlite3.IntegrityError:
+            raise Exception(f"El producto '{nombre}' ya existe.")
         finally:
             conn.close()
+
+    def update_product(self, product_id, nombre, precio, stock, stock_critico, codigo_barras=None, categoria="General"):
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE productos 
+            SET nombre = ?, precio = ?, stock = ?, stock_critico = ?, codigo_barras = ?, categoria = ?
+            WHERE id = ?
+        ''', (nombre, precio, stock, stock_critico, codigo_barras, categoria, product_id))
+        conn.commit()
+        conn.close()
+
+    def delete_product(self, product_id):
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM productos WHERE id = ?", (product_id,))
+        conn.commit()
+        conn.close()
 
     def increase_stock_by_name(self, nombre, cantidad):
         conn = sqlite3.connect(self.db_name)
@@ -131,20 +174,9 @@ class InventarioModel:
         conn.commit()
         conn.close()
 
-    def update_product(self, product_id, nombre, precio, stock, stock_critico, codigo_barras=None):
-        conn = sqlite3.connect(self.db_name)
-        cursor = conn.cursor()
-        cursor.execute("UPDATE productos SET nombre = ?, precio = ?, stock = ?, stock_critico = ?, codigo_barras = ? WHERE id = ?",
-                       (nombre, precio, stock, stock_critico, codigo_barras, product_id))
-        conn.commit()
-        conn.close()
-
-    def delete_product(self, product_id):
-        conn = sqlite3.connect(self.db_name)
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM productos WHERE id = ?", (product_id,))
-        conn.commit()
-        conn.close()
+    def update_stock(self, product_id, quantity):
+        """Metodo alias para actualizar stock desde UI"""
+        self.increase_stock_by_id(product_id, quantity)
 
     def decrease_stock(self, product_id, quantity=1):
         conn = sqlite3.connect(self.db_name)
@@ -191,6 +223,16 @@ class InventarioModel:
                 precio_unit = item['info'][2]
                 subtotal = cantidad * precio_unit
                 
+                # VERIFICACION DE INTEGRIDAD (Anti-Race Condition)
+                cursor.execute("SELECT stock, nombre FROM productos WHERE id = ?", (pid,))
+                curr = cursor.fetchone()
+                if not curr:
+                    raise Exception(f"Producto ID {pid} no existe")
+                
+                current_stock, prod_name = curr
+                if current_stock < cantidad:
+                    raise Exception(f"Stock insuficiente para {prod_name}. Stock actual: {current_stock}")
+
                 # Insertar detalle
                 cursor.execute('''
                     INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario, subtotal)
@@ -310,4 +352,153 @@ class InventarioModel:
             return True
         finally:
             conn.close()
+
+    # ==========================================
+    # METODOS CONTROL DE TURNOS
+    # ==========================================
+    
+    def get_active_turno(self):
+        """Devuelve el turno activo (fecha_fin IS NULL) o None"""
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM turnos WHERE fecha_fin IS NULL ORDER BY id DESC LIMIT 1")
+        res = cursor.fetchone()
+        conn.close()
+        return res
+
+    def iniciar_turno(self, monto_inicial, usuario="Admin"):
+        import datetime
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        try:
+            fecha_inicio = datetime.datetime.now().isoformat()
+            cursor.execute('''
+                INSERT INTO turnos (fecha_inicio, monto_inicial, usuario)
+                VALUES (?, ?, ?)
+            ''', (fecha_inicio, monto_inicial, usuario))
+            conn.commit()
+            return cursor.lastrowid
+        finally:
+            conn.close()
+
+    def cerrar_turno(self, monto_final):
+        import datetime
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        try:
+            fecha_fin = datetime.datetime.now().isoformat()
+            # Cerrar el último turno abierto
+            cursor.execute('''
+                UPDATE turnos 
+                SET fecha_fin = ?, monto_final = ? 
+                WHERE fecha_fin IS NULL
+            ''', (fecha_fin, monto_final))
+            conn.commit()
+        finally:
+            conn.close()
+
+    def get_current_shift_stats(self):
+        """Calcula el estado actual de la caja según el turno activo"""
+        turno = self.get_active_turno()
+        if not turno:
+            return None
+            
+        # turno: (id, fecha_inicio, fecha_fin, monto_inicial, monto_final, usuario)
+        t_id, t_inicio, _, t_inicial, _, t_usuario = turno
+        
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        
+        # Sumar ventas DESDE el inicio del turno
+        # Nota: Asumimos ventas en efectivo/todo suma a caja. 
+        # Si hubiera medios de pago, habría que filtrar.
+        cursor.execute("SELECT SUM(total) FROM ventas WHERE fecha >= ?", (t_inicio,))
+        res = cursor.fetchone()
+        ventas_total = res[0] if res[0] else 0
+        
+        conn.close()
+        
+        return {
+            "turno_id": t_id,
+            "usuario": t_usuario,
+            "inicio": t_inicio,
+            "monto_inicial": t_inicial,
+            "ventas_turno": ventas_total,
+            "teorico_en_caja": t_inicial + ventas_total
+        }
+
+    def get_financial_report(self, start_date=None, end_date=None):
+        """
+        Genera un reporte financiero detallado entre fechas.
+        Retorna diccionario con métricas clave.
+        """
+        import datetime
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        
+        # Filtros de fecha (ISO strings YYYY-MM-DD...)
+        if not start_date:
+            start_date = "1900-01-01"
+        if not end_date:
+            # Fin del día de hoy
+            end_date = datetime.datetime.now().isoformat()
+            
+        # Asegurar que cubra todo el día final si solo se pasa fecha
+        if len(end_date) == 10: 
+            end_date += "T23:59:59"
+            
+        try:
+            # 1. Ventas Totales (Bruto)
+            cursor.execute("SELECT SUM(total) FROM ventas WHERE fecha BETWEEN ? AND ?", (start_date, end_date))
+            res = cursor.fetchone()
+            total_ventas = res[0] or 0
+            
+            # 2. Gastos Totales
+            cursor.execute("SELECT SUM(monto) FROM gastos WHERE fecha BETWEEN ? AND ?", (start_date, end_date))
+            res = cursor.fetchone()
+            total_gastos = res[0] or 0
+            
+            # 3. Fiados Generados (Movimientos tipo DEUDA en el rango)
+            # Nota: Esto nos dice cuánto de la venta NO entró en caja.
+            cursor.execute("SELECT SUM(monto) FROM movimientos_cuenta WHERE tipo='DEUDA' AND fecha BETWEEN ? AND ?", (start_date, end_date))
+            res = cursor.fetchone()
+            total_fiado_generado = res[0] or 0
+            
+            # 4. Pagos Recibidos (Movimientos tipo PAGO en el rango)
+            # Dinero que entró por deudas pasadas o abonos
+            cursor.execute("SELECT SUM(monto) FROM movimientos_cuenta WHERE tipo='PAGO' AND fecha BETWEEN ? AND ?", (start_date, end_date))
+            res = cursor.fetchone()
+            total_pagos_recibidos = res[0] or 0
+            
+            # --- CALCULOS ---
+            
+            # Dinero Real Entrado por Ventas = Ventas Totales - Fiado Generado
+            efectivo_ventas = total_ventas - total_fiado_generado
+            
+            # Flujo de Caja TOTAL (Entradas Reales) = Efectivo Ventas + Pagos Recibidos
+            flujo_caja_entradas = efectivo_ventas + total_pagos_recibidos
+            
+            # Flujo Neto (Caja Final Teorica generada en periodo) = Entradas - Gastos
+            flujo_neto = flujo_caja_entradas - total_gastos
+            
+            # Utilidad Operativa (Estado de Resultados simplificado) = Ventas - Gastos
+            # (Ignorando si cobramos o no, contabilidad de devengo simplificada)
+            utilidad_operativa = total_ventas - total_gastos
+            
+            return {
+                "total_ventas": total_ventas,
+                "total_gastos": total_gastos,
+                "total_fiado": total_fiado_generado,
+                "total_abonos": total_pagos_recibidos,
+                
+                # Derivados
+                "efectivo_ventas": efectivo_ventas,
+                "flujo_entradas": flujo_caja_entradas,
+                "flujo_neto": flujo_neto,
+                "utilidad": utilidad_operativa
+            }
+            
+        finally:
+            conn.close()
+
 
