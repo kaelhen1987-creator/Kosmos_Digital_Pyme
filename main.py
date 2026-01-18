@@ -12,6 +12,8 @@ from app.utils.helpers import is_mobile
 # =============================================================================
 # VISTA (FLET UI) - Main Entry Point
 # =============================================================================
+from app.utils.activation import is_activated
+from app.ui.activation_view import build_activation_view
 from app.utils.helpers import show_message # Importar helper para mensajes
 def main(page: ft.Page):
     page.title = "SOS Digital PyME - POS"
@@ -324,16 +326,26 @@ def main(page: ft.Page):
     # ---------------------------------------------------------
     # CONTROL DE FLUJO (INICIO)
     # ---------------------------------------------------------
-    
-    # Verificar si hay turno abierto
-    active_shift = model.get_active_turno()
-    
-    if active_shift:
-        # SI hay turno, vamos directo a la App
-        load_main_app()
-    else:
-        # NO hay turno, mostramos pantalla de Apertura
-        page.add(build_shift_view(page, model, on_success_callback=load_main_app))
+
+    def start_flow():
+        # 1. Verificar Activación (Hardware Lock)
+        if not is_activated():
+            page.add(build_activation_view(page, on_success_callback=start_flow))
+            return
+
+        # 2. Verificar si hay turno abierto
+        active_shift = model.get_active_turno()
+        
+        if active_shift:
+            # SI hay turno, vamos directo a la App
+            load_main_app()
+        else:
+            # NO hay turno, mostramos pantalla de Apertura
+            page.clean()  # <--- LIMPIAR ANTES DE MOSTRAR
+            page.add(build_shift_view(page, model, on_success_callback=load_main_app))
+
+    # Iniciar flujo
+    start_flow()
 
 if __name__ == "__main__":
     import sys
