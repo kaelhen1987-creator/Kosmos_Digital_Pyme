@@ -52,6 +52,15 @@ El sistema permite:
    - **Utilidad Operativa**: Ganancia calculada descontando costos.
 - **Trazabilidad**: Diferenciación clara entre dinero físico hoy y cuentas por cobrar.
 
+### 🛡️ Sistema de Activación y Seguridad (Hardware Lock)
+- **Bloqueo por Hardware**: La aplicación se ancla a un único dispositivo usando su identificador único (MAC addres/Hardware ID).
+- **Protección Anti-Copia**: Si se copian los archivos a otro PC, pedirá una nueva activación.
+- **Suscripciones Mensuales**:
+    - Generación de llaves con vencimiento (1 mes, 3 meses, 6 meses, 1 año).
+    - La App verifica criptográficamente que la fecha actual no exceda el vencimiento de la llave.
+    - Bloqueo automático al vencer la licencia.
+- **Generador de Llaves**: Script seguro (`key_generator.py`) para que el desarrollador emita licencias controladas.
+
 ## 🚀 Instalación
 
 ### Requisitos Previos
@@ -114,6 +123,14 @@ El sistema utiliza **SQLite** (`sos_pyme.db`) con un esquema relacional optimiza
   - Alertas de stock en rojo.
   - Indicadores de ganancia/pérdida.
   - Mensajes "Toast" para confirmaciones.
+
+## 🤖 Despliegue Automatizado (CI/CD)
+
+El proyecto cuenta con **GitHub Actions** configurados para generar los ejecutables automáticamente en cada actualización:
+1.  **Android APK**: Genera el archivo instalable para móviles.
+2.  **Windows Exe**: Genera el ejecutable nativo para Windows.
+
+Esto asegura que siempre tengas la última versión lista para entregar al cliente sin compilar manualmente.
 
 ## 🔧 Soluciones Técnicas Destacadas
 
