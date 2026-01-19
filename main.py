@@ -15,6 +15,10 @@ from app.utils.helpers import is_mobile
 from app.utils.activation import is_activated
 from app.ui.activation_view import build_activation_view
 from app.utils.helpers import show_message # Importar helper para mensajes
+
+# --- SYSTEM VERSION ---
+APP_VERSION = "0.9.0"  # Versión Inicial
+# ----------------------
 def main(page: ft.Page):
     page.title = "SOS Digital PyME - POS"
     page.theme_mode = ft.ThemeMode.LIGHT # Forzar modo claro
@@ -37,6 +41,40 @@ def main(page: ft.Page):
         
         # Refs
         main_content = ft.Ref[ft.Container]()
+        
+        # --- UPDATE CHECK BACKGROUND TASK ---
+        from app.utils.updater import check_for_updates
+        import threading
+        
+        def run_update_check():
+            has_update, new_ver, update_url = check_for_updates(APP_VERSION)
+            if has_update:
+                def show_update_alert():
+                    # Crear SnackBar con botón de descarga
+                    snack = ft.SnackBar(
+                        content=ft.Row([
+                            ft.Icon(ft.Icons.SYSTEM_UPDATE, color="white"),
+                            ft.Text(f"¡Nueva versión disponible: {new_ver}!", color="white", weight="bold"),
+                        ], alignment=ft.MainAxisAlignment.START),
+                        action="DESCARGAR",
+                        action_color="yellow",
+                        on_action=lambda e: page.launch_url(update_url),
+                        duration=10000, # 10 segundos
+                        bgcolor="#2196F3"
+                    )
+                    page.overlay.append(snack)
+                    snack.open = True
+                    page.update()
+                
+                # Flet requiere manipular UI en el hilo principal o con cuidado
+                # Usamos page.run_task o simplemente invocamos si estamos en contexto seguro?
+                # Como esto corre en hilo aparte, invocar métodos de UI directo puede fallar en algunos backends.
+                # Lo más seguro en Flet es modificar UI desde su loop. 
+                # Pero en Desktop suele funcionar. Probaremos directo.
+                show_update_alert()
+
+        threading.Thread(target=run_update_check, daemon=True).start()
+
 
         def handle_logout():
             """Cierra la sesión y vuelve a la pantalla de apertura de caja"""
