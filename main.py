@@ -31,7 +31,30 @@ def main(page: ft.Page):
     page.window.min_height = 600
     
     # Usar nueva base de datos
-    model = InventarioModel("sos_pyme.db")
+    # DETECCION DE ENTORNO (Empaquetado vs Dev)
+    import sys
+    import os
+    
+    db_name = "sos_pyme.db"
+    
+    if getattr(sys, 'frozen', False):
+        # Si está empaquetado (.app/.exe), usar carpeta Documentos para persistencia
+        home_dir = os.path.expanduser("~")
+        data_dir = os.path.join(home_dir, "Documents", "SOS_Digital_PyME")
+        
+        # Crear carpeta si no existe
+        if not os.path.exists(data_dir):
+            try:
+                os.makedirs(data_dir)
+            except OSError:
+                pass # Si falla, fallback a local
+        
+        db_path = os.path.join(data_dir, db_name)
+    else:
+        # Modo Dev: Carpeta actual
+        db_path = "sos_pyme.db"
+
+    model = InventarioModel(db_path)
     
     # ---------------------------------------------------------
     # LAYOUT PRINCIPAL (APP)

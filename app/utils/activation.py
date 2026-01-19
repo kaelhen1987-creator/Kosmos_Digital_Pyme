@@ -6,7 +6,21 @@ from datetime import datetime
 # --- CONFIGURATION (HARDCODED SECRET) ---
 # En un sistema real, esto debería estar ofuscado o compilado.
 SECRET_SALT = "SOS_DIGITAL_PYME_2026_SECURE_SALT_!@#"
-ACTIVATION_FILE = "activation.lic"
+
+import sys
+if getattr(sys, 'frozen', False):
+    # Si está empaquetado (.app/.exe), usar carpeta Documentos
+    home_dir = os.path.expanduser("~")
+    data_dir = os.path.join(home_dir, "Documents", "SOS_Digital_PyME")
+    if not os.path.exists(data_dir):
+        try:
+            os.makedirs(data_dir)
+        except OSError:
+            pass
+    ACTIVATION_FILE = os.path.join(data_dir, "activation.lic")
+else:
+    # Modo Dev
+    ACTIVATION_FILE = "activation.lic"
 
 def get_hardware_id():
     """

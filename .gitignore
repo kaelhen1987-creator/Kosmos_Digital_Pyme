@@ -7,3 +7,6 @@ __pycache__/
 venv/
 .venv/
 *.lic
+dist/
+build/
+*.spec
