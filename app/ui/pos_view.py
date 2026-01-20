@@ -369,15 +369,79 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
             dlg_payment.actions = [ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_payment))]
             page.update()
 
+        # --- Dialogo de Pago en Efectivo (Calculo de Vuelto) ---
+        def show_cash_dialog(total_amount):
+            
+            txt_pago = ft.TextField(
+                label="Monto Entregado ($)", 
+                keyboard_type=ft.KeyboardType.NUMBER,
+                autofocus=True,
+                text_size=20
+            )
+            txt_vuelto = ft.Text("Vuelto: $0", size=20, weight="bold", color="grey")
+            
+            def calculate_change(e):
+                try:
+                    pago = int(txt_pago.value) if txt_pago.value else 0
+                    vuelto = pago - total_amount
+                    
+                    if vuelto >= 0:
+                        txt_vuelto.value = f"Vuelto: ${vuelto:,.0f}"
+                        txt_vuelto.color = "green"
+                        btn_confirm_cash.disabled = False
+                    else:
+                        txt_vuelto.value = f"Faltan: ${abs(vuelto):,.0f}"
+                        txt_vuelto.color = "red"
+                        btn_confirm_cash.disabled = True
+                    
+                    dlg_cash.update()
+                except ValueError:
+                    pass
+
+            txt_pago.on_change = calculate_change
+
+            def confirm_cash_payment(e):
+                dlg_cash.open = False
+                finalize_sale('EFECTIVO')
+
+            btn_confirm_cash = ft.ElevatedButton(
+                "Confirmar Venta", 
+                bgcolor="green", color="white", 
+                disabled=True,
+                on_click=confirm_cash_payment
+            )
+
+            dlg_cash = ft.AlertDialog(
+                title=ft.Text("Pago en Efectivo"),
+                content=ft.Column([
+                    ft.Text(f"Total a Pagar: ${total_amount:,.0f}", size=24, weight="bold"),
+                    ft.Divider(),
+                    txt_pago,
+                    txt_vuelto
+                ], height=200, tight=True),
+                actions=[
+                    ft.TextButton("Cancelar", on_click=lambda e: close_cash_dialog(e)),
+                    btn_confirm_cash
+                ]
+            )
+            
+            def close_cash_dialog(e):
+                dlg_cash.open = False
+                page.update()
+
+            page.overlay.append(dlg_cash)
+            dlg_cash.open = True
+            page.update()
+
         # --- Dialogo Principal de Pago ---
         dlg_payment = ft.AlertDialog(
             title=ft.Text("Método de Pago"),
             content=ft.Row([
                 ft.FilledButton(
-                    "Efectivo / Transf", # Texto acortado para móvil
+                    "Efectivo / Transf", 
                     icon="money", 
                     style=ft.ButtonStyle(bgcolor="green", color="white", shape=ft.RoundedRectangleBorder(radius=5)),
-                    on_click=lambda e: finalize_sale('EFECTIVO'),
+                    on_click=lambda e: show_cash_dialog(sum(item['qty'] * item['info'][2] for item in cart.values())),
                     height=60,
                     expand=True
                 ),
