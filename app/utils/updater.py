@@ -2,8 +2,8 @@ import urllib.request
 import json
 import ssl
 
-# Configuración del Repositorio
-GITHUB_REPO = "kaelhen/sosdigitalpyme"
+# Configuración del Repositorio (Público de Descargas)
+GITHUB_REPO = "kaelhen/SoS-Descargas"
 API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
 def check_for_updates(current_version):
