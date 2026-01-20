@@ -17,7 +17,7 @@ from app.ui.activation_view import build_activation_view
 from app.utils.helpers import show_message # Importar helper para mensajes
 
 # --- SYSTEM VERSION ---
-APP_VERSION = "0.9.0"  # Versión Inicial
+APP_VERSION = "0.9.1"  # Incrementamos versión para el release
 # ----------------------
 def main(page: ft.Page):
     page.title = "SOS Digital PyME - POS"
@@ -80,7 +80,6 @@ def main(page: ft.Page):
                             ft.Text(f"¡Nueva versión disponible: {new_ver}!", color="white", weight="bold"),
                         ], alignment=ft.MainAxisAlignment.START),
                         action="DESCARGAR",
-                        action_color="yellow",
                         on_action=lambda e: page.launch_url(update_url),
                         duration=10000, # 10 segundos
                         bgcolor="#2196F3"

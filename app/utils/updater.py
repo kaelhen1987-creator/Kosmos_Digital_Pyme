@@ -28,6 +28,9 @@ def check_for_updates(current_version):
                 latest_tag = data.get("tag_name", "").strip()
                 html_url = data.get("html_url", "") # URL de la release en web
                 
+                print(f"GitHub Latest Tag: {latest_tag}")
+                print(f"Local Version: {current_version}")
+
                 # Limpieza simple de 'v'
                 remote_ver = latest_tag.lstrip("v")
                 local_ver = current_version.lstrip("v")
@@ -42,10 +45,12 @@ def check_for_updates(current_version):
                         l_parts = [int(x) for x in local_ver.split('.')]
                         
                         if r_parts > l_parts:
+                            print("Update found (Numeric comparison)")
                             return True, latest_tag, html_url
                     except ValueError:
                         # Si falla el parseo, solo avisar si son distintos strings
                          if remote_ver != local_ver:
+                             print("Update found (String comparison)")
                              return True, latest_tag, html_url
                             
     except Exception as e:
