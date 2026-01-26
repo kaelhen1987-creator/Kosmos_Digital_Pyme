@@ -19,22 +19,22 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
         for d in details:
             rows.append(
                 ft.DataRow(cells=[
-                    ft.DataCell(ft.Container(ft.Text(d[0], text_align="left"), alignment=ft.Alignment(-1, 0), width=120)), # Nombre (Left)
-                    ft.DataCell(ft.Container(ft.Text(str(d[1]), text_align="center"), alignment=ft.Alignment(0, 0))),      # Cantidad
-                    ft.DataCell(ft.Container(ft.Text(format_currency(d[2]), text_align="center"), alignment=ft.Alignment(0, 0))), # Precio
-                    ft.DataCell(ft.Container(ft.Text(format_currency(d[3]), text_align="center"), alignment=ft.Alignment(0, 0))), # Subtotal
+                    ft.DataCell(ft.Container(ft.Text(d[0], text_align="left", size=12), alignment=ft.Alignment(-1, 0), width=120)), # Nombre (Left)
+                    ft.DataCell(ft.Container(ft.Text(str(d[1]), text_align="center", size=12), alignment=ft.Alignment(0, 0))),      # Cantidad
+                    ft.DataCell(ft.Container(ft.Text(format_currency(d[2]), text_align="center", size=12), alignment=ft.Alignment(0, 0))), # Precio
+                    # ft.DataCell(ft.Container(ft.Text(format_currency(d[3]), text_align="center"), alignment=ft.Alignment(0, 0))), # Subtotal REMOVIDO
                 ])
             )
             
         dlg_content = ft.DataTable(
             columns=[
-                ft.DataColumn(ft.Container(ft.Text("Producto", weight="bold"), alignment=ft.Alignment(-1, 0))), # Header Left
-                ft.DataColumn(ft.Container(ft.Text("Cant", weight="bold"), alignment=ft.Alignment(0, 0))),
-                ft.DataColumn(ft.Container(ft.Text("Precio", weight="bold"), alignment=ft.Alignment(0, 0))),
-                ft.DataColumn(ft.Container(ft.Text("Subtotal", weight="bold"), alignment=ft.Alignment(0, 0))),
+                ft.DataColumn(ft.Container(ft.Text("Producto", weight="bold", size=12), alignment=ft.Alignment(-1, 0))), # Header Left
+                ft.DataColumn(ft.Container(ft.Text("Cant", weight="bold", size=12), alignment=ft.Alignment(0, 0))),
+                ft.DataColumn(ft.Container(ft.Text("Precio", weight="bold", size=12), alignment=ft.Alignment(0, 0))),
+                # ft.DataColumn(ft.Container(ft.Text("Subtotal", weight="bold"), alignment=ft.Alignment(0, 0))),
             ],
             rows=rows,
-            column_spacing=20,
+            column_spacing=10,
             heading_row_height=40,
             data_row_min_height=40,
             # numeric=False para todos para controlar alineacion manual

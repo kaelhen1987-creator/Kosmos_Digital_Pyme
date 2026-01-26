@@ -263,7 +263,8 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
         def finalize_sale(payment_type, client_id=None):
             try:
                 # 1. Registrar venta física (baja de stock)
-                venta_id = model.register_sale(cart)
+                # Pasamos el medio_pago seleccionado. Si es DEUDA, igual se guarda como tal.
+                venta_id = model.register_sale(cart, medio_pago=payment_type)
                 
                 # 2. Si es FIADO, registrar deuda
                 if payment_type == 'DEUDA' and client_id:
@@ -287,7 +288,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                 show_message(page, f"Error: {str(ex)}", "red")
 
         # --- Dialogo de Selección de Cliente (Para Fiado) ---
-        def show_client_selector(e):
+        def show_client_selector(e=None, preselect_id=None):
             clients = model.get_clients_with_balance()
             client_list = ft.ListView(expand=True, height=300)
             
@@ -336,7 +337,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                     filtered_clients = [c for c in clients if search_term.lower() in c['nombre'].lower()]
 
                 if not filtered_clients:
-                    msg = "No se encontraron clientes." if clients else "No hay clientes registrados. Ve a 'Cuaderno' para crear uno."
+                    msg = "No se encontraron clientes." if clients else "No hay clientes registrados."
                     client_list.controls.append(ft.Text(msg, color="grey"))
                 
                 for c in filtered_clients:
@@ -351,19 +352,62 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                 if update_ui and client_list.page:
                     client_list.update()
 
+            def show_add_client_form(e):
+                name_field = ft.TextField(label="Nombre Completo", autofocus=True)
+                phone_field = ft.TextField(label="Teléfono (Opcional)")
+                limit_field = ft.TextField(label="Límite de Crédito ($)", value="0", keyboard_type=ft.KeyboardType.NUMBER, suffix=ft.Text("(0 = Sin límite)"))
+                
+                def save_new_client(e):
+                    if not name_field.value:
+                        name_field.error_text = "Requerido"
+                        name_field.update()
+                        return
+                        
+                    try:
+                        limit_val = float(limit_field.value) if limit_field.value else 0
+                        new_id = model.add_client(name_field.value, phone_field.value or "", "", limit_val)
+                        show_message(page, "Cliente creado correctamente", "green")
+                        # Recargar lista volviedo a llamar al selector
+                        show_client_selector(preselect_id=new_id)
+                    except Exception as ex:
+                         show_message(page, f"Error: {ex}", "red")
+
+                dlg_payment.title = ft.Text("Nuevo Cliente")
+                dlg_payment.content = ft.Column([
+                    ft.Text("Ingresa los datos del cliente para fiado:"),
+                    name_field,
+                    phone_field,
+                    limit_field,
+                    ft.Container(height=10),
+                    ft.FilledButton("Guardar Cliente", on_click=save_new_client, width=float("inf"))
+                ], tight=True, width=300)
+                
+                dlg_payment.actions = [
+                    ft.TextButton("Volver", on_click=lambda e: show_client_selector())
+                ]
+                page.update()
+
             search_field = ft.TextField(
                 hint_text="Buscar cliente...",
                 on_change=lambda e: render_list(e.control.value, update_ui=True),
                 autofocus=True,
-                prefix_icon=ft.Icons.SEARCH
+                prefix_icon=ft.Icons.SEARCH,
+                expand=True
             )
             
+            btn_add_client = ft.IconButton(
+                ft.Icons.PERSON_ADD, 
+                tooltip="Crear Nuevo Cliente", 
+                icon_color="green",
+                on_click=show_add_client_form
+            )
+
             # Render inicial (Sin update para evitar error)
             render_list(update_ui=False)
             
             dlg_payment.title = ft.Text("Selecciona Cliente")
             dlg_payment.content = ft.Column([
-                search_field,
+                ft.Row([search_field, btn_add_client], alignment="center"),
                 client_list
             ], height=400, width=300)
             
@@ -435,26 +479,41 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
             page.update()
 
         # --- Dialogo Principal de Pago ---
+        
+        def pay_with(method):
+            if method == "EFECTIVO":
+                show_cash_dialog(sum(item['qty'] * item['info'][2] for item in cart.values()))
+            elif method == "FIADO":
+                show_client_selector()
+            else:
+                # TRANSFERENCIA, DEBITO, CREDITO
+                finalize_sale(method)
+
+        btn_style = ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=5), color="white")
+
         dlg_payment = ft.AlertDialog(
             title=ft.Text("Método de Pago"),
-            content=ft.Row([
-                ft.FilledButton(
-                    "Efectivo / Transf", 
-                    icon="money", 
-                    style=ft.ButtonStyle(bgcolor="green", color="white", shape=ft.RoundedRectangleBorder(radius=5)),
-                    on_click=lambda e: show_cash_dialog(sum(item['qty'] * item['info'][2] for item in cart.values())),
-                    height=60,
-                    expand=True
-                ),
-                ft.FilledButton(
-                    "Fiado / Cuenta", 
-                    icon="book", 
-                    style=ft.ButtonStyle(bgcolor="red", color="white", shape=ft.RoundedRectangleBorder(radius=5)),
-                    on_click=show_client_selector,
-                    height=60,
-                    expand=True
-                ),
-            ], alignment=ft.MainAxisAlignment.CENTER, spacing=10),
+            content=ft.Column([
+                ft.Row([
+                    ft.FilledButton(
+                        "Efectivo", icon=ft.Icons.MONEY, 
+                        style=ft.ButtonStyle(bgcolor="green", color="white", shape=ft.RoundedRectangleBorder(radius=5)),
+                        on_click=lambda e: pay_with("EFECTIVO"), expand=True, height=50
+                    ),
+                    ft.FilledButton(
+                        "Fiado", icon=ft.Icons.BOOK, 
+                        style=ft.ButtonStyle(bgcolor="red", color="white", shape=ft.RoundedRectangleBorder(radius=5)),
+                        on_click=lambda e: pay_with("FIADO"), expand=True, height=50
+                    ),
+                ]),
+                ft.Divider(),
+                ft.Text("Tarjetas y Bancos:", size=12, color="grey"),
+                ft.Row([
+                    ft.FilledButton("Transferencia", icon=ft.Icons.QR_CODE, style=ft.ButtonStyle(bgcolor="#1976D2", color="white"), on_click=lambda e: pay_with("TRANSFERENCIA"), expand=True),
+                    ft.FilledButton("Débito", icon=ft.Icons.CREDIT_CARD, style=ft.ButtonStyle(bgcolor="#1976D2", color="white"), on_click=lambda e: pay_with("DEBITO"), expand=True),
+                    ft.FilledButton("Crédito", icon=ft.Icons.CREDIT_CARD, style=ft.ButtonStyle(bgcolor="#1976D2", color="white"), on_click=lambda e: pay_with("CREDITO"), expand=True),
+                ]),
+            ], tight=True, width=500),
         )
 
         def close_dialog(dlg):

@@ -50,6 +50,13 @@ class InventarioModel:
             )
         ''')
         
+        # Migración: Agregar columna medio_pago a ventas si no existe
+        try:
+            cursor.execute("ALTER TABLE ventas ADD COLUMN medio_pago TEXT DEFAULT 'EFECTIVO'")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass # Ya existe
+        
         # 3. Tabla Detalle Ventas
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS detalle_ventas (
@@ -312,10 +319,11 @@ class InventarioModel:
     # NUEVOS METODOS (VENTAS Y GASTOS)
     # ==========================================
     
-    def register_sale(self, items):
+    def register_sale(self, items, medio_pago='EFECTIVO'):
         """
         Registra una venta completa con sus detalles.
         items: lista de tuplas/objetos (producto_id, cantidad, precio_unitario)
+        medio_pago: EFECTIVO, TRANSFERENCIA, DEBITO, CREDITO, DEUDA (si es fiado se maneja distinto pero igual se puede guardar aca)
         """
         import datetime
         conn = sqlite3.connect(self.db_name)
@@ -327,7 +335,7 @@ class InventarioModel:
             fecha_actual = datetime.datetime.now().isoformat()
             
             # 1. Crear cabecera de venta
-            cursor.execute("INSERT INTO ventas (fecha, total) VALUES (?, ?)", (fecha_actual, total_venta))
+            cursor.execute("INSERT INTO ventas (fecha, total, medio_pago) VALUES (?, ?, ?)", (fecha_actual, total_venta, medio_pago))
             venta_id = cursor.lastrowid
             
             # 2. Insertar detalles y descontar stock
@@ -712,7 +720,7 @@ class InventarioModel:
             end_date += "T23:59:59"
             
         try:
-            cursor.execute("SELECT id, fecha, total FROM ventas WHERE fecha BETWEEN ? AND ? ORDER BY fecha DESC", 
+            cursor.execute("SELECT id, fecha, total, medio_pago FROM ventas WHERE fecha BETWEEN ? AND ? ORDER BY fecha DESC", 
                            (start_date, end_date))
             return cursor.fetchall()
         finally:

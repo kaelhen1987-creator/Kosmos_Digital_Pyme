@@ -39,22 +39,21 @@ def build_reports_view(page: ft.Page, model):
         for d in details:
             rows.append(
                 ft.DataRow(cells=[
-                    ft.DataCell(ft.Container(ft.Text(d[0], text_align="left"), alignment=ft.Alignment(-1, 0), width=120)), # Nombre
-                    ft.DataCell(ft.Container(ft.Text(str(d[1]), text_align="center"), alignment=ft.Alignment(0, 0))),      # Cantidad
-                    ft.DataCell(ft.Container(ft.Text(format_currency(d[2]), text_align="center"), alignment=ft.Alignment(0, 0))), # Precio
-                    ft.DataCell(ft.Container(ft.Text(format_currency(d[3]), text_align="center"), alignment=ft.Alignment(0, 0))), # Subtotal
+                    ft.DataCell(ft.Container(ft.Text(d[0], text_align="left", size=12), alignment=ft.Alignment(-1, 0), width=120)), # Nombre
+                    ft.DataCell(ft.Container(ft.Text(str(d[1]), text_align="center", size=12), alignment=ft.Alignment(0, 0))),      # Cantidad
+                    ft.DataCell(ft.Container(ft.Text(format_currency(d[2]), text_align="center", size=12), alignment=ft.Alignment(0, 0))), # Precio
+                    # Subtotal REMOVIDO para mobile
                 ])
             )
             
         dlg_content = ft.DataTable(
             columns=[
-                ft.DataColumn(ft.Container(ft.Text("Producto", weight="bold"), alignment=ft.Alignment(-1, 0))),
-                ft.DataColumn(ft.Container(ft.Text("Cant", weight="bold"), alignment=ft.Alignment(0, 0))),
-                ft.DataColumn(ft.Container(ft.Text("Precio", weight="bold"), alignment=ft.Alignment(0, 0))),
-                ft.DataColumn(ft.Container(ft.Text("Subtotal", weight="bold"), alignment=ft.Alignment(0, 0))),
+                ft.DataColumn(ft.Container(ft.Text("Producto", weight="bold", size=12), alignment=ft.Alignment(-1, 0))),
+                ft.DataColumn(ft.Container(ft.Text("Cant", weight="bold", size=12), alignment=ft.Alignment(0, 0))),
+                ft.DataColumn(ft.Container(ft.Text("Precio", weight="bold", size=12), alignment=ft.Alignment(0, 0))),
             ],
             rows=rows,
-            column_spacing=20,
+            column_spacing=10, # Reducido para mobile
             heading_row_height=40,
             data_row_min_height=40,
         )
@@ -64,7 +63,7 @@ def build_reports_view(page: ft.Page, model):
             page.update()
 
         dlg = ft.AlertDialog(
-            title=ft.Text(f"Detalle Venta #{sale_id}"),
+            title=ft.Text(f"Detalle Venta #{sale_id}", size=16),
             content=ft.Column([dlg_content], scroll=ft.ScrollMode.AUTO, height=300),
             actions=[
                 ft.TextButton("Cerrar", on_click=lambda e: close_dialog(dlg))
@@ -125,24 +124,49 @@ def build_reports_view(page: ft.Page, model):
                 history_list.controls.append(ft.Text("No se encontraron ventas en este rango.", color="grey", italic=True))
             else:
                 for sale in sales_history:
-                    # sale: (id, fecha, total)
-                    s_id, s_date_iso, s_total = sale
+                    # sale: (id, fecha, total, medio_pago)
+                    # OJO: Si medio_pago no existe en registros viejos, puede ser None o error si DB no migrÃ³ bien.
+                    # El fetch trae 4 columnas segun nuevo query.
+                    if len(sale) >= 4:
+                        s_id, s_date_iso, s_total, s_pago = sale
+                    else:
+                        s_id, s_date_iso, s_total = sale
+                        s_pago = "EFECTIVO" # Fallback
+
+                    if not s_pago: s_pago = "EFECTIVO"
+
                     # Formatear fecha y hora
                     date_part = s_date_iso.split('T')[0]
                     time_part = s_date_iso.split('T')[1][:5] if 'T' in s_date_iso else ""
+                    
+                    # Icono segun pago
+                    icon = ft.Icons.MONEY
+                    color = "green"
+                    if s_pago == 'TRANSFERENCIA': 
+                        icon = ft.Icons.QR_CODE
+                        color = "blue"
+                    elif s_pago in ['DEBITO', 'CREDITO']:
+                        icon = ft.Icons.CREDIT_CARD
+                        color = "purple"
+                    elif s_pago == 'DEUDA':
+                        icon = ft.Icons.BOOK
+                        color = "orange"
                     
                     history_list.controls.append(
                         ft.Container(
                             content=ft.Row([
                                 ft.Row([
-                                    ft.Icon(ft.Icons.RECEIPT, color="#2196F3"),
+                                    ft.Icon(icon, color=color, size=20),
                                     ft.Column([
                                         ft.Text(f"Venta #{s_id}", weight="bold"),
                                         ft.Text(f"{date_part} {time_part}", size=12, color="grey")
-                                    ], spacing=2)
+                                    ], spacing=0)
                                 ]),
                                 ft.Row([
-                                    ft.Text(f"${s_total:,.0f}", weight="bold", size=16, color="green"),
+                                    ft.Column([
+                                         ft.Text(f"${s_total:,.0f}", weight="bold", size=16, color="green", text_align="center"),
+                                         ft.Text(s_pago, size=10, color="grey", text_align="center"),
+                                    ], spacing=0, alignment="center", horizontal_alignment="center"),
                                     ft.Icon(ft.Icons.CHEVRON_RIGHT, color="grey"),
                                 ])
                             ], alignment="space_between"),
