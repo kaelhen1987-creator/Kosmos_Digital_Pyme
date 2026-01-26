@@ -1,8 +1,88 @@
 import flet as ft
 from app.utils.helpers import is_mobile, show_message
 
+from app.utils.formatting import format_currency
 
 def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
+    # ==========================
+    # 0. LOGICA DE DETALLES (DIALOGOS)
+    # ==========================
+    def close_dialog(dlg):
+        dlg.open = False
+        page.update()
+
+    def show_sale_details(sale_id):
+        details = model.get_sale_details(sale_id)
+        # details: [(nombre, qty, precio, subtotal), ...]
+        
+        rows = []
+        for d in details:
+            rows.append(
+                ft.DataRow(cells=[
+                    ft.DataCell(ft.Container(ft.Text(d[0], text_align="left"), alignment=ft.Alignment(-1, 0), width=120)), # Nombre (Left)
+                    ft.DataCell(ft.Container(ft.Text(str(d[1]), text_align="center"), alignment=ft.Alignment(0, 0))),      # Cantidad
+                    ft.DataCell(ft.Container(ft.Text(format_currency(d[2]), text_align="center"), alignment=ft.Alignment(0, 0))), # Precio
+                    ft.DataCell(ft.Container(ft.Text(format_currency(d[3]), text_align="center"), alignment=ft.Alignment(0, 0))), # Subtotal
+                ])
+            )
+            
+        dlg_content = ft.DataTable(
+            columns=[
+                ft.DataColumn(ft.Container(ft.Text("Producto", weight="bold"), alignment=ft.Alignment(-1, 0))), # Header Left
+                ft.DataColumn(ft.Container(ft.Text("Cant", weight="bold"), alignment=ft.Alignment(0, 0))),
+                ft.DataColumn(ft.Container(ft.Text("Precio", weight="bold"), alignment=ft.Alignment(0, 0))),
+                ft.DataColumn(ft.Container(ft.Text("Subtotal", weight="bold"), alignment=ft.Alignment(0, 0))),
+            ],
+            rows=rows,
+            column_spacing=20,
+            heading_row_height=40,
+            data_row_min_height=40,
+            # numeric=False para todos para controlar alineacion manual
+        )
+
+        dlg = ft.AlertDialog(
+            title=ft.Text(f"Detalle Venta #{sale_id}"),
+            content=ft.Column([dlg_content], scroll=ft.ScrollMode.AUTO, height=300),
+            actions=[
+                ft.TextButton("Cerrar", on_click=lambda e: close_dialog(dlg))
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        page.overlay.append(dlg)
+        dlg.open = True
+        page.update()
+
+    def show_payment_details(item):
+        # item tiene la info necesaria
+        content = ft.Column([
+            ft.Text(f"Fecha: {item['date'].replace('T', ' ')}", size=16),
+            ft.Text(f"Monto: {format_currency(item['amount'])}", size=20, weight=ft.FontWeight.BOLD, color=ft.colors.GREEN),
+            ft.Divider(),
+            ft.Text(f"Info: {item['description']}", size=16),
+        ], tight=True)
+
+        dlg = ft.AlertDialog(
+            title=ft.Text(f"Detalle de Abono"),
+            content=content,
+            actions=[
+                ft.TextButton("Cerrar", on_click=lambda e: close_dialog(dlg))
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        page.overlay.append(dlg)
+        dlg.open = True
+        page.update()
+
+    def show_details(item):
+        try:
+            if item['type'] == 'VENTA':
+                show_sale_details(item['id'])
+            else:
+                show_payment_details(item)
+        except Exception as e:
+            print(f"ERROR in show_details: {e}")
+            show_message(page, f"Error detallando: {e}", "red")
+
     # ==========================
     # 1. ESTADO Y CALCULOS
     # ==========================
@@ -59,28 +139,29 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
 
             # 2. Abonos (Pagos de Deudas)
             payments = model.get_payments_report()
-            session_payments = [p for p in payments if p[2] >= t_inicio] if payments else [] # fecha is index 2 in movimientos_cuenta? Check schema.
-            # Schema: id(0), cliente_id(1), fecha(2), tipo(3), monto(4), descripcion(5), venta_id(6) -> Correct, fecha is 2.
+            session_payments = [p for p in payments if p[2] >= t_inicio] if payments else [] # fecha is index 2
             
             # Combinar y Ordenar por fecha desc
-            # Format sales: (id, fecha, total, 'VENTA')
-            # Format payments: (id, fecha, monto, 'ABONO')
             combined_income = []
             for s in session_sales:
                 combined_income.append({
+                    "id": s[0],
                     "date": s[1], 
                     "label": f"Venta #{s[0]}", 
                     "amount": s[2], 
                     "color": "green",
-                    "type": "VENTA"
+                    "type": "VENTA",
+                    "description": ""
                 })
             for p in session_payments:
                 combined_income.append({
+                    "id": p[0],
                     "date": p[2], 
                     "label": f"Abono #{p[0]}", 
                     "amount": p[4], 
                     "color": "blue",
-                    "type": "ABONO"
+                    "type": "ABONO",
+                    "description": f"{p[5]} (Cliente ID: {p[1]})" # Descripcion + Cliente
                 })
             
             # Sort desc
@@ -90,7 +171,7 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
             if not combined_income:
                  sales_list.controls.append(ft.Text("Sin ingresos en esta sesión", color="grey"))
             else:
-                for item in combined_income[:15]: 
+                for item in combined_income[:20]: # Aumentar limite un poco
                     # Mostrar Hora
                     raw_date = item["date"]
                     hora_fmt = raw_date.split('T')[1][:5] if 'T' in raw_date else raw_date
@@ -102,9 +183,16 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
                                     ft.Icon(ft.Icons.RECEIPT if item["type"]=="VENTA" else ft.Icons.PAYMENT, size=16, color="grey"),
                                     ft.Text(f"{item['label']} - {hora_fmt}", size=12),
                                 ]),
-                                ft.Text(f"${item['amount']:,.0f}", weight="bold", color=item["color"]),
+                                ft.Row([
+                                    ft.Text(f"${item['amount']:,.0f}", weight="bold", color=item["color"]),
+                                    ft.Icon(ft.Icons.CHEVRON_RIGHT, size=16, color="grey")
+                                ])
                             ], alignment="space_between"),
-                            bgcolor="white", padding=5, border_radius=5
+                            bgcolor="white", 
+                            padding=5, 
+                            border_radius=5,
+                            on_click=lambda e, it=item: show_details(it), # Interactivity
+                            ink=True
                         )
                     )
             

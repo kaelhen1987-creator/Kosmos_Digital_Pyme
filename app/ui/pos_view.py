@@ -95,7 +95,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
 
     # Campo de búsqueda con soporte para código de barras
     search_field = ft.TextField(
-        hint_text="Buscar producto o escanear código de barras...",
+        hint_text="Buscar producto o escanear...",
         on_change=lambda e: refresh_products(e.control.value),
         on_submit=handle_barcode_scan,  # Detecta Enter del lector
         bgcolor="white",
@@ -103,6 +103,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
         border_color="#2196F3",
         height=50,
         text_size=16,
+        expand=True
     )
     
     def refresh_products(search_query=""):
@@ -522,7 +523,10 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                     border_radius=ft.border_radius.only(top_left=10, top_right=10),
                 ),
                 ft.Container(
-                    content=ft.Column([search_field, category_tabs], spacing=10),
+                    content=ft.Column([
+                        ft.Row([search_field]),
+                        category_tabs
+                    ], spacing=10),
                     padding=10,
                     bgcolor="white",
                 ),
@@ -540,4 +544,6 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
     ], spacing=10)
 
     # Envolver en Columna Scrollable para permitir scroll de pagina en movil
+    # Envolver en Columna Scrollable para permitir scroll de pagina en movil
+    # FIX: Scanner es global ahora, no local.
     return ft.Column([layout], scroll=ft.ScrollMode.AUTO, expand=True)

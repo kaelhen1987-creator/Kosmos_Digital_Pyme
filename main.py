@@ -17,7 +17,8 @@ from app.ui.activation_view import build_activation_view
 from app.utils.helpers import show_message # Importar helper para mensajes
 
 # --- SYSTEM VERSION ---
-APP_VERSION = "0.9.1"  # Incrementamos versión para el release
+APP_VERSION = "0.9.1"  
+WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
 # ----------------------
 def main(page: ft.Page):
     page.title = "SOS Digital PyME - POS"
@@ -70,30 +71,29 @@ def main(page: ft.Page):
         import threading
         
         def run_update_check():
-            has_update, new_ver, update_url = check_for_updates(APP_VERSION)
-            if has_update:
-                def show_update_alert():
-                    # Crear SnackBar con botón de descarga
-                    snack = ft.SnackBar(
-                        content=ft.Row([
-                            ft.Icon(ft.Icons.SYSTEM_UPDATE, color="white"),
-                            ft.Text(f"¡Nueva versión disponible: {new_ver}!", color="white", weight="bold"),
-                        ], alignment=ft.MainAxisAlignment.START),
-                        action="DESCARGAR",
-                        on_action=lambda e: page.launch_url(update_url),
-                        duration=10000, # 10 segundos
-                        bgcolor="#2196F3"
-                    )
-                    page.overlay.append(snack)
-                    snack.open = True
-                    page.update()
-                
-                # Flet requiere manipular UI en el hilo principal o con cuidado
-                # Usamos page.run_task o simplemente invocamos si estamos en contexto seguro?
-                # Como esto corre en hilo aparte, invocar métodos de UI directo puede fallar en algunos backends.
-                # Lo más seguro en Flet es modificar UI desde su loop. 
-                # Pero en Desktop suele funcionar. Probaremos directo.
-                show_update_alert()
+            try:
+                has_update, new_ver, update_url = check_for_updates(APP_VERSION)
+                if has_update:
+                    def show_update_alert():
+                        # Crear SnackBar con botón de descarga
+                        snack = ft.SnackBar(
+                            content=ft.Row([
+                                ft.Icon(ft.Icons.SYSTEM_UPDATE, color="white"),
+                                ft.Text(f"¡Nueva versión disponible: {new_ver}!", color="white", weight="bold"),
+                            ], alignment=ft.MainAxisAlignment.START),
+                            action="DESCARGAR",
+                            on_action=lambda e: page.launch_url(update_url),
+                            duration=10000, # 10 segundos
+                            bgcolor="#2196F3"
+                        )
+                        page.overlay.append(snack)
+                        snack.open = True
+                        page.update()
+                    
+                    show_update_alert()
+            except Exception as e:
+                # print(f"Update check failed: {e}")
+                pass
 
         threading.Thread(target=run_update_check, daemon=True).start()
 
@@ -322,6 +322,7 @@ def main(page: ft.Page):
             expand=True,
             padding=10
         )
+        
         content_container.content = build_pos_view(page, model, shared_cart=app_state_cart)
         
         # Contenedor para botones de desktop (referencia para ocultar/mostrar)
@@ -339,7 +340,7 @@ def main(page: ft.Page):
         # Layout principal (Columna con botónera y contenido)
         main_layout = ft.Column([
             top_nav_bar,
-            content_container
+            content_container,
         ], expand=True, spacing=0)
 
         # STACK PRINCIPAL: Contiene la App + Scrim + Drawer Lateral
@@ -411,36 +412,14 @@ if __name__ == "__main__":
     import sys
     
     # Soporte para modo web (móvil/navegador)
-    if "--web" in sys.argv:
-        import socket
-        
-        # Detectar IP local automáticamente
-        try:
-            # Creamos un socket dummy para ver qué IP usa para salir a internet
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.settimeout(0)
-            # No se conecta realmente, solo busca la ruta
-            s.connect(('10.254.254.254', 1))
-            local_ip = s.getsockname()[0]
-        except Exception:
-            local_ip = '127.0.0.1'
-        finally:
-            s.close()
-            
-        port = 8000
-        if "--port" in sys.argv:
-            try:
-                port_index = sys.argv.index("--port")
-                port = int(sys.argv[port_index + 1])
-            except (ValueError, IndexError):
-                pass
-        
-        print(f"\n🌐 Servidor web iniciado en puerto {port}")
-        print(f"📱 IPHONE/ANDROID: http://{local_ip}:{port}")
-        print(f"💻 LOCALHOST:      http://127.0.0.1:{port}\n")
-        
-        # host='0.0.0.0' expone el servidor a la red local
-        ft.run(main, view=ft.AppView.WEB_BROWSER, port=port, host='0.0.0.0')
+    # Soporte para modo web (móvil/navegador)
+    # Soporte para modo web (móvil/navegador) - DESACTIVADO TEMPORALMENTE
+    # Para activar, usar: if True: ...
+    mode = "DESKTOP" 
+
+    if mode == "WEB":
+        # Bloque web eliminado/oculto por solicitud
+        pass
     else:
         # Modo desktop (ventana nativa)
         ft.run(main)

@@ -666,3 +666,138 @@ class InventarioModel:
             conn.close()
 
 
+
+    def get_top_selling_products(self, days=30, limit=5):
+        """
+        Obtiene los productos más vendidos en los últimos N días.
+        Retorna lista de tuplas: (nombre_producto, cantidad_total_vendida)
+        """
+        import datetime
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        
+        try:
+            # Calcular fecha de inicio (hace N días)
+            start_date = (datetime.datetime.now() - datetime.timedelta(days=days)).isoformat()
+            
+            query = '''
+                SELECT 
+                    p.nombre,
+                    SUM(d.cantidad) as total_vendido
+                FROM detalle_ventas d
+                JOIN ventas v ON d.venta_id = v.id
+                JOIN productos p ON d.producto_id = p.id
+                WHERE v.fecha >= ?
+                GROUP BY p.id, p.nombre
+                ORDER BY total_vendido DESC
+                LIMIT ?
+            '''
+            
+            cursor.execute(query, (start_date, limit))
+            return cursor.fetchall()
+            
+        finally:
+            conn.close()
+
+    def get_sales_in_range(self, start_date, end_date):
+        """
+        Retorna lista de ventas en un rango de fechas.
+        Retorna: [(id, fecha, total), ...] ordenado por fecha DESC
+        """
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        
+        # Asegurar formato completo para end_date
+        if len(end_date) == 10: 
+            end_date += "T23:59:59"
+            
+        try:
+            cursor.execute("SELECT id, fecha, total FROM ventas WHERE fecha BETWEEN ? AND ? ORDER BY fecha DESC", 
+                           (start_date, end_date))
+            return cursor.fetchall()
+        finally:
+            conn.close()
+
+    # ==========================================
+    # NUEVOS METODOS (HISTORIAL UNIFICADO)
+    # ==========================================
+
+    def get_sale_details(self, sale_id):
+        """
+        Retorna detalles de los productos vendidos en una venta especifica.
+        Lista de tuplas: (nombre_producto, cantidad, precio_unit, subtotal)
+        """
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        query = '''
+            SELECT p.nombre, d.cantidad, d.precio_unitario, d.subtotal
+            FROM detalle_ventas d
+            JOIN productos p ON d.producto_id = p.id
+            WHERE d.venta_id = ?
+            ORDER BY p.nombre ASC
+        '''
+        cursor.execute(query, (sale_id,))
+        res = cursor.fetchall()
+        conn.close()
+        return res
+
+    def get_all_income_events(self):
+        """
+        Retorna lista unificada de Ventas y Abonos (Pagos) ordenados por fecha DESC.
+        Formato de items en la lista:
+        {
+            'type': 'VENTA' o 'PAGO',
+            'id': int (id de la venta o movimiento),
+            'date': str (ISO date),
+            'amount': float,
+            'description': str,
+            'details_id': int (id para buscar detalle, venta_id o movimiento_id)
+        }
+        """
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        
+        events = []
+        
+        try:
+            # 1. Obtener Ventas
+            cursor.execute("SELECT id, fecha, total FROM ventas")
+            sales = cursor.fetchall()
+            for s in sales:
+                events.append({
+                    'type': 'VENTA',
+                    'id': s[0],
+                    'date': s[1],
+                    'amount': s[2],
+                    'description': f"Venta #{s[0]}",
+                    'details_id': s[0]
+                })
+                
+            # 2. Obtener Abonos (Pagos) con nombre de cliente
+            query_pagos = '''
+                SELECT m.id, m.fecha, m.monto, m.descripcion, c.nombre
+                FROM movimientos_cuenta m
+                JOIN clientes c ON m.cliente_id = c.id
+                WHERE m.tipo = 'PAGO'
+            '''
+            cursor.execute(query_pagos)
+            pagos = cursor.fetchall()
+            for p in pagos:
+                desc_extra = p[3] if p[3] else ""
+                events.append({
+                    'type': 'PAGO',
+                    'id': p[0],
+                    'date': p[1],
+                    'amount': p[2],
+                    'description': f"Abono - {p[4]} ({desc_extra})",
+                    'details_id': p[0] # Para abonos, usaremos el mismo ID para mostrar info
+                })
+                
+            # 3. Ordenar por fecha descendente (lo mas reciente primero)
+            events.sort(key=lambda x: x['date'], reverse=True)
+            
+            return events
+            
+        finally:
+            conn.close()
+
