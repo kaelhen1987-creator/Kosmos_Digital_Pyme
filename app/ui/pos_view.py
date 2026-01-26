@@ -127,7 +127,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                     # Desempaquetar
                     p_cat = "General"
                     if len(p) >= 7:
-                        p_id, p_name, p_price, p_stock, p_crit, p_barcode, p_cat = p
+                        p_id, p_name, p_price, p_stock, p_crit, p_barcode, p_cat = p[:7]
                     elif len(p) == 6:
                         p_id, p_name, p_price, p_stock, p_crit, p_barcode = p
                     else:
@@ -173,7 +173,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
 
             for p in products:
                 # Desempaquetar seguro
-                if len(p) >= 7: p_id, p_name, p_price, p_stock, p_crit, p_barcode, p_cat = p
+                if len(p) >= 7: p_id, p_name, p_price, p_stock, p_crit, p_barcode, p_cat = p[:7]
                 elif len(p) == 6: p_id, p_name, p_price, p_stock, p_crit, p_barcode = p
                 else: p_id, p_name, p_price, p_stock, p_crit = p
                 

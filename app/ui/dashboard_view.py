@@ -96,7 +96,104 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
     sales_list = ft.ListView(spacing=5, height=200, padding=10)
     expenses_list = ft.ListView(spacing=5, height=200, padding=10)
     
-    def refresh_data():
+    # ==========================
+    # 2. ALERTA DE VENCIMIENTO
+    # ==========================
+    expiring_alert = ft.Container(visible=False)
+
+    def show_expiring_details(items):
+        # items schema: schema db completa
+        # id, nombre, precio, stock, critico, barcode, categoria, vencimiento
+        rows = []
+        import datetime
+        today = datetime.date.today()
+        
+        for p in items:
+            p_name = p[1]
+            p_stock = p[3]
+            p_exp = p[7] if len(p) >= 8 else "???"
+            
+            # Calcular dias restantes
+            days_left = "--"
+            if p_exp:
+                try:
+                    d_exp = datetime.date.fromisoformat(p_exp)
+                    delta = (d_exp - today).days
+                    if delta < 0:
+                        days_left = f"Venció hace {abs(delta)} días"
+                        color = "red"
+                    elif delta == 0:
+                        days_left = "Vence HOY"
+                        color = "red"
+                    else:
+                        days_left = f"Vence en {delta} días"
+                        color = "orange"
+                except:
+                    days_left = "Fecha inválida"
+                    color = "grey"
+            else:
+                 color = "black"
+
+            rows.append(
+                ft.DataRow(cells=[
+                    ft.DataCell(ft.Text(p_name, size=12, weight="bold")),
+                    ft.DataCell(ft.Text(str(p_stock), size=12)),
+                    ft.DataCell(ft.Text(days_left, size=12, color=color)),
+                    ft.DataCell(ft.Text(str(p_exp), size=12)),
+                ])
+            )
+
+        dlg_content = ft.DataTable(
+            columns=[
+                ft.DataColumn(ft.Text("Producto")),
+                ft.DataColumn(ft.Text("Stock")),
+                ft.DataColumn(ft.Text("Estado")),
+                ft.DataColumn(ft.Text("Fecha")),
+            ],
+            rows=rows,
+            heading_row_height=40,
+            data_row_min_height=40,
+        )
+
+        dlg = ft.AlertDialog(
+            title=ft.Text(f"Productos por Vencer ({len(items)})"),
+            content=ft.Column([dlg_content], scroll=ft.ScrollMode.AUTO, height=300),
+            actions=[
+                ft.TextButton("Cerrar", on_click=lambda e: close_dialog(dlg))
+            ],
+        )
+        page.overlay.append(dlg)
+        dlg.open = True
+        page.update()
+
+    def update_expiring_alert(update_ui=True):
+        try:
+            exp_items = model.get_expiring_products() # items próximos a vencer (7 días)
+            
+            if exp_items:
+                count = len(exp_items)
+                expiring_alert.content = ft.Container(
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.WARNING_ROUNDED, color="white"),
+                        ft.Text(f"ATENCIÓN: Tienes {count} productos próximos a vencer.", color="white", weight="bold", expand=True),
+                        ft.ElevatedButton("Ver Detalle", color="red", bgcolor="white", 
+                                          on_click=lambda e: show_expiring_details(exp_items))
+                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                    bgcolor="#D32F2F", # Red 700
+                    padding=10,
+                    border_radius=8,
+                    shadow=ft.BoxShadow(spread_radius=1, blur_radius=3, color=ft.Colors.with_opacity(0.3, "black"))
+                )
+                expiring_alert.visible = True
+            else:
+                expiring_alert.visible = False
+            
+            if update_ui:
+                expiring_alert.update()
+        except Exception as e:
+            print(f"Error checking expiration: {e}")
+
+    def refresh_data(initial=False):
         # Obtener turno activo
         turno = model.get_active_turno()
         
@@ -237,7 +334,11 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
             expenses_list.controls.clear()
             expenses_list.controls.append(ft.Text("Caja Cerrada.", color="grey", italic=True))
             
-        page.update()
+        if not initial:
+            page.update()
+        
+        # Check expirations
+        update_expiring_alert(update_ui=not initial)
 
     # ==========================
     # 2. UI - TARJETAS SUPERIORES
@@ -328,7 +429,7 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
         )
     )
 
-    refresh_data() # Cargar datos iniciales
+    refresh_data(initial=True) # Cargar datos iniciales
     
     return ft.Container(
         content=ft.ListView([
@@ -339,6 +440,8 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
                 ], alignment=ft.MainAxisAlignment.CENTER),
                 bgcolor="#607D8B", padding=15, border_radius=10
             ),
+            # ALERTA DE VENCIMIENTO
+            expiring_alert,
             # Tarjetas
             ft.ResponsiveRow([
                 ft.Column([card_sales], col={"xs": 12, "md": 4}),

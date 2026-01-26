@@ -165,7 +165,19 @@ class InventarioModel:
     # METODOS CRUD PRODUCTOS
     # ==========================================
     
+    # --- MIGRACION VENCIMIENTO ---
+    def _ensure_expiration_column(self):
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("ALTER TABLE productos ADD COLUMN fecha_vencimiento TEXT")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass # Ya existe
+        conn.close()
+    
     def get_all_products(self):
+        self._ensure_expiration_column()
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM productos")
@@ -206,30 +218,53 @@ class InventarioModel:
         conn.close()
         return final_res
 
-    def add_product(self, nombre, precio, stock, stock_critico, codigo_barras=None, categoria="General"):
+    def add_product(self, nombre, precio, stock, stock_critico, codigo_barras=None, categoria="General", fecha_vencimiento=None):
+        self._ensure_expiration_column()
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         try:
             cursor.execute('''
-                INSERT INTO productos (nombre, precio, stock, stock_critico, codigo_barras, categoria)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (nombre, precio, stock, stock_critico, codigo_barras, categoria))
+                INSERT INTO productos (nombre, precio, stock, stock_critico, codigo_barras, categoria, fecha_vencimiento)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (nombre, precio, stock, stock_critico, codigo_barras, categoria, fecha_vencimiento))
             conn.commit()
         except sqlite3.IntegrityError:
             raise Exception(f"El producto '{nombre}' ya existe.")
         finally:
             conn.close()
 
-    def update_product(self, product_id, nombre, precio, stock, stock_critico, codigo_barras=None, categoria="General"):
+    def update_product(self, product_id, nombre, precio, stock, stock_critico, codigo_barras=None, categoria="General", fecha_vencimiento=None):
+        self._ensure_expiration_column()
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         cursor.execute('''
             UPDATE productos 
-            SET nombre = ?, precio = ?, stock = ?, stock_critico = ?, codigo_barras = ?, categoria = ?
+            SET nombre = ?, precio = ?, stock = ?, stock_critico = ?, codigo_barras = ?, categoria = ?, fecha_vencimiento = ?
             WHERE id = ?
-        ''', (nombre, precio, stock, stock_critico, codigo_barras, categoria, product_id))
+        ''', (nombre, precio, stock, stock_critico, codigo_barras, categoria, fecha_vencimiento, product_id))
         conn.commit()
         conn.close()
+
+    def get_expiring_products(self, days_threshold=7):
+        self._ensure_expiration_column()
+        import datetime
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        
+        today = datetime.date.today().isoformat()
+        future_limit = (datetime.date.today() + datetime.timedelta(days=days_threshold)).isoformat()
+        
+        # Buscar productos vencidos y por vencer (<= today + 7)
+        cursor.execute('''
+            SELECT * FROM productos 
+            WHERE fecha_vencimiento IS NOT NULL 
+            AND fecha_vencimiento != ''
+            AND fecha_vencimiento <= ?
+        ''', (future_limit,))
+        
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
 
     def delete_product(self, product_id):
         conn = sqlite3.connect(self.db_name)

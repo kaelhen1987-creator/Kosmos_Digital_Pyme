@@ -81,6 +81,16 @@ def build_inventory_view(page: ft.Page, model):
         border_width=2,
         expand=1,
     )
+    expiration_field = ft.TextField(
+        label="Vencimiento (Opcional)",
+        bgcolor="white",
+        color="black",
+        border_color="#2196F3",
+        hint_text="YYYY-MM-DD",
+        filled=True,
+        border_width=2,
+        expand=1,
+    )
     
     # Preview del precio con IVA
     price_preview = ft.Text(
@@ -130,16 +140,19 @@ def build_inventory_view(page: ft.Page, model):
              pass
         else:
             for p in products:
-                # Desempaquetar producto (ahora incluye categoria)
-                # Schema: id, nombre, precio, stock, critico, barcode, categoria
-                p_cat = "General"
-                if len(p) >= 7:
+                # Desempaquetar producto (ahora incluye categoria y vencimiento)
+                # Schema eventual: id, nombre, precio, stock, critico, barcode, categoria, vencimiento
+                p_id, p_name, p_price, p_stock, p_crit, p_barcode, p_cat, p_exp = None, None, 0, 0, 0, None, "General", None
+                
+                # Manejo robusto de versiones de tuplas
+                if len(p) >= 8:
+                    p_id, p_name, p_price, p_stock, p_crit, p_barcode, p_cat, p_exp = p[:8]
+                elif len(p) == 7:
                     p_id, p_name, p_price, p_stock, p_crit, p_barcode, p_cat = p
                 elif len(p) == 6:
                     p_id, p_name, p_price, p_stock, p_crit, p_barcode = p
                 else:
                     p_id, p_name, p_price, p_stock, p_crit = p
-                    p_barcode = None
                 
                 # Check None
                 if not p_cat: p_cat = "General"
@@ -150,6 +163,11 @@ def build_inventory_view(page: ft.Page, model):
                 elif p_stock <= p_crit + 5:
                     bg_color = "#fff9c4"
                 
+                # Info extra para mostrar vencimiento si existe
+                subtitle_info = f"Código: {p_barcode if p_barcode else '--'}"
+                if p_exp:
+                    subtitle_info += f" | Vence: {p_exp}"
+
                 product_list.controls.append(
                     ft.Container(
                         content=ft.Column([
@@ -202,8 +220,8 @@ def build_inventory_view(page: ft.Page, model):
                                     ft.Text(f"{p_crit}", size=16, color="black")
                                 ]),
                                 ft.Column([
-                                    ft.Text("Código", size=12, color="grey"),
-                                    ft.Text(f"{p_barcode if p_barcode else '--'}", size=14, color="black")
+                                    ft.Text("Detalles", size=12, color="grey"),
+                                    ft.Text(subtitle_info, size=12, color="black")
                                 ]),
                             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                         ], spacing=10),
@@ -226,6 +244,8 @@ def build_inventory_view(page: ft.Page, model):
             categoria = category_field.value
             if not categoria: categoria = "General"
             
+            expiration = expiration_field.value.strip() if expiration_field.value else None
+            
             precio_sin_iva = float(price_field.value)
             stock = int(stock_field.value)
             critico = int(critic_field.value)
@@ -237,7 +257,7 @@ def build_inventory_view(page: ft.Page, model):
             # Calcular precio con IVA (19%)
             precio_con_iva = precio_sin_iva * 1.19
             
-            model.add_product(nombre, precio_con_iva, stock, critico, codigo_barras, categoria)
+            model.add_product(nombre, precio_con_iva, stock, critico, codigo_barras, categoria, fecha_vencimiento=expiration)
             show_message(page, f"'{nombre}' agregado - Precio final: ${precio_con_iva:,.0f} (IVA incluido)", "green")
             
             name_field.value = ""
@@ -246,6 +266,7 @@ def build_inventory_view(page: ft.Page, model):
             price_field.value = ""
             stock_field.value = ""
             critic_field.value = ""
+            expiration_field.value = ""
             price_preview.value = "Precio con IVA (19%): $0"
             
             refresh_products()
@@ -255,6 +276,30 @@ def build_inventory_view(page: ft.Page, model):
             show_message(page, "Error: Verifica que precio y stock sean números válidos", "red")
         except Exception as ex:
             show_message(page, f"Error: {str(ex)}", "red")
+    
+    # ... (delete_product, quick_add_stock, open_promo_dialog skipped as they don't change logic significantly) ...
+    # Wait, open_edit_dialog DOES need changes.
+    # Inserting full block including Quick Add/Promo/Edit to ensure context match or skipping safely?
+    # I will replace up to 'def delete_product' and then handle 'open_edit_dialog' separately to avoid huge chunk.
+    # Actually, the user asked for fewer tools. I should try to do logic in one go, but the chunk limitation is real.
+    # I'll replace the block from `critic_field` definition down to `add_product` end.
+    
+    # ... (Existing implementations of delete/quick/promo remain same in file but need to update open_edit_dialog next) ...
+    
+    # To handle 'open_edit_dialog' correctly without replacing 300 lines, I will issue a second replace call.
+    # This block covers `add_product` fully.
+    
+    pass 
+
+    # For the replacement below, I'm replacing from 'critic_field =' down to end of 'add_product'.
+    
+    # --- END OF REPLACEMENT STRING ---
+
+# NOTE: Since I can't put Python logic in thought, I will execute the tool.
+# The `add_product` function ends around line 258. `delete_product` is at 261.
+# I am replacing from line 73 to 258.
+
+    pass
     
     # ...
 
@@ -423,10 +468,14 @@ def build_inventory_view(page: ft.Page, model):
         refresh_components()
     
     def open_edit_dialog(product_id, product_data):
-        # Desempaquetar
+        # Desempaquetar robusto
         p_cat = "General"
-        if len(product_data) >= 7:
-            p_id, p_name, p_price, p_stock, p_crit, p_barcode, p_cat = product_data
+        p_exp = None
+        
+        if len(product_data) >= 8:
+            p_id, p_name, p_price, p_stock, p_crit, p_barcode, p_cat, p_exp = product_data[:8]
+        elif len(product_data) >= 7:
+            p_id, p_name, p_price, p_stock, p_crit, p_barcode, p_cat = product_data[:7]
         elif len(product_data) == 6:
             p_id, p_name, p_price, p_stock, p_crit, p_barcode = product_data
         else:
@@ -454,12 +503,14 @@ def build_inventory_view(page: ft.Page, model):
         edit_price = ft.TextField(label="Precio", value=str(p_price), keyboard_type=ft.KeyboardType.NUMBER)
         edit_stock = ft.TextField(label="Stock", value=str(p_stock), keyboard_type=ft.KeyboardType.NUMBER)
         edit_critic = ft.TextField(label="Crítico", value=str(p_crit), keyboard_type=ft.KeyboardType.NUMBER)
+        edit_exp = ft.TextField(label="Vencimiento (YYYY-MM-DD)", value=p_exp if p_exp else "")
         
         def save_edit(e):
             try:
                 nombre = edit_name.value.strip()
                 codigo_barras = edit_barcode.value.strip() if edit_barcode.value else None
                 cat = edit_cat.value
+                exp = edit_exp.value.strip() if edit_exp.value else None
                 
                 precio = float(edit_price.value)
                 stock = int(edit_stock.value)
@@ -469,7 +520,7 @@ def build_inventory_view(page: ft.Page, model):
                     show_message(page, "Verifica los valores", "orange")
                     return
                 
-                model.update_product(product_id, nombre, precio, stock, critico, codigo_barras, cat)
+                model.update_product(product_id, nombre, precio, stock, critico, codigo_barras, cat, fecha_vencimiento=exp)
                 dlg_edit.open = False
                 page.update()
                 show_message(page, f"'{nombre}' actualizado correctamente", "green")
@@ -486,7 +537,8 @@ def build_inventory_view(page: ft.Page, model):
                 edit_price,
                 edit_stock,
                 edit_critic,
-            ], tight=True, height=350),
+                edit_exp
+            ], tight=True, height=400),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_edit)),
                 ft.TextButton("Guardar", on_click=save_edit),
@@ -507,9 +559,12 @@ def build_inventory_view(page: ft.Page, model):
         ft.Container(name_field, col={"xs": 12, "md": 12}),
         ft.Container(barcode_field, col={"xs": 12, "md": 6}),
         ft.Container(category_field, col={"xs": 12, "md": 6}),
+        # Fila de números: 4+4+4 = 12 (Ocupa todo el ancho en Desktop)
         ft.Container(price_field, col={"xs": 12, "md": 4}),
         ft.Container(stock_field, col={"xs": 12, "md": 4}),
         ft.Container(critic_field, col={"xs": 12, "md": 4}),
+        # Fila siguiente
+        ft.Container(expiration_field, col={"xs": 12, "md": 6}),
     ], spacing=10)
 
     return ft.Container(
