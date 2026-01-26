@@ -131,7 +131,33 @@ class InventarioModel:
                 FOREIGN KEY (producto_id) REFERENCES productos (id)
             )
         ''')
+
+        # 9. Tabla Configuración (Key-Value)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS config (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )
+        ''')
         
+        conn.commit()
+        conn.close()
+
+    # ==========================================
+    # METODOS CONFIGURACION
+    # ==========================================
+    def get_config(self, key, default=None):
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute("SELECT value FROM config WHERE key = ?", (key,))
+        res = cursor.fetchone()
+        conn.close()
+        return res[0] if res else default
+
+    def set_config(self, key, value):
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", (key, value))
         conn.commit()
         conn.close()
 

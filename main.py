@@ -224,6 +224,49 @@ def main(page: ft.Page):
             if page.drawer and page.drawer.open:
                  page.close(page.drawer)
         
+        # --- BACKUP LOGIC ---
+        # --- BACKUP LOGIC (DIRECTO) ---
+        def show_backup_dialog():
+            import shutil
+            import os
+            import datetime
+            
+            try:
+                # Definir ruta de respaldo (Escritorio/Respaldos_SOS)
+                desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+                backup_dir = os.path.join(desktop, "Respaldos_SOS")
+                
+                if not os.path.exists(backup_dir):
+                    os.makedirs(backup_dir)
+                
+                # Obtener nombre del negocio (Config)
+                # Si no existe, usar 'Generico'
+                biz_name = model.get_config('business_name', 'MiNegocio').replace(" ", "_")
+                
+                filename = f"sos_pyme_backup_{biz_name}_{datetime.date.today()}.sqlite"
+                destination = os.path.join(backup_dir, filename)
+                
+                # Copiar
+                if os.path.exists("sos_pyme.db"):
+                    shutil.copy("sos_pyme.db", destination)
+                    show_message(page, f"Backup guardado: Escritorio/Respaldos_SOS", "green")
+                else:
+                    show_message(page, "Error: No se encuentra la base de datos original", "red")
+                    return
+
+                # Intentar abrir la carpeta (Mac)
+                try:
+                    import subprocess
+                    subprocess.call(["open", backup_dir])
+                except:
+                    pass
+
+            except Exception as ex:
+                show_message(page, f"Error al guardar respaldo: {ex}", "red")
+
+        # FilePicker eliminado por incompatibilidad con version actual
+        # ...
+
         # --- DRAWER MANUAL (Custom Stack Implementation) ---
         # Definimos el contenido del drawer
         drawer_content = ft.Container(
@@ -237,6 +280,13 @@ def main(page: ft.Page):
                 ft.ListTile(leading=ft.Icon(ft.Icons.DASHBOARD, color="black"), title=ft.Text("Caja", color="black"), on_click=lambda e: select_drawer_item(2)),
                 ft.ListTile(leading=ft.Icon(ft.Icons.PEOPLE, color="black"), title=ft.Text("Fiados", color="black"), on_click=lambda e: select_drawer_item(3)),
                 ft.ListTile(leading=ft.Icon(ft.Icons.BAR_CHART, color="black"), title=ft.Text("Reportes", color="black"), on_click=lambda e: select_drawer_item(4)),
+                ft.Divider(),
+                ft.ListTile(
+                    leading=ft.Icon(ft.Icons.BACKUP, color="black"), 
+                    title=ft.Text("Copia de Seguridad", color="black"), 
+                    subtitle=ft.Text("Guardar / Compartir DB", size=10, color="grey"),
+                    on_click=lambda e: show_backup_dialog()
+                ),
                 ft.Divider(),
                 ft.ListTile(leading=ft.Icon(ft.Icons.LOGOUT, color="black"), title=ft.Text("Cerrar Sesión", color="black"), on_click=lambda e: handle_logout_drawer()),
             ], spacing=0),
@@ -330,8 +380,11 @@ def main(page: ft.Page):
             content=ft.Row([
                 # Botonera Navegación
                 ft.Row([btn_pos, btn_inv, btn_dash, btn_clients, btn_reports], spacing=2, scroll=ft.ScrollMode.HIDDEN),
-                # Botón Cierre Global
-                btn_close_global
+                # Botones Acciones Globales
+                ft.Row([
+                    ft.IconButton(ft.Icons.BACKUP, tooltip="Copia de Seguridad", on_click=lambda e: show_backup_dialog()),
+                    btn_close_global
+                ])
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
             bgcolor="#e0e0e0",
             padding=5,
@@ -388,13 +441,22 @@ def main(page: ft.Page):
     # CONTROL DE FLUJO (INICIO)
     # ---------------------------------------------------------
 
+    from app.ui.setup_view import build_setup_view
+
     def start_flow():
         # 1. Verificar Activación (Hardware Lock)
         if not is_activated():
             page.add(build_activation_view(page, on_success_callback=start_flow))
             return
+            
+        # 2. Verificar Configuración Inicial (Nombre Negocio)
+        biz_name = model.get_config('business_name')
+        if not biz_name:
+            page.clean()
+            page.add(build_setup_view(page, model, on_success_callback=start_flow))
+            return
 
-        # 2. Verificar si hay turno abierto
+        # 3. Verificar si hay turno abierto
         active_shift = model.get_active_turno()
         
         if active_shift:

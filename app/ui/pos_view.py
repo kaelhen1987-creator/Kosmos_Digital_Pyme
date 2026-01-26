@@ -486,8 +486,32 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
             elif method == "FIADO":
                 show_client_selector()
             else:
-                # TRANSFERENCIA, DEBITO, CREDITO
-                finalize_sale(method)
+                # TRANSFERENCIA, DEBITO, CREDITO -> CONFIRMACIÓN
+                total = sum(item['qty'] * item['info'][2] for item in cart.values())
+                
+                def confirm_fast_payment(e):
+                    dlg_confirm.open = False
+                    finalize_sale(method)
+                    
+                def close_confirm(e):
+                    dlg_confirm.open = False
+                    page.update()
+                    
+                dlg_confirm = ft.AlertDialog(
+                    title=ft.Text("Confirmar Pago"),
+                    content=ft.Column([
+                        ft.Text(f"¿Registrar pago con {method}?", size=18),
+                        ft.Text(f"Monto: ${total:,.0f}", weight="bold", size=20, color="green"),
+                    ], tight=True, height=100),
+                    actions=[
+                        ft.TextButton("Cancelar", on_click=close_confirm, style=ft.ButtonStyle(color="red")),
+                        ft.FilledButton("Confirmar", on_click=confirm_fast_payment, style=ft.ButtonStyle(bgcolor="green"))
+                    ],
+                    actions_alignment=ft.MainAxisAlignment.END
+                )
+                page.overlay.append(dlg_confirm)
+                dlg_confirm.open = True
+                page.update()
 
         btn_style = ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=5), color="white")
 
