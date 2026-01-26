@@ -5,6 +5,38 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
     # Usamos Column en lugar de ListView para que crezcan con el contenido (altura dinámica)
     # y el scroll sea manejado por la página principal (ft.Column scrollable)
     product_list = ft.Column(spacing=10, expand=False) 
+    
+    # --- ALERTA DE VENCIMIENTO (SnackBar) ---
+    last_expiring_count = [0]  # Usar lista para mantener estado mutable
+    
+    def update_expiration_alert():
+        try:
+            exp_items = model.get_expiring_products()
+            current_count = len(exp_items) if exp_items else 0
+            
+            # Solo mostrar si hay productos Y el conteo cambió (nuevo o actualizado)
+            if current_count > 0 and current_count != last_expiring_count[0]:
+                snack = ft.SnackBar(
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.WARNING_ROUNDED, color="white"),
+                        ft.Text(
+                            f"⚠️ ATENCIÓN: {current_count} productos próximos a vencer. Revise el Dashboard.",
+                            color="white",
+                            weight="bold"
+                        ),
+                    ]),
+                    bgcolor="#D32F2F",
+                    duration=5000,  # 5 segundos
+                )
+                page.overlay.append(snack)
+                snack.open = True
+                page.update()
+            
+            # Actualizar el conteo guardado
+            last_expiring_count[0] = current_count
+        except Exception as e:
+            print(f"Error checking expiration: {e}")
+
     grid_view = ft.GridView(
         expand=False, # GridView sin expansión forzada
         runs_count=5,
@@ -195,7 +227,9 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                         ink=True
                     )
                 )
-        if page: page.update()
+        if page: 
+            page.update()
+            update_expiration_alert()
     
     def refresh_cart():
         cart_list.controls.clear()
@@ -626,7 +660,6 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
         ),
     ], spacing=10)
 
-    # Envolver en Columna Scrollable para permitir scroll de pagina en movil
     # Envolver en Columna Scrollable para permitir scroll de pagina en movil
     # FIX: Scanner es global ahora, no local.
     return ft.Column([layout], scroll=ft.ScrollMode.AUTO, expand=True)
