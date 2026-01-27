@@ -41,5 +41,5 @@ jobs:
         with:
           name: windows-app-release
           # Subimos la carpeta completa, no solo el exe
-          path: build/windows/runner/Release/* # Nota: Si Flet cambia la ruta de salida en la v0.80, 
+          path: build/windows/x64/runner/Release/* # Nota: Si Flet cambia la ruta de salida en la v0.80, 
           # puedes usar 'build/windows/**' para asegurar, pero incluirá archivos intermedios.
