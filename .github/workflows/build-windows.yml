@@ -32,19 +32,12 @@ jobs:
         run: |
           flet build windows --verbose --yes
           
-      - name: List Build Directory (Debug)
-        run: |
-          Get-ChildItem -Path build -Recurse
-
-          
       # PASO CRÍTICO CORREGIDO:
       # En Windows no basta con el .exe, necesitas las DLLs y la carpeta data.
-      # Flet suele dejar el build final en 'build/windows' (o a veces dentro de runner/Release).
-      # Lo más seguro es subir todo el contenido de la carpeta de salida.
+      # Ruta confirmada por logs: build/flutter/build/windows/x64/runner/Release
       - name: Upload Windows Build
         uses: actions/upload-artifact@v4
         with:
           name: windows-app-release
           # Subimos la carpeta completa, no solo el exe
-          path: build/windows/runner/Release/* # Nota: Si Flet cambia la ruta de salida en la v0.80, 
-          # puedes usar 'build/windows/**' para asegurar, pero incluirá archivos intermedios.
+          path: build/flutter/build/windows/x64/runner/Release/*
