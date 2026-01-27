@@ -26,6 +26,10 @@ jobs:
           flutter-version: '3.38.6'
           channel: 'stable'
       
+      - name: Accept Android Licenses
+        run: |
+          yes | flutter doctor --android-licenses
+      
       - name: Install Dependencies
         run: |
           pip install flet
@@ -33,7 +37,7 @@ jobs:
 
       - name: Flet Build APK
         run: |
-          flet build apk --verbose
+          flet build apk --verbose --yes
           
       - name: Upload APK
         uses: actions/upload-artifact@v4
