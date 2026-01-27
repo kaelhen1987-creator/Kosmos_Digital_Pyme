@@ -15,14 +15,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      # Paso necesario para aceptar licencias de Android y evitar advertencias
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           
+      # AQUÍ ESTÁ EL ARREGLO: Fijamos la versión 3.27.1
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.27.1'
           channel: 'stable'
           cache: true
       
