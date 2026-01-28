@@ -489,10 +489,17 @@ class InventarioModel:
         return res
 
     def get_payments_report(self):
-        """Retorna todos los movimientos de tipo PAGO (Abonos)"""
+        """Retorna todos los movimientos de tipo PAGO (Abonos) con nombre de cliente"""
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM movimientos_cuenta WHERE tipo='PAGO' ORDER BY fecha DESC")
+        # Incluir c.nombre al final
+        cursor.execute('''
+            SELECT m.*, c.nombre 
+            FROM movimientos_cuenta m
+            JOIN clientes c ON m.cliente_id = c.id
+            WHERE m.tipo='PAGO' 
+            ORDER BY m.fecha DESC
+        ''')
         res = cursor.fetchall()
         conn.close()
         return res
@@ -509,6 +516,30 @@ class InventarioModel:
                            (nombre, telefono, alias, limite_credito))
             conn.commit()
             return cursor.lastrowid
+        finally:
+            conn.close()
+
+    def update_client(self, client_id, nombre, telefono, alias, limite_credito):
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        try:
+            cursor.execute('''
+                UPDATE clientes 
+                SET nombre = ?, telefono = ?, alias = ?, limite_credito = ?
+                WHERE id = ?
+            ''', (nombre, telefono, alias, limite_credito, client_id))
+            conn.commit()
+        finally:
+            conn.close()
+
+    def delete_client(self, client_id):
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        try:
+            # Eliminar movimientos asociados primero (si no hay CASCADE)
+            cursor.execute("DELETE FROM movimientos_cuenta WHERE cliente_id = ?", (client_id,))
+            cursor.execute("DELETE FROM clientes WHERE id = ?", (client_id,))
+            conn.commit()
         finally:
             conn.close()
 

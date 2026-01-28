@@ -1,148 +1,120 @@
-# 🏪 SOS Digital PyME - Sistema POS
+# 🏪 SOS Digital PyME - Sistema POS & Gestión Financiera
 
-Sistema de Punto de Venta (POS) completo desarrollado con **Flet**, diseñado específicamente para pequeñas y medianas empresas (PyMEs). Optimizado para funcionar en modo web con interfaz responsive y una arquitectura robusta de control financiero.
+Sistema de Punto de Venta (POS) profesional desarrollado en **Python** y **Flet**, diseñado específicamente para empoderar a pequeñas y medianas empresas. Más que un simple registrador de ventas, es una herramienta de **Inteligencia de Negocios** que te revela "La Verdad Financiera" de tu operación en tiempo real.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
-![Flet](https://img.shields.io/badge/Flet-0.80.1-green)
-![SQLite](https://img.shields.io/badge/SQLite-3-orange)
-![License](https://img.shields.io/badge/License-MIT-yellow)
+![Flet](https://img.shields.io/badge/Flet-0.80.4-green)
+![SQLite](https://img.shields.io/badge/SQLite-Integrated-orange)
+![License](https://img.shields.io/badge/License-Proprietary-red)
 
 ## 📋 Descripción
 
-SOS Digital PyME es una solución integral que profesionaliza la gestión de tu negocio. No solo registra ventas, sino que te ofrece "La Verdad Financiera" de tu operación.
+**SOS Digital PyME** transforma la complejidad financiera en simplicidad operativa. Elimina las "cuentas de servilleta" y ofrece un control estricto sobre el dinero, el inventario y los créditos.
 
-El sistema permite:
-- **Gestionar Ventas e Inventario** con código de barras, alertas de stock y **Promociones Dinámicas**.
-- **Controlar Turnos y Caja** (Apertura y Cierre con validación de montos).
-- **Manejar "Fiados" (Créditos)** con control de límites y gestión de abonos.
-- **Visualizar Reportes Reales** calculando utilidad, flujo de caja y deudas.
+El sistema se centra en la **transparencia del flujo de caja**, diferenciando claramente entre lo que vendiste (Venta Bruta) y el dinero que realmente entró a tu cajón, descontando fiados y sumando abonos de deudas pasadas.
 
 ## ✨ Características Principales
 
+### 🖥️ Panel Financiero (Dashboard)
+El corazón de tu negocio en tiempo real.
+- **Métricas en Vivo**: Visualiza Ventas Brutas, Gastos Operativos y Ganancia Estimada del turno actual al instante.
+- **Gestión de Gastos**: Registra salidas de dinero (proveedores, servicios, retiros) directamente en la caja para descontarlos automáticamente del cierre.
+- **Alertas de Vencimiento**: Notificaciones visuales automáticas cuando tus productos están próximos a vencer (Semáforo de caducidad).
+
 ### 🛒 Punto de Venta (POS)
-- **Carrito dinámico**: Validación de stock en tiempo real (impide vender más de lo que tienes).
-- **Integridad de Datos**: Prevención de stock negativo a nivel de base de datos.
-- **Búsqueda e Identificación**: Por nombre o código de barras.
+Rápido, intuitivo y a prueba de errores.
+- **Carrito Inteligente**: Validación de stock en tiempo real (impide vender lo que no tienes).
+- **Múltiples Medios de Pago**: Efectivo, Transferencia, Débito, Crédito y **Fiado (Cuenta Corriente)**.
+- **Búsqueda Flexible**: Escanea códigos de barras o busca por nombre al vuelo.
 
-### 🔐 Control de Turnos (Caja)
-- **Apertura de Caja**: Obligatoria al iniciar. Registra usuario y monto inicial.
-- **Cierre de Caja**: Rendición de monto final y desconexión segura.
-- **Cálculo de Efectivo**: El sistema sabe exactamente cuánto dinero debería haber en el cajón (Monto Inicial + Ventas Efectivo + Abonos - Gastos).
+### 👥 Cuaderno Digital (Gestión de Créditos)
+Olvídate del cuaderno de papel. Profesionaliza los fiados.
+- **Perfiles de Clientes**: Historial completo de compras y pagos.
+- **Límites de Crédito**: Define cupos máximos por cliente. El sistema bloquea nuevas ventas fiadas si superan su límite.
+- **Semáforo de Deudas**: Visualización rápida del estado de cuenta (Al Día / Deudor).
+- **Abonos Parciales**: Registra pagos a cuenta de la deuda total.
 
-### 📦 Gestión de Inventario y Promociones
-- **Catálogo Completo**: CRUD de productos con categorías y alertas de stock.
-- **Promociones (Packs)**: Creación de combos (ej: "Promo Desayuno") con stock dinámico. El sistema calcula automáticamente cuántas promos puedes vender basándose en el stock de los productos individuales.
-- **Stock Crítico**: Indicadores visuales y alertas para reposición.
-- **Soporte Scan**: Integración fluida con lectores de código de barras.
+### 📦 Inventario & Promociones
+- **Gestión Completa**: Alta, baja y modificación de productos.
+- **Stock Crítico**: Reportes de productos con bajo inventario.
+- **Control de Vencimientos**: Fecha de expiración por lote/producto.
 
-### 👥 Cuaderno Digital (Gestión de Clientes)
-- **Registro de Clientes**: Nombre, teléfono y alias.
-- **Límite de Crédito**: Define un monto máximo de deuda por cliente. El sistema bloqueará automáticamente nuevas ventas fiadas si se excede este límite.
-- **Cuenta Corriente**:
-  - Dar Fiado (Venta a crédito).
-  - Registrar Abonos/Pagos.
-  - Historial detallado de movimientos.
-- **Semáforo de Deudas**: Visualización rápida de clientes con deuda (Rojo) o al día (Verde).
+### 🔐 Control de Caja (Turnos)
+Seguridad para el dueño y el cajero.
+- **Apertura de Turno**: Obligatoria, registrando quién abre y con cuánto dinero (sencillo).
+- **Cierre Blindado**: Al cerrar, el sistema calcula el "Dinero Esperado" (Monto Inicial + Ventas Efectivo + Abonos - Gastos). Cualquier diferencia queda registrada.
 
-### 📊 La Verdad Financiera (Reportes)
-- **Reporte por Fechas**: Filtra por día, mes o rango personalizado.
-- **Consolidación Real**:
-   - **Ventas Brutas**: Todo lo vendido (Efectivo + Crédito).
-   - **Dinero REAL en Caja**: Flujo de caja neto (Monto Inicial + Ventas Efectivo + Abonos - Gastos).
-   - **Utilidad Operativa**: Ganancia calculada descontando costos.
-- **Trazabilidad**: Diferenciación clara entre dinero físico hoy y cuentas por cobrar.
+### 📊 Reportes Avanzados ("La Verdad Financiera")
+Analiza el pasado para mejorar el futuro.
+- **Filtros por Fecha**: Rangos personalizados.
+- **Top Productos**: Descubre tus "Best Sellers" (Top 7, 15 y 30 días).
+- **Desglose de Flujo**:
+    - **Ventas Brutas**: Todo lo facturado.
+    - **Dinero REAL**: Lo que efectivamente entró al bolsillo.
+    - **Crédito Otorgado**: Dinero que está en la calle.
+    - **Recuperación**: Deudas cobradas en el periodo.
 
-### 🛡️ Sistema de Activación y Seguridad (Hardware Lock)
-- **Bloqueo por Hardware**: La aplicación se ancla a un único dispositivo usando su identificador único (MAC addres/Hardware ID).
-- **Protección Anti-Copia**: Si se copian los archivos a otro PC, pedirá una nueva activación.
-- **Suscripciones Mensuales**:
-    - Generación de llaves con vencimiento (1 mes, 3 meses, 6 meses, 1 año).
-    - La App verifica criptográficamente que la fecha actual no exceda el vencimiento de la llave.
-    - Bloqueo automático al vencer la licencia.
-- **Generador de Llaves**: Script seguro (`key_generator.py`) para que el desarrollador emita licencias controladas.
+### 🛡️ Seguridad & Activación
+- **Hardware Lock**: Licenciamiento atado al hardware del equipo (evita piratería).
+- **Sistema de Licencias**: Soporte para planes mensuales, trimestrales o anuales con fecha de caducidad encriptada.
 
-## 🚀 Instalación
+## 🚀 Instalación y Ejecución
 
-### Requisitos Previos
+### Requisitos
 - Python 3.10 o superior
-- pip
+- Flet 0.80.4
 
 ### Pasos
 1. **Clonar el repositorio**
-```bash
-git clone https://github.com/kaelhen/sosdigitalpyme.git
-cd sosdigitalpyme
-```
+   ```bash
+   git clone <url-del-repo>
+   cd SOSDIGITALPYME
+   ```
 
-2. **Instalar dependencias**
-```bash
-pip install flet
-```
+2. **Crear entorno virtual (Opcional pero recomendado)**
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate  # Mac/Linux
+   # venv\Scripts\activate   # Windows
+   ```
 
-3. **Ejecutar la aplicación**
-```bash
-# Modo web (recomendado)
-python3 main.py
-```
-Acceder en navegador: `http://localhost:8080` (o el puerto indicado).
+3. **Instalar dependencias**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-## 📁 Estructura del Proyecto
+4. **Ejecutar la aplicación**
+   ```bash
+   python3 main.py
+   ```
+
+## 📂 Estructura del Proyecto
 
 ```
 SOSDIGITALPYME/
-├── main.py                 # Punto de entrada y navegación
-├── sos_pyme.db            # Base de datos Principal
+├── main.py                 # 🚀 Punto de entrada. Orquestador de navegación.
 ├── app/
 │   ├── data/
-│   │   └── database.py    # Modelo de datos y Lógica Financiera
+│   │   └── database.py     # 🧠 Cerebro: Lógica de negocio y SQL.
 │   ├── ui/
-│   │   ├── shift_view.py      # Apertura/Cierre de Turnos
-│   │   ├── pos_view.py        # Ventas
-│   │   ├── inventory_view.py  # Inventario
-│   │   ├── dashboard_view.py  # Finanzas Rápidas y Gastos
-│   │   ├── clients_view.py    # Cuaderno Digital (Fiados)
-│   │   └── reports_view.py    # Reportes Financieros Detallados
+│   │   ├── dashboard_view.py # 📉 Panel principal y gastos.
+│   │   ├── pos_view.py       # 🛒 Caja registradora.
+│   │   ├── inventory_view.py # 📦 Gestión de productos.
+│   │   ├── clients_view.py   # 👥 Cuaderno de fiados.
+│   │   ├── reports_view.py   # 📊 Analíticas históricas.
+│   │   └── shift_view.py     # 🕒 Apertura de turnos.
 │   └── utils/
-└── README.md
+├── assets/                 # Recursos estáticos.
+├── sos_pyme.db             # Base de datos local (SQLite).
+└── requirements.txt        # Dependencias.
 ```
 
-## 🗄️ Base de Datos
+## 🛠️ Tecnologías
 
-El sistema utiliza **SQLite** (`sos_pyme.db`) con un esquema relacional optimizado:
-- `productos`: Inventario y códigos.
-- `ventas` y `detalle_ventas`: Registro transaccional.
-- `turnos`: Sesiones de caja (inicio/fin/montos).
-- `clientes`: Información de contacto.
-- `movimientos_cuenta`: Registro de deudas y pagos linkeados a ventas o abonos.
-- `gastos`: Egresos operativos.
-
-## 🎨 Diseño y UX
-
-- **Enfoque Móvil**: Botones grandes, navegación simple.
-- **Feedback Visual**:
-  - Alertas de stock en rojo.
-  - Indicadores de ganancia/pérdida.
-  - Mensajes "Toast" para confirmaciones.
-
-## 🤖 Despliegue Automatizado (CI/CD)
-
-El proyecto cuenta con **GitHub Actions** configurados para generar los ejecutables automáticamente en cada actualización:
-1.  **Android APK**: Genera el archivo instalable para móviles.
-2.  **Windows Exe**: Genera el ejecutable nativo para Windows.
-
-Esto asegura que siempre tengas la última versión lista para entregar al cliente sin compilar manualmente.
-
-## 🔧 Soluciones Técnicas Destacadas
-
-1. **Anti-Race Condition**: Verificación atómica de stock en `register_sale` antes de confirmar la venta.
-2. **Shift Logic persistence**: El sistema recuerda si hay un turno abierto aunque se cierre la pestańa del navegador.
-3. **Responsive Navigation**: Adaptación dinámica del menú según el dispositivo.
-
-## 👤 Autor
-
-**Kael Hen**
-- GitHub: [@kaelhen](https://github.com/kaelhen)
-- Proyecto: [sosdigitalpyme](https://github.com/kaelhen/sosdigitalpyme)
+- **Frontend**: [Flet](https://flet.dev) (Framework de UI basado en Flutter para Python).
+- **Backend**: Python puro.
+- **Base de Datos**: SQLite3 (Integrada, sin configuración de servidor).
+- **Empaquetado**: PyInstaller (para generar .exe y .app).
 
 ---
-⭐ **SOS Digital PyME**: Profesionalizando el comercio de barrio.
+Desarrollado con ❤️ para impulsar el comercio local.

@@ -14,9 +14,11 @@ def build_clients_view(page: ft.Page, model):
     
     # --- Dialogos ---
     dlg_new_client = ft.AlertDialog(title=ft.Text("Nuevo Cliente"))
+    dlg_edit_client = ft.AlertDialog(title=ft.Text("Editar Cliente")) # Nuevo Dialogo Edit
     dlg_client_detail = ft.AlertDialog(title=ft.Text("Detalle Cliente"))
     dlg_payment = ft.AlertDialog(title=ft.Text("Registrar Pago"))
     dlg_debt = ft.AlertDialog(title=ft.Text("Agregar Deuda Manual"))
+    dlg_confirm_delete = ft.AlertDialog(title=ft.Text("Confirmar Eliminación")) # Nuevo Dialogo Delete
 
     def close_dialog(dlg):
         dlg.open = False
@@ -55,6 +57,61 @@ def build_clients_view(page: ft.Page, model):
         if dlg_new_client not in page.overlay:
             page.overlay.append(dlg_new_client)
         dlg_new_client.open = True
+        page.update()
+
+    def open_edit_client_dialog(client):
+        # Pre-fill fields
+        name_field = ft.TextField(label="Nombre", value=client['nombre'], autofocus=True)
+        phone_field = ft.TextField(label="Teléfono", value=client['telefono'], keyboard_type=ft.KeyboardType.PHONE)
+        alias_field = ft.TextField(label="Alias", value=client['alias'])
+        limit_field = ft.TextField(label="Límite de Crédito", value=str(int(client['limite'])), keyboard_type=ft.KeyboardType.NUMBER)
+        
+        def update_client_action(e):
+            nombre = name_field.value.strip()
+            if not nombre:
+                show_message(page, "El nombre es obligatorio", "orange")
+                return
+            
+            try:
+                limite = float(limit_field.value) if limit_field.value else 0
+                model.update_client(client['id'], nombre, phone_field.value, alias_field.value, limite)
+                close_dialog(dlg_edit_client)
+                show_message(page, f"Cliente actualizado", "green")
+                refresh_clients()
+            except ValueError:
+                show_message(page, "Límite inválido", "red")
+            except Exception as ex:
+                show_message(page, f"Error: {ex}", "red")
+
+        dlg_edit_client.content = ft.Column([name_field, phone_field, alias_field, limit_field], tight=True, width=300)
+        dlg_edit_client.actions = [
+            ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_edit_client)),
+            ft.FilledButton("Actualizar", on_click=update_client_action, style=ft.ButtonStyle(bgcolor="blue", color="white"))
+        ]
+        if dlg_edit_client not in page.overlay:
+            page.overlay.append(dlg_edit_client)
+        dlg_edit_client.open = True
+        page.update()
+
+    def delete_client_click(client):
+        def confirm_delete(e):
+            try:
+                model.delete_client(client['id'])
+                close_dialog(dlg_confirm_delete)
+                show_message(page, f"Cliente eliminado", "green")
+                refresh_clients()
+            except Exception as ex:
+                show_message(page, f"Error: {ex}", "red")
+
+        dlg_confirm_delete.content = ft.Text(f"¿Estás seguro de eliminar a '{client['nombre']}'? \nSe borrará todo su historial.", size=16)
+        dlg_confirm_delete.actions = [
+            ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_confirm_delete)),
+            ft.FilledButton("Eliminar", on_click=confirm_delete, style=ft.ButtonStyle(bgcolor="red", color="white"))
+        ]
+        
+        if dlg_confirm_delete not in page.overlay:
+            page.overlay.append(dlg_confirm_delete)
+        dlg_confirm_delete.open = True
         page.update()
 
     def open_client_detail(client):
@@ -198,7 +255,23 @@ def build_clients_view(page: ft.Page, model):
                     on_click=lambda e, cl=c: open_client_detail(cl),
                     height=30,
                     width=None,
-                )
+                ),
+            
+                # Botones de Accion (Editar / Eliminar)
+                ft.Row([
+                    ft.IconButton(
+                        icon=ft.Icons.EDIT, 
+                        icon_color="blue", 
+                        tooltip="Editar Cliente",
+                        on_click=lambda e, cl=c: open_edit_client_dialog(cl)
+                    ),
+                    ft.IconButton(
+                        icon=ft.Icons.DELETE, 
+                        icon_color="red", 
+                        tooltip="Eliminar Cliente",
+                        on_click=lambda e, cl=c: delete_client_click(cl)
+                    ),
+                ], alignment=ft.MainAxisAlignment.END, spacing=0)
             ], spacing=4) # Spacing controlado a 4px
 
             card = ft.Card(
@@ -206,7 +279,7 @@ def build_clients_view(page: ft.Page, model):
                     content=card_content,
                     # Padding ultra compacto: 10 lados, 2 arriba y abajo
                     padding=ft.padding.only(left=10, top=2, right=10, bottom=2),
-                    width=250, 
+                    width=260, 
                     height=None, # Altura automatica (ajustada al contenido)
                     bgcolor="#212121", 
                     border_radius=12, 

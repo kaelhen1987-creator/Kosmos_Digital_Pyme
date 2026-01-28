@@ -21,7 +21,7 @@ APP_VERSION = "0.10.0"  # Expiration tracking + SnackBar notifications
 WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
 # ----------------------
 def main(page: ft.Page):
-    page.title = "SOS Digital PyME - POS"
+    page.title = "Digital PyME"
     page.theme_mode = ft.ThemeMode.LIGHT # Forzar modo claro
     page.bgcolor = "#f5f5f5"
     page.padding = 0
@@ -335,7 +335,7 @@ def main(page: ft.Page):
         mobile_appbar = ft.AppBar(
             leading=ft.IconButton(ft.Icons.MENU, on_click=show_drawer),
             leading_width=40,
-            title=ft.Text("SOS Digital PyME"),
+            title=ft.Text("Digital PyME"),
             center_title=True,
             bgcolor="#2196F3",
             color="white",

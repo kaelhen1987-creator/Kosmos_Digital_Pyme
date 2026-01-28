@@ -24,9 +24,44 @@ else:
 
 def get_hardware_id():
     """
-    Obtiene el ID de hardware único del dispositivo.
-    Usa uuid.getnode() que devuelve la dirección MAC.
+    Obtiene el ID de hardware único y ESTABLE del dispositivo.
+    Intenta usar comandos del sistema (macOS/Windows) para obtener el UUID de la placa/sistema.
+    Si falla, hace fallback a uuid.getnode() (MAC Address).
     """
+    import platform
+    import subprocess
+    
+    system = platform.system()
+    
+    try:
+        if system == 'Darwin': # macOS
+            # Comando: ioreg -rd1 -c IOPlatformExpertDevice | grep IOPlatformUUID
+            cmd = "ioreg -rd1 -c IOPlatformExpertDevice | grep IOPlatformUUID"
+            output = subprocess.check_output(cmd, shell=True).decode()
+            # Formato esperado: "  "IOPlatformUUID" = "00000000-0000-0000-0000-000000000000"\n"
+            if "IOPlatformUUID" in output:
+                return output.split('"')[-2]
+                
+        elif system == 'Windows': # Windows
+            # Comando: wmic csproduct get uuid
+            cmd = "wmic csproduct get uuid"
+            # create_window_flags=0x08000000 evita que parpadee la consola en algunos casos
+            output = subprocess.check_output(cmd, shell=True).decode()
+            # El output suele ser: "UUID\nXXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX\n"
+            lines = [line.strip() for line in output.split('\n') if line.strip()]
+            if len(lines) > 1:
+                return lines[1] # La segunda línea es el UUID
+                
+        elif system == 'Linux':
+            # Intentar leer machine-id
+            if os.path.exists("/etc/machine-id"):
+                with open("/etc/machine-id", "r") as f:
+                    return f.read().strip()
+                    
+    except Exception as e:
+        print(f"Warning: Error obteniendo Stable ID ({e}), usando fallback.")
+    
+    # Fallback: uuid.getnode() (MAC Address, puede cambiar con red)
     node = uuid.getnode()
     return f"{node:X}"
 

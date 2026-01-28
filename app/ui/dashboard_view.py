@@ -54,9 +54,19 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
 
     def show_payment_details(item):
         # item tiene la info necesaria
+        # Formatear fecha para que sea legible (sin microsegundos)
+        raw_date = item['date']
+        try:
+            # Intentar parsear ISO format
+            import datetime
+            dt = datetime.datetime.fromisoformat(raw_date)
+            formatted_date = dt.strftime("%Y-%m-%d %H:%M:%S")
+        except:
+            formatted_date = raw_date.replace('T', ' ')
+
         content = ft.Column([
-            ft.Text(f"Fecha: {item['date'].replace('T', ' ')}", size=16),
-            ft.Text(f"Monto: {format_currency(item['amount'])}", size=20, weight=ft.FontWeight.BOLD, color=ft.colors.GREEN),
+            ft.Text(f"Fecha: {formatted_date}", size=16),
+            ft.Text(f"Monto: {format_currency(item['amount'])}", size=20, weight=ft.FontWeight.BOLD, color="green"),
             ft.Divider(),
             ft.Text(f"Info: {item['description']}", size=16),
         ], tight=True)
@@ -258,7 +268,7 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
                     "amount": p[4], 
                     "color": "blue",
                     "type": "ABONO",
-                    "description": f"{p[5]} (Cliente ID: {p[1]})" # Descripcion + Cliente
+                    "description": f"{p[5]} (Cliente: {p[7]})" # Descripcion + Cliente Nombre (idx 7)
                 })
             
             # Sort desc
