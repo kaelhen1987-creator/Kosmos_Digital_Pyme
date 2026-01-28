@@ -247,8 +247,9 @@ def main(page: ft.Page):
                 destination = os.path.join(backup_dir, filename)
                 
                 # Copiar
-                if os.path.exists("sos_pyme.db"):
-                    shutil.copy("sos_pyme.db", destination)
+                # Copiar
+                if os.path.exists(db_path):
+                    shutil.copy(db_path, destination)
                     show_message(page, f"Backup guardado: Escritorio/Respaldos_SOS", "green")
                 else:
                     show_message(page, "Error: No se encuentra la base de datos original", "red")

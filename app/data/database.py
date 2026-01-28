@@ -380,19 +380,25 @@ class InventarioModel:
     # NUEVOS METODOS (VENTAS Y GASTOS)
     # ==========================================
     
-    def register_sale(self, items, medio_pago='EFECTIVO'):
+    def register_sale(self, items, medio_pago='EFECTIVO', discount_percent=0):
         """
         Registra una venta completa con sus detalles.
         items: lista de tuplas/objetos (producto_id, cantidad, precio_unitario)
-        medio_pago: EFECTIVO, TRANSFERENCIA, DEBITO, CREDITO, DEUDA (si es fiado se maneja distinto pero igual se puede guardar aca)
+        medio_pago: EFECTIVO, TRANSFERENCIA, DEBITO, CREDITO, DEUDA
+        discount_percent: Porcentaje de descuento (0-100)
         """
         import datetime
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         
         try:
-            # Calcular total
-            total_venta = sum(item['qty'] * item['info'][2] for item in items.values())
+            # Calcular total bruto
+            subtotal_venta = sum(item['qty'] * item['info'][2] for item in items.values())
+            
+            # Aplicar Descuento
+            descuento_monto = subtotal_venta * (discount_percent / 100.0)
+            total_venta = subtotal_venta - descuento_monto
+            
             fecha_actual = datetime.datetime.now().isoformat()
             
             # 1. Crear cabecera de venta

@@ -53,6 +53,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
     cart = shared_cart if shared_cart is not None else {}
     current_mode = "scanner" # "scanner" or "visual"
     current_category = "Todas"
+    current_discount = [0] # Mutable state for discount percent
 
     list_container = ft.Container(content=product_list) # Sin expand
     grid_container = ft.Container(content=grid_view, visible=False) # Sin expand
@@ -231,6 +232,35 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
             page.update()
             update_expiration_alert()
     
+    # --- DISCOUNT LOGIC ---
+    def open_discount_dialog():
+        dct_field = ft.TextField(label="Porcentaje %", value=str(current_discount[0]), autofocus=True, keyboard_type=ft.KeyboardType.NUMBER)
+        
+        def apply_dct(e):
+            try:
+                val = int(dct_field.value)
+                if val < 0 or val > 100:
+                    show_message(page, "Debe ser entre 0 y 100", "red")
+                    return
+                current_discount[0] = val
+                refresh_cart()
+                dlg_dct.open = False
+                page.update()
+            except ValueError:
+                show_message(page, "Valor inválido", "red")
+                
+        dlg_dct = ft.AlertDialog(
+            title=ft.Text("Aplicar Descuento"),
+            content=dct_field,
+            actions=[
+                 ft.TextButton("Cancelar", on_click=lambda e: setattr(dlg_dct, 'open', False) or page.update()),
+                 ft.FilledButton("Aplicar", on_click=apply_dct)
+            ]
+        )
+        page.overlay.append(dlg_dct)
+        dlg_dct.open = True
+        page.update()
+    
     def refresh_cart():
         cart_list.controls.clear()
         total = 0
@@ -240,12 +270,14 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                 ft.Text("Carrito vacío\nClick en productos para agregar", 
                       size=14, color="grey", text_align="center")
             )
+            total_text.value = "Total: $0"
         else:
+            subtotal = 0
             for pid, item in cart.items():
                 info = item['info']
                 qty = item['qty']
-                subtotal = info[2] * qty
-                total += subtotal
+                line_total = info[2] * qty
+                subtotal += line_total
                 
                 cart_list.controls.append(
                     ft.Container(
@@ -254,7 +286,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                                 ft.Text(info[1], size=14, color="black", weight="bold"),
                                 ft.Text(f"${info[2]:,.0f} x {qty}", size=12, color="grey"),
                             ], expand=True, spacing=2),
-                            ft.Text(f"${subtotal:,.0f}", size=14, color="green", weight="bold"),
+                            ft.Text(f"${line_total:,.0f}", size=14, color="green", weight="bold"),
                             ft.TextButton(
                                 "Eliminar",
                                 on_click=lambda e, p=pid: remove_from_cart(p),
@@ -267,8 +299,30 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                         border=ft.border.all(1, "#e0e0e0"),
                     )
                 )
+            
+            # Calculos Finales
+            discount_pct = current_discount[0]
+            discount_amt = subtotal * (discount_pct / 100.0)
+            total = subtotal - discount_amt
+            
+            # Mostrar desglose si hay descuento
+            if discount_pct > 0:
+                 cart_list.controls.append(ft.Divider())
+                 cart_list.controls.append(
+                     ft.Row([
+                        ft.Text("Subtotal:", color="grey"),
+                        ft.Text(f"${subtotal:,.0f}", weight="bold")
+                     ], alignment="spaceBetween")
+                 )
+                 cart_list.controls.append(
+                     ft.Row([
+                        ft.Text(f"Descuento ({discount_pct}%):", color="red"),
+                        ft.Text(f"-${discount_amt:,.0f}", color="red", weight="bold")
+                     ], alignment="spaceBetween")
+                 )
+            
+            total_text.value = f"Total: ${total:,.0f}"
         
-        total_text.value = f"Total: ${total:,.0f}"
         page.update()
     
     def add_to_cart(product_id, product_info):
@@ -298,15 +352,19 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
             try:
                 # 1. Registrar venta física (baja de stock)
                 # Pasamos el medio_pago seleccionado. Si es DEUDA, igual se guarda como tal.
-                venta_id = model.register_sale(cart, medio_pago=payment_type)
+                # Pasamos el descuento actual al registrar
+                venta_id = model.register_sale(cart, medio_pago=payment_type, discount_percent=current_discount[0])
                 
-                # 2. Si es FIADO, registrar deuda
+                # 2. Si es FIADO, registrar deuda (Calculamos el total con descuento para la deuda)
                 if payment_type == 'DEUDA' and client_id:
-                    total_amount = sum(item['qty'] * item['info'][2] for item in cart.values())
+                     # Recalcular total con descuento
+                    subtotal = sum(item['qty'] * item['info'][2] for item in cart.values())
+                    total_amount = subtotal - (subtotal * (current_discount[0] / 100.0))
                     model.add_movement(client_id, 'DEUDA', total_amount, f"Compra #{venta_id} (Fiado)", venta_id)
                 
                 # 3. Limpiar y refrescar
                 cart.clear()
+                current_discount[0] = 0 # Reset discount
                 refresh_cart()
                 refresh_products()
                 
@@ -327,8 +385,9 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
             client_list = ft.ListView(expand=True, height=300)
             
             def finalize_with_client(client_data):
-                # Calcular total venta
-                current_total = sum(item['qty'] * item['info'][2] for item in cart.values())
+                # Calcular total venta CON DESCUENTO
+                sub_t = sum(item['qty'] * item['info'][2] for item in cart.values())
+                current_total = sub_t - (sub_t * (current_discount[0] / 100.0))
                 
                 # Verificar Limite de Credito
                 # client_data keys: id, nombre, telefono, alias, limite, deuda_total, pagado_total, saldo_actual
@@ -515,13 +574,19 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
         # --- Dialogo Principal de Pago ---
         
         def pay_with(method):
+            # Recalcular total real para paso de parametros
+            sub_t = sum(item['qty'] * item['info'][2] for item in cart.values())
+            real_total = sub_t - (sub_t * (current_discount[0] / 100.0))
+
             if method == "EFECTIVO":
-                show_cash_dialog(sum(item['qty'] * item['info'][2] for item in cart.values()))
+                show_cash_dialog(real_total)
             elif method == "FIADO":
                 show_client_selector()
             else:
                 # TRANSFERENCIA, DEBITO, CREDITO -> CONFIRMACIÓN
-                total = sum(item['qty'] * item['info'][2] for item in cart.values())
+                # Calcular total CON DESCUENTO
+                sub_t = sum(item['qty'] * item['info'][2] for item in cart.values())
+                total = sub_t - (sub_t * (current_discount[0] / 100.0))
                 
                 def confirm_fast_payment(e):
                     dlg_confirm.open = False
@@ -609,6 +674,14 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                 ft.Divider(height=1, color="grey"),
                 ft.Container(
                     content=ft.Column([
+                        ft.Row([
+                            ft.OutlinedButton(
+                                "Descuento %", 
+                                icon=ft.Icons.DISCOUNT,
+                                on_click=lambda e: open_discount_dialog(),
+                                expand=True
+                            ),
+                        ]),
                         ft.FilledButton(
                             "COBRAR",
                             on_click=checkout,
