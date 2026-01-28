@@ -142,8 +142,75 @@ class InventarioModel:
         
         conn.commit()
         conn.close()
+        
+        # Ejecutar Migraciones Automaticas
+        self.run_migrations()
 
     # ==========================================
+    # METODOS DE MIGRACIÓN
+    # ==========================================
+
+    def run_migrations(self):
+        """
+        Sistema de Migración Automática.
+        Verifica versión de DB y aplica cambios incrementales.
+        """
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        
+        try:
+            # Obtener versión actual
+            cursor.execute("SELECT value FROM config WHERE key='db_version'")
+            row = cursor.fetchone()
+            current_version = int(row[0]) if row else 0
+        except Exception as e:
+            print(f"Error reading config: {e}")
+            current_version = 0
+            
+        print(f"DEBUG: Run Migrations - Current Version: {current_version}")
+        
+        # --- MIGRACION 1: Columnas Legacy (Legacy check) ---
+        if current_version < 1:
+            print("Aplicando Migración v1 (Legacy Fields)...")
+            # Verificar y agregar columnas que podrían faltar de versiones previas
+            tables_fields = {
+                "productos": [("codigo_barras", "TEXT"), ("categoria", "TEXT DEFAULT 'General'")],
+                "ventas": [("medio_pago", "TEXT DEFAULT 'EFECTIVO'")]
+            }
+            
+            for table, fields in tables_fields.items():
+                for field_name, field_type in fields:
+                    try:
+                        cursor.execute(f"ALTER TABLE {table} ADD COLUMN {field_name} {field_type}")
+                    except sqlite3.OperationalError:
+                        pass # Ya existe
+            
+            # Update version
+            cursor.execute("INSERT OR REPLACE INTO config (key, value) VALUES ('db_version', '1')")
+            conn.commit()
+            print("Migración v1 aplicada.")
+            current_version = 1
+
+        # --- MIGRACION 2: Descuento en Ventas ---
+        if current_version < 2:
+            print("Aplicando Migración v2 (Descuentos)...")
+            try:
+                cursor.execute("ALTER TABLE ventas ADD COLUMN descuento REAL DEFAULT 0")
+                print("Columna 'descuento' agregada.")
+            except sqlite3.OperationalError as e:
+                print(f"Error agregando columna descuento: {e}")
+                pass
+            
+            cursor.execute("INSERT OR REPLACE INTO config (key, value) VALUES ('db_version', '2')")
+            conn.commit()
+            print("Migración v2 aplicada.")
+        
+        conn.close()
+
+
+
+    # ==========================================
+
     # METODOS CONFIGURACION
     # ==========================================
     def get_config(self, key, default=None):
@@ -402,7 +469,8 @@ class InventarioModel:
             fecha_actual = datetime.datetime.now().isoformat()
             
             # 1. Crear cabecera de venta
-            cursor.execute("INSERT INTO ventas (fecha, total, medio_pago) VALUES (?, ?, ?)", (fecha_actual, total_venta, medio_pago))
+            cursor.execute("INSERT INTO ventas (fecha, total, medio_pago, descuento) VALUES (?, ?, ?, ?)", 
+                           (fecha_actual, total_venta, medio_pago, discount_percent))
             venta_id = cursor.lastrowid
             
             # 2. Insertar detalles y descontar stock
