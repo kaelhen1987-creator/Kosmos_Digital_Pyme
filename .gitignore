@@ -10,3 +10,7 @@ venv/
 dist/
 build/
 *.spec
+
+# Local Tools
+key_generator.py
+key_generator_gui.py
