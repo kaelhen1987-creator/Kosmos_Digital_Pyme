@@ -31,13 +31,15 @@ jobs:
       - name: Flet Build Windows
         run: |
           flet build windows --verbose --yes
+
+      - name: Compile Windows Installer (Inno Setup)
+        uses: minhng97/inno-setup-action@v1.2.0
+        with:
+          path: installer.iss
           
-      # PASO CRÍTICO CORREGIDO:
-      # En Windows no basta con el .exe, necesitas las DLLs y la carpeta data.
-      # Ruta confirmada por logs: build/flutter/build/windows/x64/runner/Release
-      - name: Upload Windows Build
+      - name: Upload Windows Installer
         uses: actions/upload-artifact@v4
         with:
-          name: windows-app-release
-          # Subimos la carpeta completa, no solo el exe
-          path: build/flutter/build/windows/x64/runner/Release/*
+          name: SOS_Digital_PyME_Setup
+          path: Output/*
+
