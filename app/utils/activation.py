@@ -81,7 +81,9 @@ def generate_subscription_key(request_code, expiration_date_str):
     request_code: XXXX-XXXX
     expiration_date_str: YYYYMMDD (Ej: 20260217)
     
-    Retorna: YYYYMMDD-SIGNATURE (Ej: 20260217-A1B2C3D4)
+    Retorna: XXXX-XXXX-XXXX-XXXX (16 chars, 4 grupos de 4)
+    Contiene: YYYYMMDD (8 chars) + SIGNATURE (8 chars) intercalados o concatenados?
+    Para simplificar: YYYYMMDD + SIGNATURE, luego agrupar.
     """
     # Payload incluye la fecha para que la firma sea única para ESE vencimiento
     payload = f"{request_code.upper()}{expiration_date_str}{SECRET_SALT}"
@@ -90,34 +92,35 @@ def generate_subscription_key(request_code, expiration_date_str):
     # Usamos los primeros 8 chars del hash como firma
     signature = hashed[:8]
     
-    return f"{expiration_date_str}-{signature}"
+    # Combinar fecha y firma: 20260217 + A1B2C3D4 = 20260217A1B2C3D4 (16 chars)
+    raw_key = f"{expiration_date_str}{signature}"
+    
+    # Formatear en grupos de 4: 2026-0217-A1B2-C3D4
+    groups = [raw_key[i:i+4] for i in range(0, len(raw_key), 4)]
+    return "-".join(groups)
 
 def verify_key_and_get_expiry(input_key, _current_date=None):
     """
     Verifica si la llave es válida Y si no ha expirado.
     Retorna: (is_valid, message_or_date)
     """
-    # Limpieza básica
-    clean_key = input_key.strip().upper()
+    # Limpieza básica: Quitamos guiones y espacios
+    clean_key = input_key.strip().upper().replace("-", "")
     
-    # Formato esperado: YYYYMMDD-SIGNATURE (17 chars aprox)
-    parts = clean_key.split('-')
-    if len(parts) != 2:
-        # Fallback para soporte legacy (llaves perpetuas antiguas) si quisieras mantenerlo,
-        # pero por ahora asumiremos solo el nuevo formato para suscripciones.
-        return False, "Formato de clave inválido."
+    # Formato esperado: 16 caracteres (8 Fecha + 8 Firma)
+    if len(clean_key) != 16:
+        return False, "Longitud de clave inválida."
         
-    date_part = parts[0] # YYYYMMDD
-    signature_part = parts[1]
+    date_part = clean_key[:8] # Primeros 8: Fecha YYYYMMDD
+    signature_part = clean_key[8:] # Últimos 8: Firma
     
-    if len(date_part) != 8:
-        return False, "Formato de fecha inválido."
-        
     # 1. Verificar Firma (Integridad y Hardware)
     req_code = get_request_code()
-    # Reconstruimos la llave esperada para esa fecha
-    expected_key = generate_subscription_key(req_code, date_part)
-    expected_signature = expected_key.split('-')[1]
+    
+    # Regenerar firma esperada
+    payload = f"{req_code.upper()}{date_part}{SECRET_SALT}"
+    hashed = hashlib.sha256(payload.encode()).hexdigest().upper()
+    expected_signature = hashed[:8]
     
     if signature_part != expected_signature:
         return False, "La clave no corresponde a este dispositivo."
