@@ -32,11 +32,14 @@ jobs:
         run: |
           flet build windows --verbose --yes
 
-      - name: Compile Windows Installer (Inno Setup)
-        uses: minhng97/inno-setup-action@v1.2.0
-        with:
-          path: installer.iss
-          
+      - name: Install Inno Setup
+        run: |
+          choco install innosetup
+
+      - name: Compile Windows Installer
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+
       - name: Upload Windows Installer
         uses: actions/upload-artifact@v4
         with:
