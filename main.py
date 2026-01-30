@@ -17,7 +17,7 @@ from app.ui.activation_view import build_activation_view
 from app.utils.helpers import show_message # Importar helper para mensajes
 
 # --- SYSTEM VERSION ---
-APP_VERSION = "0.9.0"  # VERSION SIMULADA PARA PROBAR UPDATE  
+APP_VERSION = "0.10.0"  # Expiration tracking + SnackBar notifications
 WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
 # ----------------------
 def main(page: ft.Page):
@@ -71,6 +71,7 @@ def main(page: ft.Page):
         import threading
         
         def run_update_check():
+            import webbrowser
             try:
                 has_update, new_ver, update_url = check_for_updates(APP_VERSION)
                 if has_update:
@@ -82,7 +83,7 @@ def main(page: ft.Page):
                                 ft.Text(f"¡Nueva versión disponible: {new_ver}!", color="white", weight="bold"),
                             ], alignment=ft.MainAxisAlignment.START),
                             action="DESCARGAR",
-                            on_action=lambda e: page.launch_url(update_url),
+                            on_action=lambda e: webbrowser.open(update_url),
                             duration=10000, # 10 segundos
                             bgcolor="#2196F3"
                         )
