@@ -43,6 +43,9 @@ def build_inventory_view(page: ft.Page, model):
             ft.dropdown.Option("Cigarros"),
             ft.dropdown.Option("Lácteos"),
             ft.dropdown.Option("Aseo"),
+            ft.dropdown.Option("Fiambrería"),  # BULK
+            ft.dropdown.Option("Verdurería"),  # BULK
+            ft.dropdown.Option("Granel"),      # BULK
         ],
         hint_text="Categoría", # Mostrar esto cuando no hay selección
     )
@@ -497,6 +500,9 @@ def build_inventory_view(page: ft.Page, model):
                 ft.dropdown.Option("Cigarros"),
                 ft.dropdown.Option("Lácteos"),
                 ft.dropdown.Option("Aseo"),
+                ft.dropdown.Option("Fiambrería"),  # BULK
+                ft.dropdown.Option("Verdurería"),  # BULK
+                ft.dropdown.Option("Granel"),      # BULK
             ],
             value=p_cat if p_cat else "General"
         )

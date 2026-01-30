@@ -95,8 +95,8 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
         refresh_products()
 
     # Opción: Generaremos los tabs dinámicamente si es posible, o fijos. 
-    # Por ahora fijos con los del inventory_view
-    cats = ["Todas", "Promociones", "Bebidas", "Cafés", "Sandwiches", "Pastelería", "Almacén", "Cigarros", "Lácteos", "Aseo", "General"]
+    # Por ahora fijos con los del inventory_view + Nuevos de Granel
+    cats = ["Todas", "Promociones", "Bebidas", "Cafés", "Sandwiches", "Pastelería", "Almacén", "Cigarros", "Lácteos", "Aseo", "Fiambrería", "Verdurería", "Granel", "General"]
     category_tabs = ft.Row(
         controls=[
             ft.TextButton(cat, data=cat, on_click=filter_category) for cat in cats
@@ -283,8 +283,8 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                     ft.Container(
                         content=ft.Row([
                             ft.Column([
-                                ft.Text(info[1], size=14, color="black", weight="bold"),
-                                ft.Text(f"${info[2]:,.0f} x {qty}", size=12, color="grey"),
+                                ft.Text(f"{info[1]}", size=14, color="black", weight="bold"),
+                                ft.Text(f"${info[2]:,.0f} x {int(qty) if qty % 1 == 0 else f'{qty:.3f}'}", size=12, color="grey"),
                             ], expand=True, spacing=2),
                             ft.Text(f"${line_total:,.0f}", size=14, color="green", weight="bold"),
                             ft.TextButton(
@@ -325,18 +325,141 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
         
         page.update()
     
-    def add_to_cart(product_id, product_info):
-        if product_id not in cart:
-            cart[product_id] = {'info': product_info, 'qty': 0}
-        cart[product_id]['qty'] += 1
+    # --- BULK SALES LOGIC (Granel) ---
+    BULK_CATEGORIES = ["Fiambrería", "Verdurería", "Granel"]
+
+    def show_bulk_dialog(product_info, on_confirm):
+        p_id, p_name, p_price = product_info[0], product_info[1], product_info[2]
         
-        if cart[product_id]['qty'] > product_info[3]:
-            cart[product_id]['qty'] -= 1
-            show_message(page, "Stock insuficiente", "red")
+        # UI Elements
+        mode_switch = ft.Switch(label="Vender por Precio $ (mil pesos)", value=True) # True=Precio, False=Peso
+        input_value = ft.TextField(
+            label="Monto en Pesos ($)", 
+            value="", 
+            keyboard_type=ft.KeyboardType.NUMBER,
+            autofocus=True,
+            text_size=20,
+            prefix=ft.Text("$"),
+        )
+        result_preview = ft.Text("Calculando...", size=16, weight="bold")
+        
+        def update_mode(e):
+            if mode_switch.value:
+                input_value.label = "Monto en Pesos ($)"
+                input_value.prefix = ft.Text("$")
+                input_value.suffix = None
+            else:
+                input_value.label = "Peso en Gramos"
+                input_value.prefix = None
+                input_value.suffix = ft.Text("gr")
+            input_value.value = ""
+            input_value.focus()
+            result_preview.value = ""
+            dlg_bulk.update()
+
+        mode_switch.on_change = update_mode
+        
+        def calculate_preview(e):
+            try:
+                val = float(input_value.value)
+                if mode_switch.value: # Por Precio
+                    # Regla de 3: (Plata / PrecioPorKilo) = Kilos
+                    kilos = val / p_price
+                    gramos = kilos * 1000
+                    result_preview.value = f"Son: {gramos:,.0f} gramos ({kilos:.3f} Kg)"
+                else: # Por Gramos
+                    # (Gramos / 1000) * Precio = Plata
+                    kilos = val / 1000.0
+                    total = kilos * p_price
+                    result_preview.value = f"Son: ${total:,.0f} ({kilos:.3f} Kg)"
+                result_preview.update()
+            except:
+                result_preview.value = ""
+                result_preview.update()
+
+        input_value.on_change = calculate_preview
+
+        def set_val(val, is_weight=True):
+            mode_switch.value = not is_weight # Si es peso, switch false
+            update_mode(None)
+            input_value.value = str(val)
+            calculate_preview(None)
+            dlg_bulk.update()
+
+        def confirm_bulk(e):
+            try:
+                val = float(input_value.value)
+                final_qty = 0.0 # En Kilos (unidad base)
+                
+                if mode_switch.value: # Por Precio
+                     final_qty = val / p_price
+                else: # Por Gramos
+                     final_qty = val / 1000.0
+                     
+                if final_qty <= 0: return
+
+                dlg_bulk.open = False
+                page.update()
+                on_confirm(final_qty)
+            except:
+                pass
+
+        dlg_bulk = ft.AlertDialog(
+            title=ft.Text(f"{p_name} (${p_price:,.0f}/Kg)"),
+            content=ft.Column([
+                mode_switch,
+                ft.Container(height=10),
+                input_value,
+                result_preview,
+                ft.Divider(),
+                ft.Text("Rápido (Gramos):", size=12, color="grey"),
+                ft.Row([
+                    ft.ElevatedButton("1/8 (125g)", on_click=lambda e: set_val(125)),
+                    ft.ElevatedButton("1/4 (250g)", on_click=lambda e: set_val(250)),
+                    ft.ElevatedButton("1/2 (500g)", on_click=lambda e: set_val(500)),
+                ], alignment="center"),
+            ], tight=True, width=400),
+            actions=[
+                ft.TextButton("Cancelar", on_click=lambda e: setattr(dlg_bulk, 'open', False) or page.update()),
+                ft.FilledButton("Agregar al Carrito", on_click=confirm_bulk)
+            ]
+        )
+        page.overlay.append(dlg_bulk)
+        dlg_bulk.open = True
+        page.update()
+
+    def add_to_cart(product_id, product_info, quantity=1.0):
+        # Detectar Categoria Granel
+        # product_info schema check -> [id, name, price, stock, crit, bcode, CAT, ...]
+        p_cat = "General"
+        if len(product_info) >= 7 and product_info[6]:
+             p_cat = product_info[6]
+        
+        # Si es granel y no viene quantity especifica (click inicial)
+        if p_cat in BULK_CATEGORIES and quantity == 1.0:
+            # Abrir Dialogo Granel
+            show_bulk_dialog(product_info, lambda qty: add_to_cart(product_id, product_info, qty))
             return
+
+        if product_id not in cart:
+            cart[product_id] = {'info': product_info, 'qty': 0.0}
+        
+        cart[product_id]['qty'] += quantity
+        
+        # Validar Stock (Float comparison)
+        # Nota: SQLite guarda integers, pero python maneja stock como numero.
+        # En granel el stock deberia interpretarse como gramos o kgs?
+        # Asumiremos que el stock en DB para granel esta en UNIDADES BASE (Kilos o Litros)
+        if cart[product_id]['qty'] > product_info[3]:
+             cart[product_id]['qty'] -= quantity
+             show_message(page, f"Stock insuficiente (Max: {product_info[3]})", "red")
+             return
         
         refresh_cart()
-        show_message(page, f"{product_info[1]} agregado", "green")
+        
+        # Mensaje formateado segun cantidad
+        qty_msg = f"{int(quantity)}" if quantity.is_integer() else f"{quantity:.3f} Kg"
+        show_message(page, f"{product_info[1]} (+{qty_msg})", "green")
     
     def remove_from_cart(product_id):
         if product_id in cart:
@@ -612,31 +735,47 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                 dlg_confirm.open = True
                 page.update()
 
-        btn_style = ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=5), color="white")
+        btn_style_common = ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=5), color="white")
+        btn_height = 50
 
         dlg_payment = ft.AlertDialog(
-            title=ft.Text("Método de Pago"),
-            content=ft.Column([
-                ft.Row([
+            title=ft.Text("Selecciona Método de Pago"),
+            content=ft.Container(
+                content=ft.Column([
                     ft.FilledButton(
                         "Efectivo", icon=ft.Icons.MONEY, 
-                        style=ft.ButtonStyle(bgcolor="green", color="white", shape=ft.RoundedRectangleBorder(radius=5)),
-                        on_click=lambda e: pay_with("EFECTIVO"), expand=True, height=50
+                        style=ft.ButtonStyle(bgcolor="#4CAF50", color="white", shape=ft.RoundedRectangleBorder(radius=5)),
+                        on_click=lambda e: pay_with("EFECTIVO"), 
+                        height=btn_height, width=float("inf")
                     ),
                     ft.FilledButton(
-                        "Fiado", icon=ft.Icons.BOOK, 
-                        style=ft.ButtonStyle(bgcolor="red", color="white", shape=ft.RoundedRectangleBorder(radius=5)),
-                        on_click=lambda e: pay_with("FIADO"), expand=True, height=50
+                        "Débito", icon=ft.Icons.CREDIT_CARD, 
+                        style=ft.ButtonStyle(bgcolor="#1976D2", color="white", shape=ft.RoundedRectangleBorder(radius=5)),
+                        on_click=lambda e: pay_with("DEBITO"), 
+                        height=btn_height, width=float("inf")
                     ),
-                ]),
-                ft.Divider(),
-                ft.Text("Tarjetas y Bancos:", size=12, color="grey"),
-                ft.Row([
-                    ft.FilledButton("Transferencia", icon=ft.Icons.QR_CODE, style=ft.ButtonStyle(bgcolor="#1976D2", color="white"), on_click=lambda e: pay_with("TRANSFERENCIA"), expand=True),
-                    ft.FilledButton("Débito", icon=ft.Icons.CREDIT_CARD, style=ft.ButtonStyle(bgcolor="#1976D2", color="white"), on_click=lambda e: pay_with("DEBITO"), expand=True),
-                    ft.FilledButton("Crédito", icon=ft.Icons.CREDIT_CARD, style=ft.ButtonStyle(bgcolor="#1976D2", color="white"), on_click=lambda e: pay_with("CREDITO"), expand=True),
-                ]),
-            ], tight=True, width=500),
+                    ft.FilledButton(
+                        "Crédito", icon=ft.Icons.CREDIT_CARD, 
+                        style=ft.ButtonStyle(bgcolor="#1976D2", color="white", shape=ft.RoundedRectangleBorder(radius=5)),
+                        on_click=lambda e: pay_with("CREDITO"), 
+                        height=btn_height, width=float("inf")
+                    ),
+                    ft.FilledButton(
+                        "Transferencia", icon=ft.Icons.QR_CODE, 
+                        style=ft.ButtonStyle(bgcolor="#1976D2", color="white", shape=ft.RoundedRectangleBorder(radius=5)),
+                        on_click=lambda e: pay_with("TRANSFERENCIA"), 
+                        height=btn_height, width=float("inf")
+                    ),
+                    ft.Divider(),
+                    ft.FilledButton(
+                        "Fiado (Cuenta Corriente)", icon=ft.Icons.BOOK, 
+                        style=ft.ButtonStyle(bgcolor="#D32F2F", color="white", shape=ft.RoundedRectangleBorder(radius=5)),
+                        on_click=lambda e: pay_with("FIADO"), 
+                        height=btn_height, width=float("inf")
+                    ),
+                ], tight=True, spacing=10),
+                width=350
+            ) 
         )
 
         def close_dialog(dlg):
