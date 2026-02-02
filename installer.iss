@@ -2,10 +2,10 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "SOS Digital PyME"
-#define MyAppVersion "0.11.3"
+#define MyAppVersion "0.11.4"
 #define MyAppPublisher "Kaelhen"
 #define MyAppURL "https://github.com/kaelhen/sosdigitalpyme"
-#define MyAppExeName "sos_digital_pyme.exe"
+#define MyAppExeName "sosdigitalpyme.exe"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.

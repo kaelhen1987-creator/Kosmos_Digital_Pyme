@@ -19,7 +19,7 @@ from app.ui.activation_view import build_activation_view
 from app.utils.helpers import show_message # Importar helper para mensajes
 
 # --- SYSTEM VERSION ---
-APP_VERSION = "0.11.3"  # Fix: Unstable Activation (WiFi Change)
+APP_VERSION = "0.11.4"  # Fix: Installer shortcuts, Android backup, Update system
 WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
 # ----------------------
 async def main(page: ft.Page):
@@ -75,7 +75,7 @@ async def main(page: ft.Page):
         def run_update_check():
             import webbrowser
             try:
-                has_update, new_ver, update_url = check_for_updates(APP_VERSION)
+                has_update, new_ver, update_url = check_for_updates(APP_VERSION, page.platform)
                 if has_update:
                     def show_update_alert():
                         # Crear SnackBar con botón de descarga
@@ -237,16 +237,19 @@ async def main(page: ft.Page):
             biz_name = model.get_config('business_name', 'MiNegocio').replace(" ", "_")
             filename = f"sos_pyme_backup_{biz_name}_{datetime.date.today()}.sqlite"
 
-            # Plataformas móviles no soportadas por ahora (requiere FilePicker que está causando problemas)
-            if page.platform in ["android", "ios"]:
-                show_message(page, "Función de backup disponible solo en Desktop", "orange")
-                return
-
-            # --- LOGICA DESKTOP (Auto-Save to Desktop) ---
+            # --- LOGICA MULTIPLATAFORMA ---
             try:
-                # Definir ruta de respaldo (Escritorio/Respaldos_SOS)
-                desktop = os.path.join(os.path.expanduser("~"), "Desktop")
-                backup_dir = os.path.join(desktop, "Respaldos_SOS")
+                # Definir ruta de respaldo según plataforma
+                if page.platform in ["android", "ios"]:
+                    # En móviles, usar Documents (accesible sin permisos especiales)
+                    base_dir = os.path.join(os.path.expanduser("~"), "Documents")
+                    backup_dir = os.path.join(base_dir, "Respaldos_SOS")
+                    location_msg = "Documents/Respaldos_SOS"
+                else:
+                    # En Desktop, usar Desktop
+                    base_dir = os.path.join(os.path.expanduser("~"), "Desktop")
+                    backup_dir = os.path.join(base_dir, "Respaldos_SOS")
+                    location_msg = "Escritorio/Respaldos_SOS"
                 
                 if not os.path.exists(backup_dir):
                     os.makedirs(backup_dir)
@@ -256,20 +259,21 @@ async def main(page: ft.Page):
                 # Copiar
                 if os.path.exists(db_path):
                     shutil.copy(db_path, destination)
-                    show_message(page, f"Backup guardado: Escritorio/Respaldos_SOS", "green")
+                    show_message(page, f"Backup guardado: {location_msg}", "green")
                 else:
                     show_message(page, "Error: No se encuentra la base de datos original", "red")
                     return
 
-                # Intentar abrir la carpeta (Mac/Win)
-                try:
-                    import subprocess
-                    if page.platform == "macos":
-                        subprocess.call(["open", backup_dir])
-                    elif page.platform == "windows":
-                        os.startfile(backup_dir)
-                except:
-                    pass
+                # Intentar abrir la carpeta (Solo Desktop)
+                if page.platform not in ["android", "ios"]:
+                    try:
+                        import subprocess
+                        if page.platform == "macos":
+                            subprocess.call(["open", backup_dir])
+                        elif page.platform == "windows":
+                            os.startfile(backup_dir)
+                    except:
+                        pass
 
             except Exception as ex:
                 show_message(page, f"Error al guardar respaldo: {ex}", "red")

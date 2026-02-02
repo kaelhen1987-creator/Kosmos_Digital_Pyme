@@ -6,10 +6,14 @@ import ssl
 GITHUB_REPO = "kaelhen/SoS-Descargas"
 API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
-def check_for_updates(current_version):
+def check_for_updates(current_version, platform=None):
     """
     Consulta la API de GitHub para ver si hay una versión más nueva.
     Retorna: (has_update: bool, latest_version: str, download_url: str)
+    
+    Args:
+        current_version: Versión actual de la app (ej: "0.11.3")
+        platform: Plataforma del sistema (ej: "android", "windows", "macos")
     """
     try:
         # Contexto SSL seguro (o no verificado si da problemas de certificados locales)
@@ -27,9 +31,11 @@ def check_for_updates(current_version):
                 # La API devuelve "tag_name", ej: "v1.0.1" o "1.0.1"
                 latest_tag = data.get("tag_name", "").strip()
                 html_url = data.get("html_url", "") # URL de la release en web
+                assets = data.get("assets", []) # Lista de archivos adjuntos
                 
                 print(f"GitHub Latest Tag: {latest_tag}")
                 print(f"Local Version: {current_version}")
+                print(f"Platform: {platform}")
 
                 # Limpieza simple de 'v'
                 remote_ver = latest_tag.lstrip("v")
@@ -55,7 +61,40 @@ def check_for_updates(current_version):
                         
                         if r_parts > l_parts:
                             print("Update found (Numeric comparison)")
-                            return True, latest_tag, html_url
+                            
+                            # Buscar el asset correcto según la plataforma
+                            download_url = html_url # Fallback a la página HTML
+                            
+                            if platform and assets:
+                                # Buscar el archivo correcto según la plataforma
+                                if platform == "android":
+                                    # Buscar .apk
+                                    for asset in assets:
+                                        if asset.get("name", "").lower().endswith(".apk"):
+                                            download_url = asset.get("browser_download_url", html_url)
+                                            print(f"Found Android APK: {download_url}")
+                                            break
+                                            
+                                elif platform == "windows":
+                                    # Buscar .exe o Setup.exe
+                                    for asset in assets:
+                                        name = asset.get("name", "").lower()
+                                        if name.endswith(".exe") or "setup" in name:
+                                            download_url = asset.get("browser_download_url", html_url)
+                                            print(f"Found Windows installer: {download_url}")
+                                            break
+                                            
+                                elif platform == "macos":
+                                    # Buscar .dmg o .app.zip
+                                    for asset in assets:
+                                        name = asset.get("name", "").lower()
+                                        if name.endswith(".dmg") or name.endswith(".app.zip"):
+                                            download_url = asset.get("browser_download_url", html_url)
+                                            print(f"Found macOS installer: {download_url}")
+                                            break
+                            
+                            return True, latest_tag, download_url
+                            
                     except ValueError:
                         # Si falla el parseo, solo avisar si son distintos strings
                         pass # No forzamos la actualización si no es numérica clara
