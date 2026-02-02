@@ -28,9 +28,10 @@ jobs:
           # Powershell syntax para verificar si existe el archivo
           if (Test-Path requirements.txt) { pip install -r requirements.txt }
 
-      - name: Flet Build Windows
+      - name: Build with PyInstaller
         run: |
-          flet build windows --verbose --yes
+          pip install pyinstaller
+          pyinstaller "SOS Digital PyME.spec"
 
       - name: Install Inno Setup
         run: |
