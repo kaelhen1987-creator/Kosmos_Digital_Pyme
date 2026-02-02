@@ -1,10 +1,7 @@
 #!/opt/homebrew/bin/python3
 import flet as ft
-try:
-    import flet_desktop
-    import flet_runtime
-except ImportError:
-    pass
+# Imports de compatibilidad eliminados
+
 from app.data.database import InventarioModel
 from app.ui.pos_view import build_pos_view
 from app.ui.inventory_view import build_inventory_view
@@ -25,7 +22,7 @@ from app.utils.helpers import show_message # Importar helper para mensajes
 APP_VERSION = "0.11.3"  # Fix: Unstable Activation (WiFi Change)
 WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
 # ----------------------
-def main(page: ft.Page):
+async def main(page: ft.Page):
     page.title = "Digital PyME"
     page.theme_mode = ft.ThemeMode.LIGHT # Forzar modo claro
     page.bgcolor = "#f5f5f5"
@@ -231,20 +228,7 @@ def main(page: ft.Page):
                  page.close(page.drawer)
         
         # --- BACKUP LOGIC ---
-        # --- BACKUP LOGIC ---
-        def backup_file_result(e):
-            import shutil
-            if e.path:
-                try:
-                    shutil.copy(db_path, e.path)
-                    show_message(page, f"Backup guardado exitosamente", "green")
-                except Exception as ex:
-                    show_message(page, f"Error al guardar: {ex}", "red")
-
-        save_file_picker = ft.FilePicker(on_result=backup_file_result)
-        page.overlay.append(save_file_picker)
-
-        def show_backup_dialog():
+        def show_backup_dialog(e=None):
             import shutil
             import os
             import datetime
@@ -253,13 +237,9 @@ def main(page: ft.Page):
             biz_name = model.get_config('business_name', 'MiNegocio').replace(" ", "_")
             filename = f"sos_pyme_backup_{biz_name}_{datetime.date.today()}.sqlite"
 
-            # DETECTAR PLATAFORMA (Movil vs Desktop)
-            # En Android/iOS no podemos escribir en Desktop directamente. Usamos Picker nativo.
+            # Plataformas móviles no soportadas por ahora (requiere FilePicker que está causando problemas)
             if page.platform in ["android", "ios"]:
-                save_file_picker.save_file(
-                    dialog_title="Guardar Copia de Seguridad",
-                    file_name=filename,
-                )
+                show_message(page, "Función de backup disponible solo en Desktop", "orange")
                 return
 
             # --- LOGICA DESKTOP (Auto-Save to Desktop) ---
@@ -294,9 +274,6 @@ def main(page: ft.Page):
             except Exception as ex:
                 show_message(page, f"Error al guardar respaldo: {ex}", "red")
 
-        # FilePicker eliminado por incompatibilidad con version actual
-        # ...
-
         # --- DRAWER MANUAL (Custom Stack Implementation) ---
         # Definimos el contenido del drawer
         drawer_content = ft.Container(
@@ -315,7 +292,7 @@ def main(page: ft.Page):
                     leading=ft.Icon(ft.Icons.BACKUP, color="black"), 
                     title=ft.Text("Copia de Seguridad", color="black"), 
                     subtitle=ft.Text("Guardar / Compartir DB", size=10, color="grey"),
-                    on_click=lambda e: show_backup_dialog()
+                    on_click=lambda e: show_backup_dialog(e)
                 ),
                 ft.Divider(),
                 ft.ListTile(leading=ft.Icon(ft.Icons.LOGOUT, color="black"), title=ft.Text("Cerrar Sesión", color="black"), on_click=lambda e: handle_logout_drawer()),
@@ -412,7 +389,7 @@ def main(page: ft.Page):
                 ft.Row([btn_pos, btn_inv, btn_dash, btn_clients, btn_reports], spacing=2, scroll=ft.ScrollMode.HIDDEN),
                 # Botones Acciones Globales
                 ft.Row([
-                    ft.IconButton(ft.Icons.BACKUP, tooltip="Copia de Seguridad", on_click=lambda e: show_backup_dialog()),
+                    ft.IconButton(ft.Icons.BACKUP, tooltip="Copia de Seguridad", on_click=lambda e: show_backup_dialog(e)),
                     btn_close_global
                 ])
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
@@ -514,6 +491,4 @@ if __name__ == "__main__":
         pass
     else:
         # Modo desktop (ventana nativa)
-        ft.run(main)
-
-
+        ft.app(target=main)
