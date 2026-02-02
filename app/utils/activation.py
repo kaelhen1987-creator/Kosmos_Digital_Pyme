@@ -22,6 +22,29 @@ else:
     # Modo Dev
     ACTIVATION_FILE = "activation.lic"
 
+def get_persistent_id():
+    """Genera/Recupera un ID único almacenado en archivo (Device Lock para Android)."""
+    f_path = "device.id"
+    # Buscar data_dir en globals (definido al inicio del modulo)
+    if 'data_dir' in globals():
+        f_path = os.path.join(data_dir, "device.id")
+        
+    if os.path.exists(f_path):
+        try:
+            with open(f_path, "r") as f:
+                content = f.read().strip()
+                if len(content) > 5: return content
+        except: pass
+        
+    # Generar nuevo si no existe o fallo lectura
+    new_id = str(uuid.uuid4()).upper()
+    try:
+        with open(f_path, "w") as f:
+            f.write(new_id)
+    except: pass
+    
+    return new_id
+
 def get_hardware_id():
     """
     Obtiene el ID de hardware único y ESTABLE del dispositivo.
@@ -32,6 +55,10 @@ def get_hardware_id():
     import subprocess
     
     system = platform.system()
+    
+    # Android se reporta como Linux. Usar ID persistente para estabilidad entre redes.
+    if system == 'Linux':
+        return get_persistent_id()
     
     try:
         if system == 'Darwin': # macOS
@@ -84,11 +111,9 @@ def get_hardware_id():
     except Exception as e:
         print(f"Warning: Error obteniendo Stable ID ({e}), usando fallback.")
     
-    # Fallback: uuid.getnode() (MAC Address, puede cambiar con red)
-    # Solo llegamos aqui si fallaron TODOS los metodos de SO
-    print("Warning: Usando MAC Address como fallback.")
-    node = uuid.getnode()
-    return f"{node:X}"
+    # Fallback: ID Persistente (Mejor que MAC address para evitar cambios por Red)
+    print("Warning: Usando Persistent ID como fallback.")
+    return get_persistent_id()
 
 def get_request_code():
     """
