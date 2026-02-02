@@ -30,7 +30,7 @@ jobs:
 
       - name: Build with PyInstaller
         run: |
-          pip install pyinstaller
+          pip install pyinstaller Pillow
           pyinstaller "SOS Digital PyME.spec"
 
       - name: Install Inno Setup
