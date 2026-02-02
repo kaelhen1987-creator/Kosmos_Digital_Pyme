@@ -29,7 +29,9 @@ jobs:
 
       - name: Build Windows App
         run: |
-          flet build windows --verbose
+          flet build windows --no-rich-output --verbose
+        env:
+          FLET_BUILD_INTERACTIVE: "false"
 
       - name: Install Inno Setup
         run: |
