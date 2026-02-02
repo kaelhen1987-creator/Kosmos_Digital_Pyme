@@ -6,7 +6,7 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[('assets', 'assets'), ('app', 'app')],
-    hiddenimports=['flet_desktop', 'flet_runtime'],
+    hiddenimports=[],  # Removed legacy flet_desktop and flet_runtime
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -20,6 +20,7 @@ exe = EXE(
     pyz,
     a.scripts,
     a.binaries,
+    a.zipfiles,  # Added for onefile mode
     a.datas,
     [],
     name='sos_digital_pyme',
@@ -35,7 +36,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['assets/icon.png'],
+    icon='assets/icon.png',
 )
 app = BUNDLE(
     exe,
