@@ -24,11 +24,23 @@ jobs:
       
       - name: Install Dependencies
         run: |
-          pip install flet
+          pip install flet>=0.27.0
           # Powershell syntax para verificar si existe el archivo
           if (Test-Path requirements.txt) { pip install -r requirements.txt }
-          # Desinstalar paquetes legacy que causan conflictos
-          pip uninstall -y flet-desktop flet-web flet_desktop flet_runtime 2>$null; exit 0
+          
+      - name: Remove Legacy Flet Packages (AGGRESSIVE)
+        run: |
+          # Desinstalar TODOS los paquetes flet legacy
+          pip uninstall -y flet-desktop flet-web flet-runtime 2>$null
+          # Verificar que NO estén instalados
+          Write-Host "=== Verificando paquetes instalados ==="
+          pip list | Select-String "flet"
+          # Si flet_desktop aparece, fallar el build
+          $check = pip show flet-desktop 2>$null
+          if ($check) {
+            Write-Error "flet-desktop todavía está instalado!"
+            exit 1
+          }
 
       - name: Build with PyInstaller
         run: |
