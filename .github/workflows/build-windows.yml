@@ -24,23 +24,12 @@ jobs:
       
       - name: Install Dependencies
         run: |
-          pip install flet>=0.27.0
-          # Powershell syntax para verificar si existe el archivo
+          pip install flet>=0.25.2
           if (Test-Path requirements.txt) { pip install -r requirements.txt }
-          
-      - name: Remove Legacy Flet Packages (AGGRESSIVE)
-        run: |
-          # Desinstalar TODOS los paquetes flet legacy
-          pip uninstall -y flet-desktop flet-web flet-runtime 2>$null
-          # Verificar que NO estén instalados (solo para logs)
-          Write-Host "=== Paquetes Flet instalados ==="
-          pip list | Select-String "flet"
-          Write-Host "=== Si solo aparece 'flet', está correcto ==="
 
-      - name: Build with PyInstaller
+      - name: Build Windows App
         run: |
-          pip install pyinstaller Pillow
-          pyinstaller "SOS Digital PyME.spec"
+          flet build windows --verbose
 
       - name: Install Inno Setup
         run: |
@@ -55,4 +44,3 @@ jobs:
         with:
           name: SOS_Digital_PyME_Setup
           path: Output/*
-

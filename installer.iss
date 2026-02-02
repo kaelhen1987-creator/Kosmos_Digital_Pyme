@@ -35,8 +35,8 @@ Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-; Changed for directory mode: copy all files from dist/sos_digital_pyme/
-Source: "dist\sos_digital_pyme\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Flet build output path (v0.11.1 stable config)
+Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
