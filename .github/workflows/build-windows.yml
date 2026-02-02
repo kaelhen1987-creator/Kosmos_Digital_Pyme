@@ -30,6 +30,17 @@ jobs:
       - name: Flet Build Windows
         run: |
           flet build windows --verbose --yes
+      
+      - name: Debug - List build output
+        run: |
+          Write-Host "=== Listing build directory structure ==="
+          if (Test-Path build) { 
+            Get-ChildItem -Path build -Recurse -Depth 3 | Select-Object FullName 
+          } else {
+            Write-Host "build directory not found"
+          }
+          Write-Host "=== Searching for .exe files ==="
+          Get-ChildItem -Path . -Filter *.exe -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
 
       - name: Install Inno Setup
         run: |
