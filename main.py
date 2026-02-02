@@ -19,7 +19,7 @@ from app.ui.activation_view import build_activation_view
 from app.utils.helpers import show_message # Importar helper para mensajes
 
 # --- SYSTEM VERSION ---
-APP_VERSION = "0.11.4"  # Fix: Installer shortcuts, Android backup, Update system
+APP_VERSION = "0.11.5"  # Fix: Android backup uses internal storage
 WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
 # ----------------------
 async def main(page: ft.Page):
@@ -241,10 +241,18 @@ async def main(page: ft.Page):
             try:
                 # Definir ruta de respaldo según plataforma
                 if page.platform in ["android", "ios"]:
-                    # En móviles, usar Documents (accesible sin permisos especiales)
-                    base_dir = os.path.join(os.path.expanduser("~"), "Documents")
-                    backup_dir = os.path.join(base_dir, "Respaldos_SOS")
-                    location_msg = "Documents/Respaldos_SOS"
+                    # En móviles, usar el directorio de datos de la app (siempre accesible)
+                    # En Android: /data/data/com.app.name/files/Respaldos_SOS
+                    # Este directorio es accesible sin permisos especiales
+                    if hasattr(sys, 'frozen') and sys.frozen:
+                        # App empaquetada: usar directorio de datos
+                        app_data_dir = os.path.dirname(os.path.abspath(sys.executable))
+                    else:
+                        # Modo desarrollo
+                        app_data_dir = os.getcwd()
+                    
+                    backup_dir = os.path.join(app_data_dir, "Respaldos_SOS")
+                    location_msg = "Almacenamiento interno/Respaldos_SOS"
                 else:
                     # En Desktop, usar Desktop
                     base_dir = os.path.join(os.path.expanduser("~"), "Desktop")
