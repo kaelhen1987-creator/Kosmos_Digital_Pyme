@@ -227,7 +227,7 @@ def main(page: ft.Page):
         
         # --- BACKUP LOGIC ---
         # --- BACKUP LOGIC ---
-        def backup_file_result(e: ft.FilePickerResultEvent):
+        def backup_file_result(e):
             import shutil
             if e.path:
                 try:
