@@ -35,9 +35,8 @@ Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-; IMPORTANT: The Source path depends on where Flet outputs the build.
-; In CI/CD this is usually build/flutter/build/windows/x64/runner/Release
-Source: "dist\sos_digital_pyme.exe"; DestDir: "{app}"; Flags: ignoreversion
+; Changed for directory mode: copy all files from dist/sos_digital_pyme/
+Source: "dist\sos_digital_pyme\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
