@@ -226,12 +226,38 @@ def main(page: ft.Page):
                  page.close(page.drawer)
         
         # --- BACKUP LOGIC ---
-        # --- BACKUP LOGIC (DIRECTO) ---
+        # --- BACKUP LOGIC ---
+        def backup_file_result(e: ft.FilePickerResultEvent):
+            import shutil
+            if e.path:
+                try:
+                    shutil.copy(db_path, e.path)
+                    show_message(page, f"Backup guardado exitosamente", "green")
+                except Exception as ex:
+                    show_message(page, f"Error al guardar: {ex}", "red")
+
+        save_file_picker = ft.FilePicker(on_result=backup_file_result)
+        page.overlay.append(save_file_picker)
+
         def show_backup_dialog():
             import shutil
             import os
             import datetime
             
+            # NOMBRE SUGERIDO
+            biz_name = model.get_config('business_name', 'MiNegocio').replace(" ", "_")
+            filename = f"sos_pyme_backup_{biz_name}_{datetime.date.today()}.sqlite"
+
+            # DETECTAR PLATAFORMA (Movil vs Desktop)
+            # En Android/iOS no podemos escribir en Desktop directamente. Usamos Picker nativo.
+            if page.platform in ["android", "ios"]:
+                save_file_picker.save_file(
+                    dialog_title="Guardar Copia de Seguridad",
+                    file_name=filename,
+                )
+                return
+
+            # --- LOGICA DESKTOP (Auto-Save to Desktop) ---
             try:
                 # Definir ruta de respaldo (Escritorio/Respaldos_SOS)
                 desktop = os.path.join(os.path.expanduser("~"), "Desktop")
@@ -240,14 +266,8 @@ def main(page: ft.Page):
                 if not os.path.exists(backup_dir):
                     os.makedirs(backup_dir)
                 
-                # Obtener nombre del negocio (Config)
-                # Si no existe, usar 'Generico'
-                biz_name = model.get_config('business_name', 'MiNegocio').replace(" ", "_")
-                
-                filename = f"sos_pyme_backup_{biz_name}_{datetime.date.today()}.sqlite"
                 destination = os.path.join(backup_dir, filename)
                 
-                # Copiar
                 # Copiar
                 if os.path.exists(db_path):
                     shutil.copy(db_path, destination)
@@ -256,10 +276,13 @@ def main(page: ft.Page):
                     show_message(page, "Error: No se encuentra la base de datos original", "red")
                     return
 
-                # Intentar abrir la carpeta (Mac)
+                # Intentar abrir la carpeta (Mac/Win)
                 try:
                     import subprocess
-                    subprocess.call(["open", backup_dir])
+                    if page.platform == "macos":
+                        subprocess.call(["open", backup_dir])
+                    elif page.platform == "windows":
+                        os.startfile(backup_dir)
                 except:
                     pass
 

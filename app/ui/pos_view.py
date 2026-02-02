@@ -267,8 +267,13 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
         
         if not cart:
             cart_list.controls.append(
-                ft.Text("Carrito vacío\nClick en productos para agregar", 
-                      size=14, color="grey", text_align="center")
+                ft.Container(
+                    content=ft.Text("Carrito vacío\nClick en productos para agregar", 
+                          size=14, color="grey", text_align=ft.TextAlign.CENTER),
+                    alignment=ft.Alignment(0, 0),
+                    width=float("inf"),
+                    padding=20
+                )
             )
             total_text.value = "Total: $0"
         else:

@@ -543,8 +543,9 @@ def build_inventory_view(page: ft.Page, model):
                 edit_price,
                 edit_stock,
                 edit_critic,
-                edit_exp
-            ], tight=True, height=400),
+                edit_exp,
+                ft.Container(height=10) # Spacer at bottom
+            ], tight=True, scroll=ft.ScrollMode.AUTO, width=300),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_edit)),
                 ft.TextButton("Guardar", on_click=save_edit),
