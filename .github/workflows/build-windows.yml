@@ -22,6 +22,12 @@ jobs:
         with:
           python-version: '3.12'
       
+      - name: Setup Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.7'
+          channel: 'stable'
+      
       - name: Install Dependencies
         run: |
           pip install flet>=0.25.2
@@ -29,9 +35,7 @@ jobs:
 
       - name: Build Windows App
         run: |
-          flet build windows --no-rich-output --verbose
-        env:
-          FLET_BUILD_INTERACTIVE: "false"
+          flet build windows --verbose
 
       - name: Install Inno Setup
         run: |
