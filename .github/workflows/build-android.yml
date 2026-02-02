@@ -15,12 +15,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      # Paso necesario para aceptar licencias de Android y evitar advertencias
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
+
+      - name: Accept Android Licenses
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses
 
       - name: Setup Python
         uses: actions/setup-python@v5
