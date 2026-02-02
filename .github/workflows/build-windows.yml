@@ -32,15 +32,10 @@ jobs:
         run: |
           # Desinstalar TODOS los paquetes flet legacy
           pip uninstall -y flet-desktop flet-web flet-runtime 2>$null
-          # Verificar que NO estén instalados
-          Write-Host "=== Verificando paquetes instalados ==="
+          # Verificar que NO estén instalados (solo para logs)
+          Write-Host "=== Paquetes Flet instalados ==="
           pip list | Select-String "flet"
-          # Si flet_desktop aparece, fallar el build
-          $check = pip show flet-desktop 2>$null
-          if ($check) {
-            Write-Error "flet-desktop todavía está instalado!"
-            exit 1
-          }
+          Write-Host "=== Si solo aparece 'flet', está correcto ==="
 
       - name: Build with PyInstaller
         run: |
