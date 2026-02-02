@@ -27,6 +27,8 @@ jobs:
           pip install flet
           # Powershell syntax para verificar si existe el archivo
           if (Test-Path requirements.txt) { pip install -r requirements.txt }
+          # Desinstalar paquetes legacy que causan conflictos
+          pip uninstall -y flet-desktop flet-web flet_desktop flet_runtime 2>$null; exit 0
 
       - name: Build with PyInstaller
         run: |
