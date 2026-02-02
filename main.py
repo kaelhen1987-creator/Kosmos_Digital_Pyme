@@ -17,7 +17,7 @@ from app.ui.activation_view import build_activation_view
 from app.utils.helpers import show_message # Importar helper para mensajes
 
 # --- SYSTEM VERSION ---
-APP_VERSION = "0.11.0"  # Bulk Sales & New Payment UI
+APP_VERSION = "0.11.1"  # Hotfix: Android Backup & UI Alignments
 WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
 # ----------------------
 def main(page: ft.Page):
