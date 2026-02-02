@@ -1,5 +1,10 @@
 #!/opt/homebrew/bin/python3
 import flet as ft
+try:
+    import flet_desktop
+    import flet_runtime
+except ImportError:
+    pass
 from app.data.database import InventarioModel
 from app.ui.pos_view import build_pos_view
 from app.ui.inventory_view import build_inventory_view
