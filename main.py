@@ -19,7 +19,7 @@ from app.ui.activation_view import build_activation_view
 from app.utils.helpers import show_message # Importar helper para mensajes
 
 # --- SYSTEM VERSION ---
-APP_VERSION = "0.11.5"  # Fix: Android backup uses internal storage
+APP_VERSION = "0.11.6"  # Fix: Update download button with debug logging
 WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
 # ----------------------
 async def main(page: ft.Page):
