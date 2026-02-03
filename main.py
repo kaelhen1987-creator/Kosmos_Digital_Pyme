@@ -76,8 +76,23 @@ async def main(page: ft.Page):
             import webbrowser
             try:
                 has_update, new_ver, update_url = check_for_updates(APP_VERSION, page.platform)
+                print(f"Update check result: has_update={has_update}, version={new_ver}, url={update_url}")
+                
                 if has_update:
                     def show_update_alert():
+                        def handle_download(e):
+                            print(f"Download button clicked. URL: {update_url}")
+                            if update_url:
+                                try:
+                                    page.launch_url(update_url)
+                                    print(f"Launched URL: {update_url}")
+                                except Exception as ex:
+                                    print(f"Error launching URL: {ex}")
+                                    # Fallback: mostrar URL en un diálogo
+                                    show_message(page, f"Descarga desde: {update_url}", "blue")
+                            else:
+                                show_message(page, "Error: URL de descarga no disponible", "red")
+                        
                         # Crear SnackBar con botón de descarga
                         snack = ft.SnackBar(
                             content=ft.Row([
@@ -85,7 +100,7 @@ async def main(page: ft.Page):
                                 ft.Text(f"¡Nueva versión disponible: {new_ver}!", color="white", weight="bold"),
                             ], alignment=ft.MainAxisAlignment.START),
                             action="DESCARGAR",
-                            on_action=lambda e: page.launch_url(update_url),
+                            on_action=handle_download,
                             duration=10000, # 10 segundos
                             bgcolor="#2196F3"
                         )
@@ -95,7 +110,7 @@ async def main(page: ft.Page):
                     
                     show_update_alert()
             except Exception as e:
-                # print(f"Update check failed: {e}")
+                print(f"Update check failed: {e}")
                 pass
 
         threading.Thread(target=run_update_check, daemon=True).start()
