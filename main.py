@@ -19,7 +19,7 @@ from app.ui.activation_view import build_activation_view
 from app.utils.helpers import show_message # Importar helper para mensajes
 
 # --- SYSTEM VERSION ---
-APP_VERSION = "0.11.8"  # Fix: Android update with copyable URL dialog
+APP_VERSION = "0.11.9"  # Fix: Android backup with storage permissions
 WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
 # ----------------------
 async def main(page: ft.Page):
@@ -290,44 +290,54 @@ async def main(page: ft.Page):
 
             # --- LOGICA MULTIPLATAFORMA ---
             try:
-                # Definir ruta de respaldo según plataforma
-                if page.platform in ["android", "ios"]:
-                    # En móviles, usar el directorio de trabajo actual
-                    # En Android, Flet siempre inicia en /data/data/com.app.name/files/
-                    app_data_dir = os.getcwd()
-                    backup_dir = os.path.join(app_data_dir, "Respaldos_SOS")
-                    location_msg = "Almacenamiento interno/Respaldos_SOS"
-                    
-                    print(f"Android backup - CWD: {app_data_dir}")
-                    print(f"Android backup - Target: {backup_dir}")
-                else:
-                    # En Desktop, usar Desktop
-                    base_dir = os.path.join(os.path.expanduser("~"), "Desktop")
-                    backup_dir = os.path.join(base_dir, "Respaldos_SOS")
-                    location_msg = "Escritorio/Respaldos_SOS"
+                # Crear backup temporal
+                app_data_dir = os.getcwd() if page.platform in ["android", "ios"] else os.path.join(os.path.expanduser("~"), "Desktop")
+                backup_dir = os.path.join(app_data_dir, "Respaldos_SOS")
                 
-                print(f"Creating backup directory: {backup_dir}")
                 if not os.path.exists(backup_dir):
                     os.makedirs(backup_dir)
-                    print(f"Directory created successfully")
                 
                 destination = os.path.join(backup_dir, filename)
-                print(f"Backup destination: {destination}")
-                print(f"Source DB path: {db_path}")
-                print(f"DB exists: {os.path.exists(db_path)}")
                 
-                # Copiar
+                # Copiar base de datos
                 if os.path.exists(db_path):
                     shutil.copy(db_path, destination)
-                    print(f"Backup successful: {destination}")
-                    show_message(page, f"Backup guardado: {location_msg}", "green")
+                    print(f"Backup created: {destination}")
                 else:
-                    print(f"ERROR: Database not found at {db_path}")
                     show_message(page, "Error: No se encuentra la base de datos original", "red")
                     return
-
-                # Intentar abrir la carpeta (Solo Desktop)
-                if page.platform not in ["android", "ios"]:
+                
+                # Comportamiento según plataforma
+                if page.platform in ["android", "ios"]:
+                    # En móviles: guardar en Downloads (accesible con permisos)
+                    try:
+                        # En Android, usar la carpeta Downloads del almacenamiento externo
+                        # Esto requiere permisos WRITE_EXTERNAL_STORAGE
+                        import os
+                        downloads_dir = os.path.join("/storage/emulated/0", "Download")
+                        
+                        # Fallback si no existe
+                        if not os.path.exists(downloads_dir):
+                            downloads_dir = os.path.join(os.path.expanduser("~"), "Download")
+                        
+                        # Crear carpeta de backups en Downloads
+                        backup_downloads = os.path.join(downloads_dir, "SOS_PyME_Backups")
+                        if not os.path.exists(backup_downloads):
+                            os.makedirs(backup_downloads)
+                        
+                        final_destination = os.path.join(backup_downloads, filename)
+                        shutil.copy(destination, final_destination)
+                        
+                        show_message(page, f"Backup guardado en Descargas/SOS_PyME_Backups", "green")
+                        print(f"Backup saved to Downloads: {final_destination}")
+                        
+                    except Exception as android_ex:
+                        print(f"Error guardando en Downloads: {android_ex}")
+                        # Fallback: quedó en almacenamiento interno
+                        show_message(page, f"Backup guardado en almacenamiento interno", "orange")
+                else:
+                    # En Desktop, usar Desktop
+                    show_message(page, f"Backup guardado: Escritorio/Respaldos_SOS", "green")
                     try:
                         import subprocess
                         if page.platform == "macos":
