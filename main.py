@@ -19,7 +19,7 @@ from app.ui.activation_view import build_activation_view
 from app.utils.helpers import show_message # Importar helper para mensajes
 
 # --- SYSTEM VERSION ---
-APP_VERSION = "0.11.7"  # Fix: Android backup simplified with debug logging
+APP_VERSION = "0.11.8"  # Fix: Android update with copyable URL dialog
 WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
 # ----------------------
 async def main(page: ft.Page):
@@ -83,13 +83,49 @@ async def main(page: ft.Page):
                         def handle_download(e):
                             print(f"Download button clicked. URL: {update_url}")
                             if update_url:
-                                try:
-                                    page.launch_url(update_url)
-                                    print(f"Launched URL: {update_url}")
-                                except Exception as ex:
-                                    print(f"Error launching URL: {ex}")
-                                    # Fallback: mostrar URL en un diálogo
-                                    show_message(page, f"Descarga desde: {update_url}", "blue")
+                                # En Android, page.launch_url() no funciona bien
+                                # Mostrar diálogo con URL para copiar
+                                if page.platform in ["android", "ios"]:
+                                    def close_dialog(e):
+                                        dialog.open = False
+                                        page.update()
+                                    
+                                    def copy_url(e):
+                                        page.set_clipboard(update_url)
+                                        show_message(page, "URL copiada al portapapeles", "green")
+                                        dialog.open = False
+                                        page.update()
+                                    
+                                    dialog = ft.AlertDialog(
+                                        title=ft.Text("Nueva Versión Disponible"),
+                                        content=ft.Column([
+                                            ft.Text(f"Versión: {new_ver}", weight="bold"),
+                                            ft.Divider(),
+                                            ft.Text("Copia esta URL y ábrela en tu navegador:"),
+                                            ft.SelectionArea(
+                                                content=ft.Text(
+                                                    update_url,
+                                                    size=12,
+                                                    selectable=True
+                                                )
+                                            ),
+                                        ], tight=True, spacing=10),
+                                        actions=[
+                                            ft.TextButton("Copiar URL", on_click=copy_url),
+                                            ft.TextButton("Cerrar", on_click=close_dialog),
+                                        ],
+                                    )
+                                    page.overlay.append(dialog)
+                                    dialog.open = True
+                                    page.update()
+                                else:
+                                    # En Desktop, usar launch_url normalmente
+                                    try:
+                                        page.launch_url(update_url)
+                                        print(f"Launched URL: {update_url}")
+                                    except Exception as ex:
+                                        print(f"Error launching URL: {ex}")
+                                        show_message(page, f"Descarga desde: {update_url}", "blue")
                             else:
                                 show_message(page, "Error: URL de descarga no disponible", "red")
                         
