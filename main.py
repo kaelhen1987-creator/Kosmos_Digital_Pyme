@@ -19,7 +19,7 @@ from app.ui.activation_view import build_activation_view
 from app.utils.helpers import show_message # Importar helper para mensajes
 
 # --- SYSTEM VERSION ---
-APP_VERSION = "0.11.9"  # Fix: Android backup with storage permissions
+APP_VERSION = "0.11.10"  # Fix: Better Android backup error handling
 WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
 # ----------------------
 async def main(page: ft.Page):
@@ -312,13 +312,27 @@ async def main(page: ft.Page):
                     # En móviles: guardar en Downloads (accesible con permisos)
                     try:
                         # En Android, usar la carpeta Downloads del almacenamiento externo
-                        # Esto requiere permisos WRITE_EXTERNAL_STORAGE
+                        # Esto requiere permisos MANAGE_EXTERNAL_STORAGE
                         import os
-                        downloads_dir = os.path.join("/storage/emulated/0", "Download")
                         
-                        # Fallback si no existe
-                        if not os.path.exists(downloads_dir):
-                            downloads_dir = os.path.join(os.path.expanduser("~"), "Download")
+                        # Intentar múltiples rutas de Downloads
+                        possible_paths = [
+                            "/storage/emulated/0/Download",
+                            "/storage/emulated/0/Downloads",
+                            "/sdcard/Download",
+                            "/sdcard/Downloads",
+                        ]
+                        
+                        downloads_dir = None
+                        for path in possible_paths:
+                            print(f"Trying Downloads path: {path}")
+                            if os.path.exists(path) and os.access(path, os.W_OK):
+                                downloads_dir = path
+                                print(f"Found writable Downloads at: {path}")
+                                break
+                        
+                        if not downloads_dir:
+                            raise PermissionError("No se puede acceder a Descargas. Ve a Configuración > Apps > SOS Digital PyME > Permisos y activa Almacenamiento")
                         
                         # Crear carpeta de backups en Downloads
                         backup_downloads = os.path.join(downloads_dir, "SOS_PyME_Backups")
@@ -331,10 +345,12 @@ async def main(page: ft.Page):
                         show_message(page, f"Backup guardado en Descargas/SOS_PyME_Backups", "green")
                         print(f"Backup saved to Downloads: {final_destination}")
                         
+                    except PermissionError as perm_ex:
+                        print(f"Permission error: {perm_ex}")
+                        show_message(page, "Error: Activa permisos de almacenamiento en Configuración", "red")
                     except Exception as android_ex:
                         print(f"Error guardando en Downloads: {android_ex}")
-                        # Fallback: quedó en almacenamiento interno
-                        show_message(page, f"Backup guardado en almacenamiento interno", "orange")
+                        show_message(page, f"Error: {str(android_ex)[:50]}", "red")
                 else:
                     # En Desktop, usar Desktop
                     show_message(page, f"Backup guardado: Escritorio/Respaldos_SOS", "green")
