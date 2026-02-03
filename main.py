@@ -19,7 +19,7 @@ from app.ui.activation_view import build_activation_view
 from app.utils.helpers import show_message # Importar helper para mensajes
 
 # --- SYSTEM VERSION ---
-APP_VERSION = "0.11.6"  # Fix: Update download button with debug logging
+APP_VERSION = "0.11.7"  # Fix: Android backup simplified with debug logging
 WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
 # ----------------------
 async def main(page: ft.Page):
@@ -256,34 +256,37 @@ async def main(page: ft.Page):
             try:
                 # Definir ruta de respaldo según plataforma
                 if page.platform in ["android", "ios"]:
-                    # En móviles, usar el directorio de datos de la app (siempre accesible)
-                    # En Android: /data/data/com.app.name/files/Respaldos_SOS
-                    # Este directorio es accesible sin permisos especiales
-                    if hasattr(sys, 'frozen') and sys.frozen:
-                        # App empaquetada: usar directorio de datos
-                        app_data_dir = os.path.dirname(os.path.abspath(sys.executable))
-                    else:
-                        # Modo desarrollo
-                        app_data_dir = os.getcwd()
-                    
+                    # En móviles, usar el directorio de trabajo actual
+                    # En Android, Flet siempre inicia en /data/data/com.app.name/files/
+                    app_data_dir = os.getcwd()
                     backup_dir = os.path.join(app_data_dir, "Respaldos_SOS")
                     location_msg = "Almacenamiento interno/Respaldos_SOS"
+                    
+                    print(f"Android backup - CWD: {app_data_dir}")
+                    print(f"Android backup - Target: {backup_dir}")
                 else:
                     # En Desktop, usar Desktop
                     base_dir = os.path.join(os.path.expanduser("~"), "Desktop")
                     backup_dir = os.path.join(base_dir, "Respaldos_SOS")
                     location_msg = "Escritorio/Respaldos_SOS"
                 
+                print(f"Creating backup directory: {backup_dir}")
                 if not os.path.exists(backup_dir):
                     os.makedirs(backup_dir)
+                    print(f"Directory created successfully")
                 
                 destination = os.path.join(backup_dir, filename)
+                print(f"Backup destination: {destination}")
+                print(f"Source DB path: {db_path}")
+                print(f"DB exists: {os.path.exists(db_path)}")
                 
                 # Copiar
                 if os.path.exists(db_path):
                     shutil.copy(db_path, destination)
+                    print(f"Backup successful: {destination}")
                     show_message(page, f"Backup guardado: {location_msg}", "green")
                 else:
+                    print(f"ERROR: Database not found at {db_path}")
                     show_message(page, "Error: No se encuentra la base de datos original", "red")
                     return
 
