@@ -37,8 +37,7 @@ jobs:
 
       - name: Flet Build APK
         run: |
-          flet build apk --verbose --yes \
-            --android-permissions MANAGE_EXTERNAL_STORAGE
+          flet build apk --verbose --yes
           
       - name: Upload APK
         uses: actions/upload-artifact@v4

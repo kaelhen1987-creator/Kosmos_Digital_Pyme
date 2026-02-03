@@ -1,0 +1,5 @@
+[tool.flet]
+permissions = ["MANAGE_EXTERNAL_STORAGE"]
+
+[tool.flet.android.permission]
+MANAGE_EXTERNAL_STORAGE = true
