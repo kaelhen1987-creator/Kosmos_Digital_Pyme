@@ -83,51 +83,22 @@ async def main(page: ft.Page):
                         def handle_download(e):
                             print(f"Download button clicked. URL: {update_url}")
                             if update_url:
-                                # En Android, page.launch_url() no funciona bien
-                                # Mostrar diálogo con URL para copiar
-                                if page.platform in ["android", "ios"]:
-                                    def close_dialog(e):
-                                        dialog.open = False
-                                        page.update()
-                                    
-                                    def copy_url(e):
-                                        page.set_clipboard(update_url)
-                                        show_message(page, "URL copiada al portapapeles", "green")
-                                        dialog.open = False
-                                        page.update()
-                                    
-                                    dialog = ft.AlertDialog(
-                                        title=ft.Text("Nueva Versión Disponible"),
-                                        content=ft.Column([
-                                            ft.Text(f"Versión: {new_ver}", weight="bold"),
-                                            ft.Divider(),
-                                            ft.Text("Copia esta URL y ábrela en tu navegador:"),
-                                            ft.SelectionArea(
-                                                content=ft.Text(
-                                                    update_url,
-                                                    size=12,
-                                                    selectable=True
-                                                )
-                                            ),
-                                        ], tight=True, spacing=10),
-                                        actions=[
-                                            ft.TextButton("Copiar URL", on_click=copy_url),
-                                            ft.TextButton("Cerrar", on_click=close_dialog),
-                                        ],
-                                    )
-                                    page.overlay.append(dialog)
-                                    dialog.open = True
-                                    page.update()
-                                else:
-                                    # En Desktop, usar launch_url normalmente
+                                # Intentar abrir directamente primero
+                                try:
+                                    print(f"Attempting to launch URL: {update_url}")
+                                    page.launch_url(update_url)
+                                    show_message(page, "Abriendo descarga...", "green")
+                                except Exception as launch_error:
+                                    print(f"launch_url failed: {launch_error}")
+                                    # Si falla, copiar al portapapeles y avisar
                                     try:
-                                        page.launch_url(update_url)
-                                        print(f"Launched URL: {update_url}")
-                                    except Exception as ex:
-                                        print(f"Error launching URL: {ex}")
-                                        show_message(page, f"Descarga desde: {update_url}", "blue")
+                                        page.set_clipboard(update_url)
+                                        show_message(page, "URL copiada. Abre Chrome y pega la URL", "orange")
+                                    except Exception as clipboard_error:
+                                        print(f"clipboard failed: {clipboard_error}")
+                                        show_message(page, "Error al abrir descarga", "red")
                             else:
-                                show_message(page, "Error: URL de descarga no disponible", "red")
+                                show_message(page, "Error: URL no disponible", "red")
                         
                         # Crear SnackBar con botón de descarga
                         snack = ft.SnackBar(
