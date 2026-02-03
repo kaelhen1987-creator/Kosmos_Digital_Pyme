@@ -309,47 +309,50 @@ async def main(page: ft.Page):
                 
                 # Comportamiento según plataforma
                 if page.platform in ["android", "ios"]:
-                    # En móviles: guardar en Downloads (accesible con permisos)
+                    # En móviles: usar almacenamiento interno (compatible con Xiaomi HyperOS)
                     try:
-                        # En Android, usar la carpeta Downloads del almacenamiento externo
-                        # Esto requiere permisos MANAGE_EXTERNAL_STORAGE
-                        import os
+                        # El backup ya está guardado en almacenamiento interno de la app
+                        # Mostrar diálogo con instrucciones de acceso
                         
-                        # Intentar múltiples rutas de Downloads
-                        possible_paths = [
-                            "/storage/emulated/0/Download",
-                            "/storage/emulated/0/Downloads",
-                            "/sdcard/Download",
-                            "/sdcard/Downloads",
-                        ]
+                        def close_dialog(e):
+                            dialog.open = False
+                            page.update()
                         
-                        downloads_dir = None
-                        for path in possible_paths:
-                            print(f"Trying Downloads path: {path}")
-                            if os.path.exists(path) and os.access(path, os.W_OK):
-                                downloads_dir = path
-                                print(f"Found writable Downloads at: {path}")
-                                break
+                        dialog = ft.AlertDialog(
+                            title=ft.Text("✅ Backup Creado", size=20, weight=ft.FontWeight.BOLD),
+                            content=ft.Container(
+                                content=ft.Column([
+                                    ft.Text(f"📁 {filename}", size=13, weight=ft.FontWeight.BOLD, color="blue"),
+                                    ft.Divider(height=10),
+                                    ft.Text("📱 Cómo acceder:", size=16, weight=ft.FontWeight.BOLD),
+                                    ft.Text(""),
+                                    ft.Text("1. Abre 'Archivos' o 'Explorador'", size=13),
+                                    ft.Text("2. Toca 'Almacenamiento interno'", size=13),
+                                    ft.Text("3. Busca: Android → data →", size=13),
+                                    ft.Text("   com.sosdigitalpyme.app →", size=13),
+                                    ft.Text("   files → Respaldos_SOS", size=13),
+                                    ft.Text(""),
+                                    ft.Text("💡 Consejo:", size=14, weight=ft.FontWeight.BOLD),
+                                    ft.Text("Copia el archivo a 'Descargas'", size=12, italic=True),
+                                    ft.Text("o envíalo por WhatsApp/Email", size=12, italic=True),
+                                ], tight=True, spacing=3),
+                                padding=15,
+                            ),
+                            actions=[
+                                ft.TextButton("Entendido", on_click=close_dialog),
+                            ],
+                            actions_alignment=ft.MainAxisAlignment.END,
+                        )
                         
-                        if not downloads_dir:
-                            raise PermissionError("No se puede acceder a Descargas. Ve a Configuración > Apps > SOS Digital PyME > Permisos y activa Almacenamiento")
+                        page.overlay.append(dialog)
+                        dialog.open = True
+                        page.update()
                         
-                        # Crear carpeta de backups en Downloads
-                        backup_downloads = os.path.join(downloads_dir, "SOS_PyME_Backups")
-                        if not os.path.exists(backup_downloads):
-                            os.makedirs(backup_downloads)
+                        print(f"Backup saved to internal storage: {destination}")
+                        show_message(page, f"Backup creado: {filename}", "green")
                         
-                        final_destination = os.path.join(backup_downloads, filename)
-                        shutil.copy(destination, final_destination)
-                        
-                        show_message(page, f"Backup guardado en Descargas/SOS_PyME_Backups", "green")
-                        print(f"Backup saved to Downloads: {final_destination}")
-                        
-                    except PermissionError as perm_ex:
-                        print(f"Permission error: {perm_ex}")
-                        show_message(page, "Error: Activa permisos de almacenamiento en Configuración", "red")
                     except Exception as android_ex:
-                        print(f"Error guardando en Downloads: {android_ex}")
+                        print(f"Error en backup Android: {android_ex}")
                         show_message(page, f"Error: {str(android_ex)[:50]}", "red")
                 else:
                     # En Desktop, usar Desktop
