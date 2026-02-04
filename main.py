@@ -302,43 +302,37 @@ async def main(page: ft.Page):
                         PythonActivity = autoclass('org.kivy.android.PythonActivity')
                         context = cast('android.content.Context', PythonActivity.mActivity)
                         
-                        # 1. Copiar a Private Storage (Siempre accesible)
-                        # getExternalFilesDir(None) da la ruta privada de la app en /Android/data/...
+                        # 1. Copiar a Private Storage
                         private_dir = context.getExternalFilesDir(None).getAbsolutePath()
                         archivo_final = os.path.join(private_dir, nombre_backup)
-                        
                         shutil.copy2(ruta_origen, archivo_final)
-                        
-                        # 2. Crear URI con FileProvider (Requerido para Android 7+)
-                        # Nota: Flet/Kivy suelen configurar un FileProvider por defecto.
-                        # Intentaremos primero con envio directo si es < Android 7, o el truco de "StrictMode" para evitar FileProvider setup complejo
-                        
-                        # "Hack" para evitar FileUriExposedException en prototipos rapidos (No recomendado prod, pero funcional en Kivy simple)
-                        StrictMode = autoclass('android.os.StrictMode')
-                        VmPolicyBuilder = autoclass('android.os.StrictMode$VmPolicy$Builder')
-                        StrictMode.setVmPolicy(VmPolicyBuilder().build())
                         
                         File = autoclass('java.io.File')
                         dest_file = File(archivo_final)
-                        import android # Helper de kivy (si disponible)
+                        
+                        # 2. Crear URI con FileProvider (Standard Android Way)
+                        # Flet/Kivy usa por defecto la autoridad: {package_name}.fileprovider
+                        # Intentamos obtener el package name dinamicamente
+                        package_name = context.getPackageName()
+                        authority = package_name + ".fileprovider"
+                        
+                        FileProvider = autoclass('androidx.core.content.FileProvider')
+                        uri = FileProvider.getUriForFile(context, authority, dest_file)
                         
                         # 3. Crear Intent SEND
                         Intent = autoclass('android.content.Intent')
-                        Uri = autoclass('android.net.Uri')
-                        
                         intent = Intent()
                         intent.setAction(Intent.ACTION_SEND)
-                        
-                        # Uri.fromFile es bloqueado en Android 7+ sin el hack de StrictMode arriba
-                        uri = Uri.fromFile(dest_file)
-                        
                         intent.putExtra(Intent.EXTRA_STREAM, uri)
-                        intent.setType("*/*")
+                        intent.setType("application/x-sqlite3") # Tipo mas especifico
+                        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) # CRITICO para compartir
                         
                         # 4. Lanzar Chooser
-                        chooser = Intent.createChooser(intent, cast('java.lang.CharSequence', __import__("java.lang").lang.String("Guardar Respaldo en...")))
-                        PythonActivity.mActivity.startActivity(chooser)
+                        String = autoclass("java.lang.String")
+                        chooser = Intent.createChooser(intent, cast('java.lang.CharSequence', String("Guardar Respaldo...")))
                         
+                        # Iniciar actividad
+                        currentActivity.startActivity(chooser)
                         show_message(page, "Abriendo menú 'Compartir'...", "green")
                         
                     except Exception as e_android:
