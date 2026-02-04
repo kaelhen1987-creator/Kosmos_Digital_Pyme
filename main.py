@@ -281,8 +281,17 @@ async def main(page: ft.Page):
                 ruta_origen = db_path 
                 nombre_backup = f"Respaldo_SOS_{biz_name}_{fecha}.sqlite"
                 
+                # --- DETECCION PLATAFORMA ROBUSTA ---
+                is_android = page.platform == "android"
+                if not is_android:
+                    try:
+                        import jnius
+                        is_android = True
+                    except ImportError:
+                        pass
+                
                 # --- LOGICA ANDROID (JNIUS SHARE) ---
-                if page.platform == "android":
+                if is_android:
                     try:
                         from jnius import autoclass, cast
                         
@@ -359,7 +368,7 @@ async def main(page: ft.Page):
                         show_alert("❌ Error", f"No se encuentra DB:\n{ruta_origen}", "red")
 
             except Exception as ex:
-                show_alert("❌ Error General", f"Ocurrió un error:\n{str(ex)}", "red")
+                show_alert("❌ Error General", f"Plataforma: {page.platform}\nError: {str(ex)}", "red")
 
         # --- DRAWER MANUAL (Custom Stack Implementation) ---
         # Definimos el contenido del drawer
