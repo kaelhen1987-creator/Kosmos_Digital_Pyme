@@ -282,7 +282,10 @@ async def main(page: ft.Page):
                 nombre_backup = f"Respaldo_SOS_{biz_name}_{fecha}.sqlite"
                 
                 # --- DETECCION PLATAFORMA ROBUSTA ---
-                is_android = page.platform == "android"
+                # Fix: page.platform devuelve un Enum (PagePlatform.ANDROID), convertir a str para comparar
+                plat_str = str(page.platform).lower()
+                is_android = "android" in plat_str
+                
                 if not is_android:
                     try:
                         import jnius
