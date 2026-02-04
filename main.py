@@ -19,7 +19,7 @@ from app.ui.activation_view import build_activation_view
 from app.utils.helpers import show_message # Importar helper para mensajes
 
 # --- SYSTEM VERSION ---
-APP_VERSION = "0.11.12"  # Fix: Simplified update download for Android
+APP_VERSION = "0.11.13"  # Fix: Android Backup direct to Downloads
 WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
 # ----------------------
 async def main(page: ft.Page):
@@ -256,89 +256,83 @@ async def main(page: ft.Page):
             import datetime
             
             # NOMBRE SUGERIDO
-            biz_name = model.get_config('business_name', 'MiNegocio').replace(" ", "_")
-            filename = f"sos_pyme_backup_{biz_name}_{datetime.date.today()}.sqlite"
-
-            # --- LOGICA MULTIPLATAFORMA ---
             try:
-                # Crear backup temporal
-                app_data_dir = os.getcwd() if page.platform in ["android", "ios"] else os.path.join(os.path.expanduser("~"), "Desktop")
-                backup_dir = os.path.join(app_data_dir, "Respaldos_SOS")
+                # 1. Definir nombres
+                fecha = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
+                biz_name = model.get_config('business_name', 'MiNegocio').replace(" ", "_")
+                nombre_db = "sos_pyme.db" # Nombre interno real
+                # Usamos el nombre actual de la DB en uso
+                ruta_origen = db_path 
                 
-                if not os.path.exists(backup_dir):
-                    os.makedirs(backup_dir)
+                nombre_backup = f"Respaldo_SOS_{biz_name}_{fecha}.sqlite"
                 
-                destination = os.path.join(backup_dir, filename)
+                # 2. Definir RUTAS (Aquí está el arreglo de tu error)
                 
-                # Copiar base de datos
-                if os.path.exists(db_path):
-                    shutil.copy(db_path, destination)
-                    print(f"Backup created: {destination}")
-                else:
-                    show_message(page, "Error: No se encuentra la base de datos original", "red")
-                    return
-                
-                # Comportamiento según plataforma
+                # LÓGICA INTELIGENTE:
                 if page.platform in ["android", "ios"]:
-                    # En móviles: usar almacenamiento interno (compatible con Xiaomi HyperOS)
-                    try:
-                        # El backup ya está guardado en almacenamiento interno de la app
-                        # Mostrar diálogo con instrucciones de acceso
-                        
-                        def close_dialog(e):
-                            dialog.open = False
-                            page.update()
-                        
-                        dialog = ft.AlertDialog(
-                            title=ft.Text("✅ Backup Creado", size=20, weight=ft.FontWeight.BOLD),
-                            content=ft.Container(
-                                content=ft.Column([
-                                    ft.Text(f"📁 {filename}", size=13, weight=ft.FontWeight.BOLD, color="blue"),
-                                    ft.Divider(height=10),
-                                    ft.Text("📱 Cómo acceder:", size=16, weight=ft.FontWeight.BOLD),
-                                    ft.Text(""),
-                                    ft.Text("1. Abre 'Archivos' o 'Explorador'", size=13),
-                                    ft.Text("2. Toca 'Almacenamiento interno'", size=13),
-                                    ft.Text("3. Busca: Android → data →", size=13),
-                                    ft.Text("   com.sosdigitalpyme.app →", size=13),
-                                    ft.Text("   files → Respaldos_SOS", size=13),
-                                    ft.Text(""),
-                                    ft.Text("💡 Consejo:", size=14, weight=ft.FontWeight.BOLD),
-                                    ft.Text("Copia el archivo a 'Descargas'", size=12, italic=True),
-                                    ft.Text("o envíalo por WhatsApp/Email", size=12, italic=True),
-                                ], tight=True, spacing=3),
-                                padding=15,
-                            ),
-                            actions=[
-                                ft.TextButton("Entendido", on_click=close_dialog),
-                            ],
-                            actions_alignment=ft.MainAxisAlignment.END,
-                        )
-                        
-                        page.overlay.append(dialog)
-                        dialog.open = True
-                        page.update()
-                        
-                        print(f"Backup saved to internal storage: {destination}")
-                        show_message(page, f"Backup creado: {filename}", "green")
-                        
-                    except Exception as android_ex:
-                        print(f"Error en backup Android: {android_ex}")
-                        show_message(page, f"Error: {str(android_ex)[:50]}", "red")
+                    # En Android vamos directo a la carpeta pública de Descargas
+                    # Nota: Requiere permiso MANAGE_EXTERNAL_STORAGE en Android 11+
+                    ruta_destino_carpeta = "/storage/emulated/0/Download"
                 else:
-                    # En Desktop, usar Desktop
-                    show_message(page, f"Backup guardado: Escritorio/Respaldos_SOS", "green")
-                    try:
-                        import subprocess
-                        if page.platform == "macos":
-                            subprocess.call(["open", backup_dir])
-                        elif page.platform == "windows":
-                            os.startfile(backup_dir)
-                    except:
-                        pass
+                    # En PC/Mac usamos el Escritorio
+                    ruta_destino_carpeta = os.path.join(os.path.expanduser("~"), "Desktop")
 
+                # Crear la ruta completa final
+                ruta_destino_final = os.path.join(ruta_destino_carpeta, "SOS_PyME_Backups")
+                if not os.path.exists(ruta_destino_final):
+                    try:
+                        os.makedirs(ruta_destino_final)
+                    except:
+                        # Si falla crear carpeta, usar raíz de destino
+                        ruta_destino_final = ruta_destino_carpeta
+
+                archivo_final = os.path.join(ruta_destino_final, nombre_backup)
+
+                # 3. Verificar si existe la base de datos antes de copiar
+                if os.path.exists(ruta_origen):
+                    # Copiar el archivo
+                    shutil.copy2(ruta_origen, archivo_final)
+                    
+                    # Mensaje de Éxito
+                    if page.platform in ["android", "ios"]:
+                        page.snack_bar = ft.SnackBar(
+                            content=ft.Text(f"✅ ¡Guardado en Descargas/SOS_PyME_Backups!\nArchivo: {nombre_backup}"),
+                            bgcolor="green",
+                            duration=5000
+                        )
+                    else:
+                        page.snack_bar = ft.SnackBar(
+                            content=ft.Text(f"✅ ¡Guardado en Escritorio!\nArchivo: {nombre_backup}"),
+                            bgcolor="green",
+                            duration=5000
+                        )
+                else:
+                    page.snack_bar = ft.SnackBar(
+                        content=ft.Text("❌ No se encontró la base de datos original."),
+                        bgcolor="red"
+                    )
+
+            except PermissionError:
+                # Si da error de permiso, mostramos la instrucción clara
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Text("🔒 FALTA PERMISO: Ve a Ajustes > Apps > SOS PyME > Permisos > Archivos y actívalo."),
+                    bgcolor="orange",
+                    duration=8000
+                )
+            except FileNotFoundError:
+                 # Este es tu error "data/desktop" arreglado
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Text("❌ Error de Ruta: La carpeta de destino no existe en este dispositivo."),
+                    bgcolor="red"
+                )
             except Exception as ex:
-                show_message(page, f"Error al guardar respaldo: {ex}", "red")
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Text(f"❌ Error inesperado: {str(ex)}"),
+                    bgcolor="red"
+                )
+
+            page.snack_bar.open = True
+            page.update()
 
         # --- DRAWER MANUAL (Custom Stack Implementation) ---
         # Definimos el contenido del drawer
