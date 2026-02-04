@@ -2,8 +2,8 @@ name: Build Windows Executable
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ "main" ]
+  # push:
+  #   branches: [ "main" ]
     paths-ignore:
       - '**.md'
       - 'docs/**'

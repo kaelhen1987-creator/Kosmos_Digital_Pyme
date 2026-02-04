@@ -19,7 +19,7 @@ from app.ui.activation_view import build_activation_view
 from app.utils.helpers import show_message # Importar helper para mensajes
 
 # --- SYSTEM VERSION ---
-APP_VERSION = "0.11.16"  # Fix: Hotfix Indentation & Legacy Dialog
+APP_VERSION = "0.11.17"  # Fix: Android Backup Native Share
 WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
 # ----------------------
 async def main(page: ft.Page):
@@ -276,46 +276,90 @@ async def main(page: ft.Page):
 
             try:
                 # 1. Definir nombres
-                # ... (resto de logica igual hasta verificacion)
                 fecha = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
                 biz_name = model.get_config('business_name', 'MiNegocio').replace(" ", "_")
                 ruta_origen = db_path 
-                
                 nombre_backup = f"Respaldo_SOS_{biz_name}_{fecha}.sqlite"
                 
-                # 2. Definir RUTAS
-                if page.platform in ["android", "ios"]:
-                    ruta_destino_carpeta = "/storage/emulated/0/Download"
-                else:
-                    ruta_destino_carpeta = os.path.join(os.path.expanduser("~"), "Desktop")
-
-                ruta_destino_final = os.path.join(ruta_destino_carpeta, "SOS_PyME_Backups")
-                if not os.path.exists(ruta_destino_final):
+                # --- LOGICA ANDROID (JNIUS SHARE) ---
+                if page.platform == "android":
                     try:
-                        os.makedirs(ruta_destino_final)
-                    except:
-                        ruta_destino_final = ruta_destino_carpeta
+                        from jnius import autoclass, cast
+                        
+                        # Contexto Android
+                        PythonActivity = autoclass('org.kivy.android.PythonActivity')
+                        context = cast('android.content.Context', PythonActivity.mActivity)
+                        
+                        # 1. Copiar a Private Storage (Siempre accesible)
+                        # getExternalFilesDir(None) da la ruta privada de la app en /Android/data/...
+                        private_dir = context.getExternalFilesDir(None).getAbsolutePath()
+                        archivo_final = os.path.join(private_dir, nombre_backup)
+                        
+                        shutil.copy2(ruta_origen, archivo_final)
+                        
+                        # 2. Crear URI con FileProvider (Requerido para Android 7+)
+                        # Nota: Flet/Kivy suelen configurar un FileProvider por defecto.
+                        # Intentaremos primero con envio directo si es < Android 7, o el truco de "StrictMode" para evitar FileProvider setup complejo
+                        
+                        # "Hack" para evitar FileUriExposedException en prototipos rapidos (No recomendado prod, pero funcional en Kivy simple)
+                        StrictMode = autoclass('android.os.StrictMode')
+                        VmPolicyBuilder = autoclass('android.os.StrictMode$VmPolicy$Builder')
+                        StrictMode.setVmPolicy(VmPolicyBuilder().build())
+                        
+                        File = autoclass('java.io.File')
+                        dest_file = File(archivo_final)
+                        import android # Helper de kivy (si disponible)
+                        
+                        # 3. Crear Intent SEND
+                        Intent = autoclass('android.content.Intent')
+                        Uri = autoclass('android.net.Uri')
+                        
+                        intent = Intent()
+                        intent.setAction(Intent.ACTION_SEND)
+                        
+                        # Uri.fromFile es bloqueado en Android 7+ sin el hack de StrictMode arriba
+                        uri = Uri.fromFile(dest_file)
+                        
+                        intent.putExtra(Intent.EXTRA_STREAM, uri)
+                        intent.setType("*/*")
+                        
+                        # 4. Lanzar Chooser
+                        chooser = Intent.createChooser(intent, cast('java.lang.CharSequence', __import__("java.lang").lang.String("Guardar Respaldo en...")))
+                        PythonActivity.mActivity.startActivity(chooser)
+                        
+                        show_message(page, "Abriendo menú 'Compartir'...", "green")
+                        
+                    except Exception as e_android:
+                         show_alert("❌ Error Android", f"Fallo al invocar compartir:\n{str(e_android)}", "red")
 
-                archivo_final = os.path.join(ruta_destino_final, nombre_backup)
-
-                # 3. Verificar y Copiar
-                if os.path.exists(ruta_origen):
-                    shutil.copy2(ruta_origen, archivo_final)
-                    
-                    msg = f"Archivo guardado en:\n{archivo_final}"
-                    if page.platform in ["android", "ios"]:
-                        msg += "\n\n(Busca en la carpeta Descargas)"
-                    
-                    show_alert("✅ Respaldo Exitoso", msg)
+                # --- LOGICA DESKTOP / IOS (FALLBACK) ---
                 else:
-                    show_alert("❌ Error", f"No se encuentra la base de datos original:\n{ruta_origen}", "red")
+                    if page.platform == "ios":
+                        # IOS no permite escritura directa facil, aqui idealmente tambien seria Share, 
+                        # pero por ahora dejamos la logica original que fallara pero es lo que habia
+                        ruta_destino_carpeta = "/storage/emulated/0/Download" # Esto no existe en iOS, fix pendiente
+                    else:
+                        # Desktop (Mac/Win)
+                        ruta_destino_carpeta = os.path.join(os.path.expanduser("~"), "Desktop")
 
-            except PermissionError:
-                show_alert("🔒 Falta Permiso", "Ve a Ajustes > Apps > SOS PyME > Permisos > Archivos y ACTIVA 'Gestión de todos los archivos'.", "orange")
-            except FileNotFoundError:
-                show_alert("❌ Error de Ruta", "La carpeta de destino no existe.", "red")
+                    ruta_destino_final = os.path.join(ruta_destino_carpeta, "SOS_PyME_Backups")
+                    if not os.path.exists(ruta_destino_final):
+                        try:
+                            os.makedirs(ruta_destino_final)
+                        except:
+                            ruta_destino_final = ruta_destino_carpeta
+
+                    archivo_final = os.path.join(ruta_destino_final, nombre_backup)
+
+                    if os.path.exists(ruta_origen):
+                        shutil.copy2(ruta_origen, archivo_final)
+                        msg = f"Archivo guardado en:\n{archivo_final}"
+                        show_alert("✅ Respaldo Exitoso", msg)
+                    else:
+                        show_alert("❌ Error", f"No se encuentra DB:\n{ruta_origen}", "red")
+
             except Exception as ex:
-                show_alert("❌ Error", f"Ocurrió un error inesperado:\n{str(ex)}", "red")
+                show_alert("❌ Error General", f"Ocurrió un error:\n{str(ex)}", "red")
 
         # --- DRAWER MANUAL (Custom Stack Implementation) ---
         # Definimos el contenido del drawer
