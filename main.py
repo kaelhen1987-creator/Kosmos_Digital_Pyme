@@ -19,7 +19,7 @@ from app.ui.activation_view import build_activation_view
 from app.utils.helpers import show_message # Importar helper para mensajes
 
 # --- SYSTEM VERSION ---
-APP_VERSION = "0.11.13"  # Fix: Android Backup direct to Downloads
+APP_VERSION = "0.11.14"  # Fix: Backup AlertDialog feedback
 WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
 # ----------------------
 async def main(page: ft.Page):
@@ -251,88 +251,65 @@ async def main(page: ft.Page):
         
         # --- BACKUP LOGIC ---
         def show_backup_dialog(e=None):
+            print("DEBUG: Backup button clicked!")
             import shutil
             import os
             import datetime
+            print(f"DEBUG: Platform={page.platform}, DBPath={db_path}")
             
-            # NOMBRE SUGERIDO
+            # Helper para mostrar alertas
+            def show_alert(title, message, color="green"):
+                dlg = ft.AlertDialog(
+                    title=ft.Text(title),
+                    content=ft.Text(message),
+                    actions=[
+                        ft.TextButton("OK", on_click=lambda e: page.close(dlg))
+                    ],
+                )
+                page.open(dlg)
+
             try:
                 # 1. Definir nombres
+                # ... (resto de logica igual hasta verificacion)
                 fecha = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
                 biz_name = model.get_config('business_name', 'MiNegocio').replace(" ", "_")
-                nombre_db = "sos_pyme.db" # Nombre interno real
-                # Usamos el nombre actual de la DB en uso
                 ruta_origen = db_path 
                 
                 nombre_backup = f"Respaldo_SOS_{biz_name}_{fecha}.sqlite"
                 
-                # 2. Definir RUTAS (Aquí está el arreglo de tu error)
-                
-                # LÓGICA INTELIGENTE:
+                # 2. Definir RUTAS
                 if page.platform in ["android", "ios"]:
-                    # En Android vamos directo a la carpeta pública de Descargas
-                    # Nota: Requiere permiso MANAGE_EXTERNAL_STORAGE en Android 11+
                     ruta_destino_carpeta = "/storage/emulated/0/Download"
                 else:
-                    # En PC/Mac usamos el Escritorio
                     ruta_destino_carpeta = os.path.join(os.path.expanduser("~"), "Desktop")
 
-                # Crear la ruta completa final
                 ruta_destino_final = os.path.join(ruta_destino_carpeta, "SOS_PyME_Backups")
                 if not os.path.exists(ruta_destino_final):
                     try:
                         os.makedirs(ruta_destino_final)
                     except:
-                        # Si falla crear carpeta, usar raíz de destino
                         ruta_destino_final = ruta_destino_carpeta
 
                 archivo_final = os.path.join(ruta_destino_final, nombre_backup)
 
-                # 3. Verificar si existe la base de datos antes de copiar
+                # 3. Verificar y Copiar
                 if os.path.exists(ruta_origen):
-                    # Copiar el archivo
                     shutil.copy2(ruta_origen, archivo_final)
                     
-                    # Mensaje de Éxito
+                    msg = f"Archivo guardado en:\n{archivo_final}"
                     if page.platform in ["android", "ios"]:
-                        page.snack_bar = ft.SnackBar(
-                            content=ft.Text(f"✅ ¡Guardado en Descargas/SOS_PyME_Backups!\nArchivo: {nombre_backup}"),
-                            bgcolor="green",
-                            duration=5000
-                        )
-                    else:
-                        page.snack_bar = ft.SnackBar(
-                            content=ft.Text(f"✅ ¡Guardado en Escritorio!\nArchivo: {nombre_backup}"),
-                            bgcolor="green",
-                            duration=5000
-                        )
+                        msg += "\n\n(Busca en la carpeta Descargas)"
+                    
+                    show_alert("✅ Respaldo Exitoso", msg)
                 else:
-                    page.snack_bar = ft.SnackBar(
-                        content=ft.Text("❌ No se encontró la base de datos original."),
-                        bgcolor="red"
-                    )
+                    show_alert("❌ Error", f"No se encuentra la base de datos original:\n{ruta_origen}", "red")
 
             except PermissionError:
-                # Si da error de permiso, mostramos la instrucción clara
-                page.snack_bar = ft.SnackBar(
-                    content=ft.Text("🔒 FALTA PERMISO: Ve a Ajustes > Apps > SOS PyME > Permisos > Archivos y actívalo."),
-                    bgcolor="orange",
-                    duration=8000
-                )
+                show_alert("🔒 Falta Permiso", "Ve a Ajustes > Apps > SOS PyME > Permisos > Archivos y ACTIVA 'Gestión de todos los archivos'.", "orange")
             except FileNotFoundError:
-                 # Este es tu error "data/desktop" arreglado
-                page.snack_bar = ft.SnackBar(
-                    content=ft.Text("❌ Error de Ruta: La carpeta de destino no existe en este dispositivo."),
-                    bgcolor="red"
-                )
+                show_alert("❌ Error de Ruta", "La carpeta de destino no existe.", "red")
             except Exception as ex:
-                page.snack_bar = ft.SnackBar(
-                    content=ft.Text(f"❌ Error inesperado: {str(ex)}"),
-                    bgcolor="red"
-                )
-
-            page.snack_bar.open = True
-            page.update()
+                show_alert("❌ Error", f"Ocurrió un error inesperado:\n{str(ex)}", "red")
 
         # --- DRAWER MANUAL (Custom Stack Implementation) ---
         # Definimos el contenido del drawer
