@@ -15,6 +15,9 @@ from main import main as main_app
 async def android_test_wrapper(page: ft.Page):
     # Forzar plataforma a Android
     original_platform = page.platform
+    # Simulamos que page.platform devuelve el Enum, pero para efectos de este script
+    # que corre en desktop, inyectamos el string "android" o un objeto compatible si fuera necesario.
+    # Como main.py ahora hace str(page.platform).lower(), asignar "android" basta.
     page.platform = "android"
     print(f"🤖 MODO PRUEBA ANDROID ACTIVADO")
     print(f"Platform original: {original_platform}")
@@ -22,6 +25,8 @@ async def android_test_wrapper(page: ft.Page):
     print("-" * 50)
     
     # Ejecutar la app principal
+    print("⚠️ NOTA: Si ejecutas esto en Mac/Windows, la parte de 'jnius' fallará")
+    print("   o mostrará el error controlado en los logs.")
     await main_app(page)
 
 if __name__ == "__main__":
