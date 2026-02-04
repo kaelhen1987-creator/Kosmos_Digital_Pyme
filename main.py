@@ -307,31 +307,33 @@ async def main(page: ft.Page):
                         archivo_final = os.path.join(private_dir, nombre_backup)
                         shutil.copy2(ruta_origen, archivo_final)
                         
+                        # 2. Configurar "Hack" de StrictMode para evitar FileProvider
+                        # Esto permite usar Uri.fromFile (file://) sin que Android bloquee la app
+                        StrictMode = autoclass('android.os.StrictMode')
+                        VmPolicyBuilder = autoclass('android.os.StrictMode$VmPolicy$Builder')
+                        StrictMode.setVmPolicy(VmPolicyBuilder().build())
+                        
                         File = autoclass('java.io.File')
                         dest_file = File(archivo_final)
                         
-                        # 2. Crear URI con FileProvider (Standard Android Way)
-                        # Flet/Kivy usa por defecto la autoridad: {package_name}.fileprovider
-                        # Intentamos obtener el package name dinamicamente
-                        package_name = context.getPackageName()
-                        authority = package_name + ".fileprovider"
-                        
-                        FileProvider = autoclass('androidx.core.content.FileProvider')
-                        uri = FileProvider.getUriForFile(context, authority, dest_file)
-                        
-                        # 3. Crear Intent SEND
+                        # 3. Crear Intent SEND con URI directo
                         Intent = autoclass('android.content.Intent')
+                        Uri = autoclass('android.net.Uri')
+                        
                         intent = Intent()
                         intent.setAction(Intent.ACTION_SEND)
+                        
+                        # Usamos Uri.fromFile (posible gracias al hack de arriba)
+                        uri = Uri.fromFile(dest_file)
+                        
                         intent.putExtra(Intent.EXTRA_STREAM, uri)
-                        intent.setType("application/x-sqlite3") # Tipo mas especifico
-                        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) # CRITICO para compartir
+                        intent.setType("application/x-sqlite3")
+                        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         
                         # 4. Lanzar Chooser
                         String = autoclass("java.lang.String")
                         chooser = Intent.createChooser(intent, cast('java.lang.CharSequence', String("Guardar Respaldo...")))
                         
-                        # Iniciar actividad
                         currentActivity.startActivity(chooser)
                         show_message(page, "Abriendo menú 'Compartir'...", "green")
                         
