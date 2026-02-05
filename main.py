@@ -286,85 +286,32 @@ async def main(page: ft.Page):
                 plat_str = str(page.platform).lower()
                 is_android = "android" in plat_str
                 
-                if not is_android:
-                    try:
-                        import jnius
-                        is_android = True
-                    except ImportError:
-                        pass
-                
-                # --- LOGICA ANDROID (JNIUS SHARE) ---
+                # --- LOGICA SOLO DESKTOP ---
                 if is_android:
+                     show_message(page, "La función de Backup solo está disponible en la versión de PC (Windows/Mac).", "orange")
+                     return
+
+                # --- LOGICA DESKTOP (Mac/Win) ---
+                if page.platform == "ios":
+                     show_message(page, "Backup no disponible en iOS.", "orange")
+                     return
+
+                desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+                backup_dir = os.path.join(desktop, "SOS_PyME_Backups")
+                if not os.path.exists(backup_dir):
                     try:
-                        from jnius import autoclass, cast
-                        
-                        # Contexto Android
-                        PythonActivity = autoclass('org.kivy.android.PythonActivity')
-                        context = cast('android.content.Context', PythonActivity.mActivity)
-                        
-                        # 1. Copiar a Private Storage
-                        private_dir = context.getExternalFilesDir(None).getAbsolutePath()
-                        archivo_final = os.path.join(private_dir, nombre_backup)
-                        shutil.copy2(ruta_origen, archivo_final)
-                        
-                        # 2. Configurar "Hack" de StrictMode para evitar FileProvider
-                        # Esto permite usar Uri.fromFile (file://) sin que Android bloquee la app
-                        StrictMode = autoclass('android.os.StrictMode')
-                        VmPolicyBuilder = autoclass('android.os.StrictMode$VmPolicy$Builder')
-                        StrictMode.setVmPolicy(VmPolicyBuilder().build())
-                        
-                        File = autoclass('java.io.File')
-                        dest_file = File(archivo_final)
-                        
-                        # 3. Crear Intent SEND con URI directo
-                        Intent = autoclass('android.content.Intent')
-                        Uri = autoclass('android.net.Uri')
-                        
-                        intent = Intent()
-                        intent.setAction(Intent.ACTION_SEND)
-                        
-                        # Usamos Uri.fromFile (posible gracias al hack de arriba)
-                        uri = Uri.fromFile(dest_file)
-                        
-                        intent.putExtra(Intent.EXTRA_STREAM, uri)
-                        intent.setType("application/x-sqlite3")
-                        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        
-                        # 4. Lanzar Chooser
-                        String = autoclass("java.lang.String")
-                        chooser = Intent.createChooser(intent, cast('java.lang.CharSequence', String("Guardar Respaldo...")))
-                        
-                        currentActivity.startActivity(chooser)
-                        show_message(page, "Abriendo menú 'Compartir'...", "green")
-                        
-                    except Exception as e_android:
-                         show_alert("❌ Error Android", f"Fallo al invocar compartir:\n{str(e_android)}", "red")
+                        os.makedirs(backup_dir)
+                    except:
+                        pass
 
-                # --- LOGICA DESKTOP / IOS (FALLBACK) ---
+                archivo_final = os.path.join(backup_dir, nombre_backup)
+
+                if os.path.exists(db_path):
+                    shutil.copy2(db_path, archivo_final)
+                    msg = f"Archivo guardado en:\n{archivo_final}"
+                    show_message(page, "✅ Copia guardada en el escritorio", "green")
                 else:
-                    if page.platform == "ios":
-                        # IOS no permite escritura directa facil, aqui idealmente tambien seria Share, 
-                        # pero por ahora dejamos la logica original que fallara pero es lo que habia
-                        ruta_destino_carpeta = "/storage/emulated/0/Download" # Esto no existe en iOS, fix pendiente
-                    else:
-                        # Desktop (Mac/Win)
-                        ruta_destino_carpeta = os.path.join(os.path.expanduser("~"), "Desktop")
-
-                    ruta_destino_final = os.path.join(ruta_destino_carpeta, "SOS_PyME_Backups")
-                    if not os.path.exists(ruta_destino_final):
-                        try:
-                            os.makedirs(ruta_destino_final)
-                        except:
-                            ruta_destino_final = ruta_destino_carpeta
-
-                    archivo_final = os.path.join(ruta_destino_final, nombre_backup)
-
-                    if os.path.exists(ruta_origen):
-                        shutil.copy2(ruta_origen, archivo_final)
-                        msg = f"Archivo guardado en:\n{archivo_final}"
-                        show_alert("✅ Respaldo Exitoso", msg)
-                    else:
-                        show_alert("❌ Error", f"No se encuentra DB:\n{ruta_origen}", "red")
+                    show_message(page, f"❌ No se encuentra DB:\n{db_path}", "red")
 
             except Exception as ex:
                 show_alert("❌ Error General", f"Plataforma: {page.platform}\nError: {str(ex)}", "red")
