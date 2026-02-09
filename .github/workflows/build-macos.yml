@@ -42,13 +42,21 @@ jobs:
 
       - name: Create DMG (if app exists)
         run: |
-          if [ -d "build/macos"/*.app ]; then
-            APP_NAME=$(ls build/macos/*.app | head -n 1 | xargs basename)
-            echo "Creating DMG for $APP_NAME"
-            mkdir -p dist
-            hdiutil create -volname "Digital PyME" -srcfolder "build/macos/$APP_NAME" -ov -format UDZO "dist/Digital_PyME.dmg"
+          if [ -d "build/macos" ]; then
+            cd build/macos
+            APP_PATH=$(find . -name "*.app" -type d -maxdepth 1 | head -n 1)
+            if [ -n "$APP_PATH" ]; then
+              APP_NAME=$(basename "$APP_PATH")
+              echo "Creating DMG for $APP_NAME"
+              cd ../..
+              mkdir -p dist
+              hdiutil create -volname "Digital PyME" -srcfolder "build/macos/$APP_NAME" -ov -format UDZO "dist/Digital_PyME.dmg"
+              echo "DMG created successfully"
+            else
+              echo "No .app bundle found in build/macos"
+            fi
           else
-            echo "No .app bundle found, skipping DMG creation"
+            echo "build/macos directory not found"
           fi
 
       - name: Upload macOS App
