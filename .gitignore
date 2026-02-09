@@ -14,3 +14,7 @@ build/
 # Local Tools
 key_generator.py
 key_generator_gui.py
+
+# IDE Configs
+.idea/
+.vscode/

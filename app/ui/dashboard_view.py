@@ -442,7 +442,7 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
     refresh_data(initial=True) # Cargar datos iniciales
     
     return ft.Container(
-        content=ft.ListView([
+        content=ft.Column([
             # Cabecera con Titulo
             ft.Container(
                 content=ft.Row([
@@ -481,6 +481,8 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
                     )
                 ], col={"xs": 12, "md": 6}),
             ]),
-        ], spacing=15, padding=10),
-        expand=True
+        ], spacing=15, scroll=ft.ScrollMode.AUTO),
+        expand=True,
+        bgcolor="#f5f5f5",  # Fix: Fondo claro
+        padding=10
     )

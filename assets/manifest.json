@@ -1,6 +1,6 @@
 {
-    "short_name": "SOS PyME",
-    "name": "SOS Digital PyME",
+    "short_name": "Digital PyME",
+    "name": "Digital PyME",
     "icons": [
         {
             "src": "icon.png",

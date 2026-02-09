@@ -35,7 +35,7 @@ def build_setup_view(page: ft.Page, model, on_success_callback):
     content = ft.Container(
         content=ft.Column([
             ft.Icon(ft.Icons.STORE, size=64, color="#2196F3"),
-            ft.Text("¡Bienvenido a SOS PyME!", size=24, weight="bold", color="#2196F3"),
+            ft.Text("¡Bienvenido a Digital PyME!", size=24, weight="bold", color="#2196F3"),
             ft.Text("Configuremos tu negocio para empezar.", size=16, color="grey"),
             ft.Divider(height=20, color="transparent"),
             

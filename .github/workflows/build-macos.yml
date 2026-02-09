@@ -1,0 +1,61 @@
+name: Build macOS App
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+
+jobs:
+  macos_app:
+    name: Build macOS App
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install Dependencies
+        run: |
+          pip install flet
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Flet Build macOS
+        run: |
+          flet build macos --verbose --yes
+      
+      - name: Debug - List build output
+        run: |
+          echo "=== Listing build directory structure ==="
+          if [ -d build ]; then
+            find build -maxdepth 3 -print
+          else
+            echo "build directory not found"
+          fi
+          echo "=== Searching for .app bundles ==="
+          find . -name "*.app" -type d 2>/dev/null || echo "No .app bundles found"
+
+      - name: Create DMG (if app exists)
+        run: |
+          if [ -d "build/macos"/*.app ]; then
+            APP_NAME=$(ls build/macos/*.app | head -n 1 | xargs basename)
+            echo "Creating DMG for $APP_NAME"
+            mkdir -p dist
+            hdiutil create -volname "Digital PyME" -srcfolder "build/macos/$APP_NAME" -ov -format UDZO "dist/Digital_PyME.dmg"
+          else
+            echo "No .app bundle found, skipping DMG creation"
+          fi
+
+      - name: Upload macOS App
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-app
+          path: |
+            dist/*.dmg
+            build/macos/*.app
+          retention-days: 1

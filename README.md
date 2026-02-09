@@ -1,4 +1,4 @@
-# 🏪 SOS Digital PyME - Sistema POS & Gestión Financiera
+# 🏪 Digital PyME - Sistema POS & Gestión Financiera
 
 Sistema de Punto de Venta (POS) profesional desarrollado en **Python** y **Flet**, diseñado específicamente para empoderar a pequeñas y medianas empresas. Más que un simple registrador de ventas, es una herramienta de **Inteligencia de Negocios** que te revela "La Verdad Financiera" de tu operación en tiempo real.
 
@@ -9,7 +9,7 @@ Sistema de Punto de Venta (POS) profesional desarrollado en **Python** y **Flet*
 
 ## 📋 Descripción
 
-**SOS Digital PyME** transforma la complejidad financiera en simplicidad operativa. Elimina las "cuentas de servilleta" y ofrece un control estricto sobre el dinero, el inventario y los créditos.
+**Digital PyME** transforma la complejidad financiera en simplicidad operativa. Elimina las "cuentas de servilleta" y ofrece un control estricto sobre el dinero, el inventario y los créditos.
 
 El sistema se centra en la **transparencia del flujo de caja**, diferenciando claramente entre lo que vendiste (Venta Bruta) y el dinero que realmente entró a tu cajón, descontando fiados y sumando abonos de deudas pasadas.
 

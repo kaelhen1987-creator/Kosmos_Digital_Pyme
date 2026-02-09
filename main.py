@@ -43,8 +43,16 @@ async def main(page: ft.Page):
     if getattr(sys, 'frozen', False):
         # Si está empaquetado (.app/.exe), usar carpeta Documentos para persistencia
         home_dir = os.path.expanduser("~")
-        data_dir = os.path.join(home_dir, "Documents", "SOS_Digital_PyME")
+        data_dir = os.path.join(home_dir, "Documents", "Digital_PyME")
         
+        # MIGRATION: Renombrar carpeta antigua si existe
+        old_data_dir = os.path.join(home_dir, "Documents", "SOS_Digital_PyME")
+        if os.path.exists(old_data_dir) and not os.path.exists(data_dir):
+            try:
+                os.rename(old_data_dir, data_dir)
+            except Exception as e:
+                print(f"Error migrando carpeta de datos: {e}")
+
         # Crear carpeta si no existe
         if not os.path.exists(data_dir):
             try:
@@ -125,6 +133,7 @@ async def main(page: ft.Page):
 
         def handle_logout():
             """Cierra la sesión y vuelve a la pantalla de apertura de caja"""
+            page.overlay.clear() # Fix: Limpiar dialogos y snackbars persistentes
             page.clean()
             page.appbar = None # Ocultar barra superior en Login/Turno
             page.add(build_shift_view(page, model, on_success_callback=load_main_app))
@@ -155,7 +164,7 @@ async def main(page: ft.Page):
             # Texto para mostrar errores o advertencias
             error_text = ft.Text("", color="red", size=12)
             
-            def confirm_close(e):
+            async def confirm_close(e):
                 try:
                     monto_final = 0
                     if final_amount_field.value:
@@ -175,12 +184,15 @@ async def main(page: ft.Page):
                     # Cerrar Turno en DB
                     model.cerrar_turno(monto_final)
                     
+                    # Cerrar diálogo primero
                     dlg_close.open = False
                     page.update()
                     
-                    show_message(page, "Turno cerrado correctamente.", "green")
+                    # Pequeño delay para asegurar que el diálogo se cierre
+                    import asyncio
+                    await asyncio.sleep(0.1)
                     
-                    # Logout (Volver a ShiftView)
+                    # Logout (Volver a ShiftView) - esto limpia el overlay
                     handle_logout()
                         
                 except ValueError:
@@ -279,7 +291,7 @@ async def main(page: ft.Page):
                 fecha = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
                 biz_name = model.get_config('business_name', 'MiNegocio').replace(" ", "_")
                 ruta_origen = db_path 
-                nombre_backup = f"Respaldo_SOS_{biz_name}_{fecha}.sqlite"
+                nombre_backup = f"Respaldo_Digital_{biz_name}_{fecha}.sqlite"
                 
                 # --- DETECCION PLATAFORMA ROBUSTA ---
                 # Fix: page.platform devuelve un Enum (PagePlatform.ANDROID), convertir a str para comparar
@@ -297,7 +309,7 @@ async def main(page: ft.Page):
                      return
 
                 desktop = os.path.join(os.path.expanduser("~"), "Desktop")
-                backup_dir = os.path.join(desktop, "SOS_PyME_Backups")
+                backup_dir = os.path.join(desktop, "Digital_PyME_Backups")
                 if not os.path.exists(backup_dir):
                     try:
                         os.makedirs(backup_dir)
@@ -321,7 +333,7 @@ async def main(page: ft.Page):
         drawer_content = ft.Container(
             content=ft.Column([
                 ft.Container(
-                    content=ft.Text("SOS PyME", size=20, weight="bold", color="white"),
+                    content=ft.Text("Digital PyME", size=20, weight="bold", color="white"),
                     bgcolor="#2196F3", padding=20, width=float("inf")
                 ),
                 ft.ListTile(leading=ft.Icon(ft.Icons.SHOPPING_CART, color="black"), title=ft.Text("Ventas", color="black"), on_click=lambda e: select_drawer_item(0)),
@@ -529,8 +541,8 @@ if __name__ == "__main__":
     mode = "DESKTOP" 
 
     if mode == "WEB":
-        # Bloque web eliminado/oculto por solicitud
-        pass
+        # Modo Web (Navegador) - Solo para debug
+        ft.app(target=main, view=ft.AppView.WEB_BROWSER)
     else:
         # Modo desktop (ventana nativa)
         ft.app(target=main)
