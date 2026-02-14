@@ -50,9 +50,32 @@ jobs:
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 
-      - name: Upload Windows Installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: SOS_Digital_PyME_Setup
-          path: Output/*
-          retention-days: 1
+      - name: Upload Windows Installer to Transfer.sh (Bypass Quota)
+        run: |
+          # Buscar el instalador generado
+          $INSTALLER_PATH = Get-ChildItem -Path Output -Filter *.exe -Recurse | Select-Object -First 1 -ExpandProperty FullName
+          
+          if (-not $INSTALLER_PATH) {
+            Write-Host "❌ No se encontró instalador .exe"
+            exit 1
+          }
+          
+          Write-Host "📦 Archivo encontrado: $INSTALLER_PATH"
+          $SIZE = (Get-Item $INSTALLER_PATH).Length / 1MB
+          Write-Host "📊 Tamaño: $([math]::Round($SIZE, 2)) MB"
+          Write-Host ""
+          Write-Host "🚀 Subiendo a Transfer.sh..."
+          Write-Host ""
+          
+          # Subir a transfer.sh
+          $DOWNLOAD_URL = curl.exe --upload-file "$INSTALLER_PATH" "https://transfer.sh/Digital_PyME_Setup_v0.11.18.exe"
+          
+          Write-Host ""
+          Write-Host "✅ ¡Subida exitosa!"
+          Write-Host ""
+          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          Write-Host "🪟 DESCARGA DIRECTA DEL INSTALADOR:"
+          Write-Host "$DOWNLOAD_URL"
+          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          Write-Host ""
+          Write-Host "⏰ Link válido por 14 días"

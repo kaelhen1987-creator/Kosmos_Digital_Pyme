@@ -59,10 +59,32 @@ jobs:
             echo "build/macos directory not found"
           fi
 
-      - name: Upload macOS App
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-app
-          path: dist/*.dmg
-          retention-days: 1
-          if-no-files-found: warn
+      - name: Upload macOS DMG to Transfer.sh (Bypass Quota)
+        run: |
+          # Buscar el archivo DMG generado
+          DMG_PATH=$(find dist -name "*.dmg" | head -n 1)
+          
+          if [ -z "$DMG_PATH" ]; then
+            echo "❌ No se encontró archivo DMG"
+            exit 1
+          fi
+          
+          echo "📦 Archivo encontrado: $DMG_PATH"
+          DMG_SIZE=$(du -h "$DMG_PATH" | cut -f1)
+          echo "📊 Tamaño: $DMG_SIZE"
+          echo ""
+          echo "🚀 Subiendo a Transfer.sh..."
+          echo ""
+          
+          # Subir a transfer.sh y capturar la URL
+          DOWNLOAD_URL=$(curl --upload-file "$DMG_PATH" "https://transfer.sh/Digital_PyME_v0.11.18.dmg")
+          
+          echo ""
+          echo "✅ ¡Subida exitosa!"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🍎 DESCARGA DIRECTA DEL DMG:"
+          echo "$DOWNLOAD_URL"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "⏰ Link válido por 14 días"

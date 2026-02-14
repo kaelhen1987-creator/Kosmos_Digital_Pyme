@@ -39,9 +39,32 @@ jobs:
         run: |
           flet build apk --verbose --yes
           
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-app-release
-          path: build/apk/**/*.apk
-          retention-days: 1
+      - name: Upload APK to Transfer.sh (Bypass Quota)
+        run: |
+          # Buscar el archivo APK generado
+          APK_PATH=$(find build/apk -name "*.apk" | head -n 1)
+          
+          if [ -z "$APK_PATH" ]; then
+            echo "❌ No se encontró archivo APK"
+            exit 1
+          fi
+          
+          echo "📦 Archivo encontrado: $APK_PATH"
+          APK_SIZE=$(du -h "$APK_PATH" | cut -f1)
+          echo "📊 Tamaño: $APK_SIZE"
+          echo ""
+          echo "🚀 Subiendo a Transfer.sh..."
+          echo ""
+          
+          # Subir a transfer.sh y capturar la URL
+          DOWNLOAD_URL=$(curl --upload-file "$APK_PATH" "https://transfer.sh/Digital_PyME_v0.11.18.apk")
+          
+          echo ""
+          echo "✅ ¡Subida exitosa!"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📱 DESCARGA DIRECTA DEL APK:"
+          echo "$DOWNLOAD_URL"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "⏰ Link válido por 14 días"
