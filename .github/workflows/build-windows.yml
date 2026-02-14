@@ -50,38 +50,14 @@ jobs:
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 
-      - name: NUCLEAR UPLOAD (3 Servidores)
+      - name: Create GitHub Release
         if: always()
-        shell: bash
-        run: |
-          echo "🔎 Buscando el archivo generado..."
-          
-          # Busca cualquier instalador (APK, EXE o DMG)
-          FILE_PATH=$(find . -type f \( -name "*.apk" -o -name "*.exe" -o -name "*.dmg" \) | head -n 1)
-          
-          if [ -z "$FILE_PATH" ]; then
-            echo "❌ ERROR: No encontré ningún archivo .apk, .exe o .dmg"
-            exit 1
-          fi
-
-          echo "🚀 Archivo encontrado: $FILE_PATH"
-          echo "========================================================"
-          
-          # OPCIÓN 1: CATBOX (Muy estable, devuelve link directo)
-          echo "👉 INTENTO 1: Catbox.moe"
-          response=$(curl -s -F "reqtype=fileupload" -F "fileToUpload=@$FILE_PATH" https://catbox.moe/user/api.php)
-          echo "✅ LINK CATBOX: $response"
-          echo "========================================================"
-
-          # OPCIÓN 2: TMPFILES (Backup)
-          echo "👉 INTENTO 2: TmpFiles.org"
-          curl -F "file=@$FILE_PATH" https://tmpfiles.org/api/v1/upload
-          echo ""
-          echo "(Si ves un JSON arriba, el link está dentro de 'url')"
-          echo "========================================================"
-
-          # OPCIÓN 3: FILE.IO (Modo Verbose - muestra todo)
-          echo "👉 INTENTO 3: File.io (Último recurso)"
-          curl -v -F "file=@$FILE_PATH" https://file.io
-          echo ""
-          echo "========================================================"
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v0.11.18-windows-${{ github.run_number }}
+          name: Digital PyME v0.11.18 - Windows
+          files: Output/*.exe
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
