@@ -50,32 +50,36 @@ jobs:
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 
-      - name: Upload Windows Installer to Transfer.sh (Bypass Quota)
+      - name: Upload Windows Installer (Emergency Backup)
+        shell: bash
         run: |
-          # Buscar el instalador generado
-          $INSTALLER_PATH = Get-ChildItem -Path Output -Filter *.exe -Recurse | Select-Object -First 1 -ExpandProperty FullName
+          # Encontrar el archivo
+          INSTALLER_PATH=$(find Output -name "*.exe" | head -n 1)
           
-          if (-not $INSTALLER_PATH) {
-            Write-Host "❌ No se encontró instalador .exe"
+          if [ -z "$INSTALLER_PATH" ]; then
+            echo "❌ No se encontró instalador .exe"
             exit 1
-          }
+          fi
           
-          Write-Host "📦 Archivo encontrado: $INSTALLER_PATH"
-          $SIZE = (Get-Item $INSTALLER_PATH).Length / 1MB
-          Write-Host "📊 Tamaño: $([math]::Round($SIZE, 2)) MB"
-          Write-Host ""
-          Write-Host "🚀 Subiendo a Transfer.sh..."
-          Write-Host ""
+          echo "🚀 Archivo a subir: $INSTALLER_PATH"
+          FILE_SIZE=$(du -h "$INSTALLER_PATH" | cut -f1)
+          echo "📊 Tamaño: $FILE_SIZE"
+          echo ""
           
-          # Subir a transfer.sh
-          $DOWNLOAD_URL = curl.exe --upload-file "$INSTALLER_PATH" "https://transfer.sh/Digital_PyME_Setup_v0.11.18.exe"
+          # OPCIÓN A: File.io (Rápido, link expira tras 1 descarga)
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Intentando subir a File.io..."
+          curl -F "file=@$INSTALLER_PATH" https://file.io > response.json
+          echo ""
+          echo "✅ LINK DE DESCARGA (FILE.IO):"
+          cat response.json | grep -o '"link":"[^"]*"' | cut -d'"' -f4
+          echo "⚠️  Este link expira tras 1 descarga"
+          echo ""
           
-          Write-Host ""
-          Write-Host "✅ ¡Subida exitosa!"
-          Write-Host ""
-          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          Write-Host "🪟 DESCARGA DIRECTA DEL INSTALADOR:"
-          Write-Host "$DOWNLOAD_URL"
-          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          Write-Host ""
-          Write-Host "⏰ Link válido por 14 días"
+          # OPCIÓN B: BashUpload (Respaldo, dura más tiempo)
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Subiendo a BashUpload (Respaldo)..."
+          curl https://bashupload.com -T "$INSTALLER_PATH"
+          echo ""
+          echo "✅ (Si file.io falló, usa el link de arriba)"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

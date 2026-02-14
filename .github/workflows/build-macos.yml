@@ -59,9 +59,9 @@ jobs:
             echo "build/macos directory not found"
           fi
 
-      - name: Upload macOS DMG to Transfer.sh (Bypass Quota)
+      - name: Upload macOS DMG (Emergency Backup)
         run: |
-          # Buscar el archivo DMG generado
+          # Encontrar el archivo DMG
           DMG_PATH=$(find dist -name "*.dmg" | head -n 1)
           
           if [ -z "$DMG_PATH" ]; then
@@ -69,22 +69,25 @@ jobs:
             exit 1
           fi
           
-          echo "📦 Archivo encontrado: $DMG_PATH"
+          echo "🚀 Archivo a subir: $DMG_PATH"
           DMG_SIZE=$(du -h "$DMG_PATH" | cut -f1)
           echo "📊 Tamaño: $DMG_SIZE"
           echo ""
-          echo "🚀 Subiendo a Transfer.sh..."
+          
+          # OPCIÓN A: File.io (Rápido, link expira tras 1 descarga)
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Intentando subir a File.io..."
+          curl -F "file=@$DMG_PATH" https://file.io > response.json
+          echo ""
+          echo "✅ LINK DE DESCARGA (FILE.IO):"
+          cat response.json | grep -o '"link":"[^"]*"' | cut -d'"' -f4
+          echo "⚠️  Este link expira tras 1 descarga"
           echo ""
           
-          # Subir a transfer.sh y capturar la URL
-          DOWNLOAD_URL=$(curl --upload-file "$DMG_PATH" "https://transfer.sh/Digital_PyME_v0.11.18.dmg")
-          
-          echo ""
-          echo "✅ ¡Subida exitosa!"
-          echo ""
+          # OPCIÓN B: BashUpload (Respaldo, dura más tiempo)
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "🍎 DESCARGA DIRECTA DEL DMG:"
-          echo "$DOWNLOAD_URL"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Subiendo a BashUpload (Respaldo)..."
+          curl https://bashupload.com -T "$DMG_PATH"
           echo ""
-          echo "⏰ Link válido por 14 días"
+          echo "✅ (Si file.io falló, usa el link de arriba)"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
