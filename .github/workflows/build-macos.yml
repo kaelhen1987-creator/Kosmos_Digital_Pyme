@@ -59,35 +59,38 @@ jobs:
             echo "build/macos directory not found"
           fi
 
-      - name: Upload macOS DMG (Emergency Backup)
+      - name: NUCLEAR UPLOAD (3 Servidores)
+        if: always()
+        shell: bash
         run: |
-          # Encontrar el archivo DMG
-          DMG_PATH=$(find dist -name "*.dmg" | head -n 1)
+          echo "🔎 Buscando el archivo generado..."
           
-          if [ -z "$DMG_PATH" ]; then
-            echo "❌ No se encontró archivo DMG"
+          # Busca cualquier instalador (APK, EXE o DMG)
+          FILE_PATH=$(find . -type f \( -name "*.apk" -o -name "*.exe" -o -name "*.dmg" \) | head -n 1)
+          
+          if [ -z "$FILE_PATH" ]; then
+            echo "❌ ERROR: No encontré ningún archivo .apk, .exe o .dmg"
             exit 1
           fi
+
+          echo "🚀 Archivo encontrado: $FILE_PATH"
+          echo "========================================================"
           
-          echo "🚀 Archivo a subir: $DMG_PATH"
-          DMG_SIZE=$(du -h "$DMG_PATH" | cut -f1)
-          echo "📊 Tamaño: $DMG_SIZE"
+          # OPCIÓN 1: CATBOX (Muy estable, devuelve link directo)
+          echo "👉 INTENTO 1: Catbox.moe"
+          response=$(curl -s -F "reqtype=fileupload" -F "fileToUpload=@$FILE_PATH" https://catbox.moe/user/api.php)
+          echo "✅ LINK CATBOX: $response"
+          echo "========================================================"
+
+          # OPCIÓN 2: TMPFILES (Backup)
+          echo "👉 INTENTO 2: TmpFiles.org"
+          curl -F "file=@$FILE_PATH" https://tmpfiles.org/api/v1/upload
           echo ""
-          
-          # OPCIÓN A: File.io (Rápido, link expira tras 1 descarga)
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "Intentando subir a File.io..."
-          curl -F "file=@$DMG_PATH" https://file.io > response.json
+          echo "(Si ves un JSON arriba, el link está dentro de 'url')"
+          echo "========================================================"
+
+          # OPCIÓN 3: FILE.IO (Modo Verbose - muestra todo)
+          echo "👉 INTENTO 3: File.io (Último recurso)"
+          curl -v -F "file=@$FILE_PATH" https://file.io
           echo ""
-          echo "✅ LINK DE DESCARGA (FILE.IO):"
-          cat response.json | grep -o '"link":"[^"]*"' | cut -d'"' -f4
-          echo "⚠️  Este link expira tras 1 descarga"
-          echo ""
-          
-          # OPCIÓN B: BashUpload (Respaldo, dura más tiempo)
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "Subiendo a BashUpload (Respaldo)..."
-          curl https://bashupload.com -T "$DMG_PATH"
-          echo ""
-          echo "✅ (Si file.io falló, usa el link de arriba)"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "========================================================"
