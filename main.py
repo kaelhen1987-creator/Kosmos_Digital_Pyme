@@ -19,7 +19,9 @@ from app.ui.activation_view import build_activation_view
 from app.utils.helpers import show_message # Importar helper para mensajes
 
 # --- SYSTEM VERSION ---
-APP_VERSION = "0.11.18"  # Fix: Dialog persistence, dashboard background, optimized builds
+# Versión de la App
+# v0.11.19 - Desglose de ventas por método de pago al cerrar caja
+APP_VERSION = "0.11.19"
 WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
 # ----------------------
 async def main(page: ft.Page):
@@ -152,17 +154,68 @@ async def main(page: ft.Page):
             stats = model.get_current_shift_stats()
             monto_esperado = stats["teorico_en_caja"] if stats else 0
             
+            # Obtener desglose de ventas por método de pago
+            desglose = model.obtener_desglose_ventas_turno()
+            
             # Campo para ingresar monto final
             final_amount_field = ft.TextField(
                 label="Dinero Total en Caja",
                 hint_text="Monto final contado",
                 keyboard_type=ft.KeyboardType.NUMBER,
                 text_align="right",
-                autofocus=True
+                autofocus=True,
+                border_color="#2196F3",
+                color="black",
+                bgcolor="white",
+                filled=True
             )
 
             # Texto para mostrar errores o advertencias
             error_text = ft.Text("", color="red", size=12)
+            
+            # Construir tabla de desglose
+            desglose_rows = []
+            total_ventas = 0
+            
+            # Iconos y colores por método de pago
+            metodos_config = {
+                'EFECTIVO': {'icono': '💵', 'color': '#4CAF50'},
+                'TARJETA': {'icono': '💳', 'color': '#2196F3'},
+                'TRANSFERENCIA': {'icono': '📱', 'color': '#FF9800'},
+                'DEUDA': {'icono': '📋', 'color': '#F44336'}
+            }
+            
+            for metodo in ['EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'DEUDA']:
+                if metodo in desglose:
+                    info = desglose[metodo]
+                    cantidad = info['cantidad']
+                    total = info['total']
+                    total_ventas += total
+                    
+                    config = metodos_config.get(metodo, {'icono': '📊', 'color': '#757575'})
+                    
+                    desglose_rows.append(
+                        ft.Container(
+                            content=ft.Row([
+                                ft.Text(f"{config['icono']} {metodo}", 
+                                       size=14, weight="bold", color=config['color']),
+                                ft.Row([
+                                    ft.Text(f"{cantidad} trans.", size=12, color="grey"),
+                                    ft.Text(f"${total:,.0f}", size=14, weight="bold")
+                                ], spacing=10)
+                            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                            padding=ft.padding.symmetric(vertical=5, horizontal=10),
+                            bgcolor="#f5f5f5",
+                            border_radius=5
+                        )
+                    )
+            
+            # Si no hay ventas, mostrar mensaje
+            if not desglose_rows:
+                desglose_rows.append(
+                    ft.Text("No hay ventas registradas en este turno", 
+                           size=12, color="grey", italic=True)
+                )
             
             async def confirm_close(e):
                 try:
@@ -201,25 +254,58 @@ async def main(page: ft.Page):
                 except Exception as ex:
                     show_message(page, f"Error: {str(ex)}", "red")
             
+            # Contenido del diálogo con desglose
+            dialog_content = ft.Column([
+                ft.Text("📊 Desglose de Ventas del Turno", 
+                       size=18, weight="bold", color="#333333"),
+                ft.Divider(height=10, color="transparent"),
+                ft.Container(
+                    content=ft.Column(desglose_rows, spacing=5),
+                    padding=10,
+                    border=ft.border.all(1, "#e0e0e0"),
+                    border_radius=10,
+                    bgcolor="white"
+                ),
+                ft.Divider(height=10, color="transparent"),
+                ft.Container(
+                    content=ft.Column([
+                        ft.Row([
+                            ft.Text("TOTAL VENTAS:", size=14, weight="bold"),
+                            ft.Text(f"${total_ventas:,.0f}", size=16, weight="bold", color="#2196F3")
+                        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                        ft.Row([
+                            ft.Text("Efectivo Esperado:", size=12, color="grey"),
+                            ft.Text(f"${monto_esperado:,.0f}", size=14, weight="bold", color="#4CAF50")
+                        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                    ], spacing=5),
+                    padding=10,
+                    bgcolor="#f9f9f9",
+                    border_radius=5
+                ),
+                ft.Divider(height=10, color="transparent"),
+                final_amount_field,
+                error_text,
+                ft.Text("Al confirmar, se cerrará la sesión.", size=12, color="grey", italic=True)
+            ], tight=True, scroll=ft.ScrollMode.AUTO)
+            
             dlg_close = ft.AlertDialog(
-                title=ft.Text("Cerrar Turno"),
-                content=ft.Column([
-                    ft.Text("¿Confirmas que deseas cerrar la caja del día?"),
-                    ft.Text(f"Monto Esperado: ${monto_esperado:,.0f}", weight=ft.FontWeight.BOLD),
-                    ft.Container(height=10),
-                    final_amount_field,
-                    error_text,
-                    ft.Text("Al confirmar, se cerrará la sesión.", size=12, color="grey")
-                ], height=200, tight=True),
+                title=ft.Text("Cerrar Turno", size=20, weight="bold"),
+                content=ft.Container(
+                    content=dialog_content,
+                    width=400,
+                    height=500
+                ),
                 actions=[
                     ft.TextButton("Cancelar", on_click=lambda e: setattr(dlg_close, 'open', False) or page.update()),
-                    ft.FilledButton("Confirmar", on_click=confirm_close, style=ft.ButtonStyle(bgcolor="red", color="white"))
+                    ft.FilledButton("Confirmar Cierre", on_click=confirm_close, 
+                                   style=ft.ButtonStyle(bgcolor="#D32F2F", color="white"))
                 ],
                 actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             )
             page.overlay.append(dlg_close)
             dlg_close.open = True
             page.update()
+
 
         btn_close_global = ft.FilledButton(
             "Cerrar Caja",

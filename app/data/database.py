@@ -719,6 +719,66 @@ class InventarioModel:
             conn.commit()
         finally:
             conn.close()
+    
+    def obtener_desglose_ventas_turno(self):
+        """
+        Obtiene el desglose de ventas del turno actual agrupado por método de pago.
+        
+        Returns:
+            dict: {
+                'EFECTIVO': {'cantidad': int, 'total': float},
+                'TARJETA': {'cantidad': int, 'total': float},  # DEBITO + CREDITO
+                'TRANSFERENCIA': {'cantidad': int, 'total': float},
+                'DEUDA': {'cantidad': int, 'total': float}
+            }
+        """
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        try:
+            # Obtener fecha de inicio del turno actual
+            cursor.execute('''
+                SELECT fecha_inicio 
+                FROM turnos 
+                WHERE fecha_fin IS NULL 
+                ORDER BY id DESC 
+                LIMIT 1
+            ''')
+            turno = cursor.fetchone()
+            
+            if not turno:
+                return {}
+            
+            fecha_inicio = turno[0]
+            
+            # Obtener desglose de ventas agrupando DEBITO y CREDITO como TARJETA
+            cursor.execute('''
+                SELECT 
+                    CASE 
+                        WHEN medio_pago IN ('DEBITO', 'CREDITO') THEN 'TARJETA'
+                        WHEN medio_pago IS NULL THEN 'EFECTIVO'
+                        ELSE medio_pago 
+                    END as metodo,
+                    COUNT(*) as cantidad,
+                    SUM(total) as total_vendido
+                FROM ventas
+                WHERE fecha >= ?
+                GROUP BY metodo
+            ''', (fecha_inicio,))
+            
+            resultados = cursor.fetchall()
+            
+            # Convertir a diccionario
+            desglose = {}
+            for metodo, cantidad, total in resultados:
+                desglose[metodo] = {
+                    'cantidad': cantidad,
+                    'total': total if total else 0.0
+                }
+            
+            return desglose
+            
+        finally:
+            conn.close()
 
     def get_current_shift_stats(self):
         """Calcula el estado actual de la caja según el turno activo"""
