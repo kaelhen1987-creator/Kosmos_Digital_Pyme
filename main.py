@@ -20,8 +20,8 @@ from app.utils.helpers import show_message # Importar helper para mensajes
 
 # --- SYSTEM VERSION ---
 # Versión de la App
-# v0.11.19 - Desglose de ventas por método de pago al cerrar caja
-APP_VERSION = "0.11.19"
+# v0.11.20 - Separación débito/crédito y método de pago en pagos de deuda
+APP_VERSION = "0.11.20"
 WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
 # ----------------------
 async def main(page: ft.Page):
@@ -176,41 +176,83 @@ async def main(page: ft.Page):
             # Construir tabla de desglose
             desglose_rows = []
             total_ventas = 0
+            total_pagos_deuda = 0
             
             # Iconos y colores por método de pago
             metodos_config = {
                 'EFECTIVO': {'icono': '💵', 'color': '#4CAF50'},
-                'TARJETA': {'icono': '💳', 'color': '#2196F3'},
+                'DEBITO': {'icono': '💳', 'color': '#2196F3'},
+                'CREDITO': {'icono': '💳', 'color': '#1976D2'},
                 'TRANSFERENCIA': {'icono': '📱', 'color': '#FF9800'},
                 'DEUDA': {'icono': '📋', 'color': '#F44336'}
             }
             
-            for metodo in ['EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'DEUDA']:
-                if metodo in desglose:
-                    info = desglose[metodo]
-                    cantidad = info['cantidad']
-                    total = info['total']
-                    total_ventas += total
-                    
-                    config = metodos_config.get(metodo, {'icono': '📊', 'color': '#757575'})
-                    
-                    desglose_rows.append(
-                        ft.Container(
-                            content=ft.Row([
-                                ft.Text(f"{config['icono']} {metodo}", 
-                                       size=14, weight="bold", color=config['color']),
-                                ft.Row([
-                                    ft.Text(f"{cantidad} trans.", size=12, color="grey"),
-                                    ft.Text(f"${total:,.0f}", size=14, weight="bold")
-                                ], spacing=10)
-                            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                            padding=ft.padding.symmetric(vertical=5, horizontal=10),
-                            bgcolor="#f5f5f5",
-                            border_radius=5
+            # Sección de VENTAS DIRECTAS
+            ventas_data = desglose.get('ventas', {})
+            if ventas_data:
+                desglose_rows.append(
+                    ft.Text("VENTAS DIRECTAS", size=12, weight="bold", color="#666666")
+                )
+                
+                for metodo in ['EFECTIVO', 'DEBITO', 'CREDITO', 'TRANSFERENCIA', 'DEUDA']:
+                    if metodo in ventas_data:
+                        info = ventas_data[metodo]
+                        cantidad = info['cantidad']
+                        total = info['total']
+                        total_ventas += total
+                        
+                        config = metodos_config.get(metodo, {'icono': '📊', 'color': '#757575'})
+                        
+                        desglose_rows.append(
+                            ft.Container(
+                                content=ft.Row([
+                                    ft.Text(f"{config['icono']} {metodo}", 
+                                           size=14, weight="bold", color=config['color']),
+                                    ft.Row([
+                                        ft.Text(f"{cantidad} trans.", size=12, color="grey"),
+                                        ft.Text(f"${total:,.0f}", size=14, weight="bold")
+                                    ], spacing=10)
+                                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                                padding=ft.padding.symmetric(vertical=5, horizontal=10),
+                                bgcolor="#f5f5f5",
+                                border_radius=5
+                            )
                         )
-                    )
             
-            # Si no hay ventas, mostrar mensaje
+            # Sección de PAGOS DE DEUDA RECIBIDOS
+            pagos_data = desglose.get('pagos_deuda', {})
+            if pagos_data:
+                desglose_rows.append(ft.Divider(height=10, color="transparent"))
+                desglose_rows.append(
+                    ft.Text("PAGOS DE DEUDA RECIBIDOS", size=12, weight="bold", color="#666666")
+                )
+                
+                for metodo in ['EFECTIVO', 'DEBITO', 'CREDITO', 'TRANSFERENCIA']:
+                    if metodo in pagos_data:
+                        info = pagos_data[metodo]
+                        cantidad = info['cantidad']
+                        total = info['total']
+                        total_pagos_deuda += total
+                        
+                        config = metodos_config.get(metodo, {'icono': '📊', 'color': '#757575'})
+                        
+                        desglose_rows.append(
+                            ft.Container(
+                                content=ft.Row([
+                                    ft.Text(f"  {config['icono']} {metodo}", 
+                                           size=13, color=config['color']),
+                                    ft.Row([
+                                        ft.Text(f"{cantidad} trans.", size=11, color="grey"),
+                                        ft.Text(f"${total:,.0f}", size=13, weight="bold")
+                                    ], spacing=10)
+                                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                                padding=ft.padding.symmetric(vertical=4, horizontal=10),
+                                bgcolor="#f9f9f9",
+                                border_radius=5
+                            )
+                        )
+            
+            # Si no hay ventas ni pagos, mostrar mensaje
             if not desglose_rows:
                 desglose_rows.append(
                     ft.Text("No hay ventas registradas en este turno", 
@@ -273,6 +315,11 @@ async def main(page: ft.Page):
                             ft.Text("TOTAL VENTAS:", size=14, weight="bold"),
                             ft.Text(f"${total_ventas:,.0f}", size=16, weight="bold", color="#2196F3")
                         ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                        ft.Row([
+                            ft.Text("Pagos Deuda Recibidos:", size=12, color="grey"),
+                            ft.Text(f"${total_pagos_deuda:,.0f}", size=14, weight="bold", color="#4CAF50")
+                        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN) if total_pagos_deuda > 0 else ft.Container(),
+                        ft.Divider(height=5, color="#e0e0e0"),
                         ft.Row([
                             ft.Text("Efectivo Esperado:", size=12, color="grey"),
                             ft.Text(f"${monto_esperado:,.0f}", size=14, weight="bold", color="#4CAF50")

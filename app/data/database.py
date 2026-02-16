@@ -204,6 +204,22 @@ class InventarioModel:
             cursor.execute("INSERT OR REPLACE INTO config (key, value) VALUES ('db_version', '2')")
             conn.commit()
             print("Migración v2 aplicada.")
+            current_version = 2
+        
+        # --- MIGRACION 3: Método de Pago en Movimientos de Cuenta ---
+        if current_version < 3:
+            print("Aplicando Migración v3 (Método de Pago en Deudas)...")
+            try:
+                cursor.execute("ALTER TABLE movimientos_cuenta ADD COLUMN medio_pago TEXT DEFAULT NULL")
+                print("Columna 'medio_pago' agregada a movimientos_cuenta.")
+            except sqlite3.OperationalError as e:
+                print(f"Error agregando columna medio_pago: {e}")
+                pass
+            
+            cursor.execute("INSERT OR REPLACE INTO config (key, value) VALUES ('db_version', '3')")
+            conn.commit()
+            print("Migración v3 aplicada.")
+            current_version = 3
         
         conn.close()
 
@@ -661,16 +677,16 @@ class InventarioModel:
         conn.close()
         return res
 
-    def add_movement(self, cliente_id, tipo, monto, descripcion, venta_id=None):
+    def add_movement(self, cliente_id, tipo, monto, descripcion, venta_id=None, medio_pago=None):
         import datetime
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         try:
             fecha_actual = datetime.datetime.now().isoformat()
             cursor.execute('''
-                INSERT INTO movimientos_cuenta (cliente_id, fecha, tipo, monto, descripcion, venta_id)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (cliente_id, fecha_actual, tipo, monto, descripcion, venta_id))
+                INSERT INTO movimientos_cuenta (cliente_id, fecha, tipo, monto, descripcion, venta_id, medio_pago)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (cliente_id, fecha_actual, tipo, monto, descripcion, venta_id, medio_pago))
             conn.commit()
             return True
         finally:
@@ -723,13 +739,23 @@ class InventarioModel:
     def obtener_desglose_ventas_turno(self):
         """
         Obtiene el desglose de ventas del turno actual agrupado por método de pago.
+        Incluye ventas directas y pagos de deuda recibidos.
         
         Returns:
             dict: {
-                'EFECTIVO': {'cantidad': int, 'total': float},
-                'TARJETA': {'cantidad': int, 'total': float},  # DEBITO + CREDITO
-                'TRANSFERENCIA': {'cantidad': int, 'total': float},
-                'DEUDA': {'cantidad': int, 'total': float}
+                'ventas': {
+                    'EFECTIVO': {'cantidad': int, 'total': float},
+                    'DEBITO': {'cantidad': int, 'total': float},
+                    'CREDITO': {'cantidad': int, 'total': float},
+                    'TRANSFERENCIA': {'cantidad': int, 'total': float},
+                    'DEUDA': {'cantidad': int, 'total': float}
+                },
+                'pagos_deuda': {
+                    'EFECTIVO': {'cantidad': int, 'total': float},
+                    'DEBITO': {'cantidad': int, 'total': float},
+                    'CREDITO': {'cantidad': int, 'total': float},
+                    'TRANSFERENCIA': {'cantidad': int, 'total': float}
+                }
             }
         """
         conn = sqlite3.connect(self.db_name)
@@ -746,18 +772,14 @@ class InventarioModel:
             turno = cursor.fetchone()
             
             if not turno:
-                return {}
+                return {'ventas': {}, 'pagos_deuda': {}}
             
             fecha_inicio = turno[0]
             
-            # Obtener desglose de ventas agrupando DEBITO y CREDITO como TARJETA
+            # Obtener desglose de VENTAS (sin agrupar DEBITO y CREDITO)
             cursor.execute('''
                 SELECT 
-                    CASE 
-                        WHEN medio_pago IN ('DEBITO', 'CREDITO') THEN 'TARJETA'
-                        WHEN medio_pago IS NULL THEN 'EFECTIVO'
-                        ELSE medio_pago 
-                    END as metodo,
+                    COALESCE(medio_pago, 'EFECTIVO') as metodo,
                     COUNT(*) as cantidad,
                     SUM(total) as total_vendido
                 FROM ventas
@@ -765,17 +787,42 @@ class InventarioModel:
                 GROUP BY metodo
             ''', (fecha_inicio,))
             
-            resultados = cursor.fetchall()
+            ventas_resultados = cursor.fetchall()
             
-            # Convertir a diccionario
-            desglose = {}
-            for metodo, cantidad, total in resultados:
-                desglose[metodo] = {
+            # Obtener desglose de PAGOS DE DEUDA
+            cursor.execute('''
+                SELECT 
+                    COALESCE(medio_pago, 'EFECTIVO') as metodo,
+                    COUNT(*) as cantidad,
+                    SUM(monto) as total_pagado
+                FROM movimientos_cuenta
+                WHERE tipo = 'PAGO' 
+                  AND fecha >= ?
+                  AND medio_pago IS NOT NULL
+                GROUP BY metodo
+            ''', (fecha_inicio,))
+            
+            pagos_resultados = cursor.fetchall()
+            
+            # Convertir a diccionarios
+            desglose_ventas = {}
+            for metodo, cantidad, total in ventas_resultados:
+                desglose_ventas[metodo] = {
                     'cantidad': cantidad,
                     'total': total if total else 0.0
                 }
             
-            return desglose
+            desglose_pagos = {}
+            for metodo, cantidad, total in pagos_resultados:
+                desglose_pagos[metodo] = {
+                    'cantidad': cantidad,
+                    'total': total if total else 0.0
+                }
+            
+            return {
+                'ventas': desglose_ventas,
+                'pagos_deuda': desglose_pagos
+            }
             
         finally:
             conn.close()

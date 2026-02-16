@@ -155,22 +155,44 @@ def build_clients_view(page: ft.Page, model):
         )
 
         def open_payment_dialog(e):
-            amount_field = ft.TextField(label="Monto a Pagar", keyboard_type=ft.KeyboardType.NUMBER, autofocus=True)
+            amount_field = ft.TextField(
+                label="Monto a Pagar", 
+                keyboard_type=ft.KeyboardType.NUMBER, 
+                autofocus=True
+            )
+            
+            # Dropdown para método de pago
+            payment_method_dropdown = ft.Dropdown(
+                label="Método de Pago",
+                options=[
+                    ft.dropdown.Option("EFECTIVO", "💵 Efectivo"),
+                    ft.dropdown.Option("DEBITO", "💳 Débito"),
+                    ft.dropdown.Option("CREDITO", "💳 Crédito"),
+                    ft.dropdown.Option("TRANSFERENCIA", "📱 Transferencia"),
+                ],
+                value="EFECTIVO",
+                width=200
+            )
             
             def save_payment(e):
                 try:
                     monto = float(amount_field.value)
                     if monto <= 0: return
                     
-                    model.add_movement(client['id'], 'PAGO', monto, "Abono / Pago")
+                    medio_pago = payment_method_dropdown.value
+                    model.add_movement(client['id'], 'PAGO', monto, "Abono / Pago", medio_pago=medio_pago)
                     close_dialog(dlg_payment)
                     close_dialog(dlg_client_detail) # Cerrar detalle para refrescar
-                    show_message(page, f"Pago de ${monto:,.0f} registrado", "green")
+                    show_message(page, f"Pago de ${monto:,.0f} registrado ({medio_pago})", "green")
                     refresh_clients()
                 except ValueError:
                     show_message(page, "Monto inválido", "red")
 
-            dlg_payment.content = amount_field
+            dlg_payment.content = ft.Column([
+                amount_field,
+                payment_method_dropdown
+            ], tight=True, spacing=10)
+            
             dlg_payment.actions = [
                 ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_payment)),
                 ft.FilledButton("Confirmar", on_click=save_payment, style=ft.ButtonStyle(bgcolor="green", color="white"))
