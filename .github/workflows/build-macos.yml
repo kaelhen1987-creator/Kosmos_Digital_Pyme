@@ -64,8 +64,8 @@ jobs:
         if: always()
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v0.11.18-macos-${{ github.run_number }}
-          name: Digital PyME v0.11.18 - macOS
+          tag_name: v0.11.20-macos-${{ github.run_number }}
+          name: Digital PyME v0.11.20 - macOS
           files: dist/*.dmg
           draft: false
           prerelease: false

@@ -55,8 +55,8 @@ jobs:
         if: always()
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v0.11.18-windows-${{ github.run_number }}
-          name: Digital PyME v0.11.18 - Windows
+          tag_name: v0.11.20-windows-${{ github.run_number }}
+          name: Digital PyME v0.11.20 - Windows
           files: Output/*.exe
           draft: false
           prerelease: false

@@ -44,8 +44,8 @@ jobs:
         if: always()
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v0.11.18-android-${{ github.run_number }}
-          name: Digital PyME v0.11.18 - Android
+          tag_name: v0.11.20-android-${{ github.run_number }}
+          name: Digital PyME v0.11.20 - Android
           files: build/apk/*.apk
           draft: false
           prerelease: false
