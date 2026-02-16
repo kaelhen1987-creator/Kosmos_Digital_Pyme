@@ -60,14 +60,10 @@ jobs:
             echo "build/macos directory not found"
           fi
 
-      - name: Create GitHub Release
+      - name: Upload macOS DMG as Artifact
+        uses: actions/upload-artifact@v4
         if: always()
-        uses: softprops/action-gh-release@v1
         with:
-          tag_name: v0.11.20-macos-${{ github.run_number }}
-          name: Digital PyME v0.11.20 - macOS
-          files: dist/*.dmg
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: macos-dmg-v0.11.20
+          path: dist/*.dmg
+          retention-days: 30

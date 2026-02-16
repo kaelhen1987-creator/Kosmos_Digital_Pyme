@@ -39,15 +39,11 @@ jobs:
       - name: Flet Build APK
         run: |
           flet build apk --verbose --yes
-          
-      - name: Create GitHub Release
+      
+      - name: Upload APK as Artifact
+        uses: actions/upload-artifact@v4
         if: always()
-        uses: softprops/action-gh-release@v1
         with:
-          tag_name: v0.11.20-android-${{ github.run_number }}
-          name: Digital PyME v0.11.20 - Android
-          files: build/apk/*.apk
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: android-apk-v0.11.20
+          path: build/apk/*.apk
+          retention-days: 30

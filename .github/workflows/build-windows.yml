@@ -51,14 +51,10 @@ jobs:
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 
-      - name: Create GitHub Release
+      - name: Upload Windows Installer as Artifact
+        uses: actions/upload-artifact@v4
         if: always()
-        uses: softprops/action-gh-release@v1
         with:
-          tag_name: v0.11.20-windows-${{ github.run_number }}
-          name: Digital PyME v0.11.20 - Windows
-          files: Output/*.exe
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: windows-installer-v0.11.20
+          path: Output/*.exe
+          retention-days: 30
