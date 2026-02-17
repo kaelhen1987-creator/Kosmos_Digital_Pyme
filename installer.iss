@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Digital PyME"
-#define MyAppVersion "0.11.20"
+#define MyAppVersion "0.11.21"
 #define MyAppPublisher "Kaelhen"
 #define MyAppURL "https://github.com/kaelhen/sosdigitalpyme"
 #define MyAppExeName "sosdigitalpyme.exe"

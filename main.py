@@ -20,8 +20,8 @@ from app.utils.helpers import show_message # Importar helper para mensajes
 
 # --- SYSTEM VERSION ---
 # Versión de la App
-# v0.11.20 - Separación débito/crédito y método de pago en pagos de deuda
-APP_VERSION = "0.11.20"
+# v0.11.21 - Fix sistema de actualización (platform detection + diálogo persistente)
+APP_VERSION = "0.11.21"
 WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
 # ----------------------
 async def main(page: ft.Page):
@@ -89,43 +89,71 @@ async def main(page: ft.Page):
                 print(f"Update check result: has_update={has_update}, version={new_ver}, url={update_url}")
                 
                 if has_update:
-                    def show_update_alert():
-                        def handle_download(e):
+                    # IMPORTANTE: Crear el diálogo en el hilo principal de Flet
+                    async def show_update_alert_async():
+                        async def handle_download(e):
                             print(f"Download button clicked. URL: {update_url}")
                             if update_url:
-                                # Intentar abrir directamente primero
                                 try:
                                     print(f"Attempting to launch URL: {update_url}")
-                                    page.launch_url(update_url)
+                                    plat = str(page.platform).lower()
+                                    if "android" in plat:
+                                        # Android: usar launch_url (async)
+                                        await page.launch_url_async(update_url)
+                                    else:
+                                        # Desktop (Mac/Windows): usar webbrowser
+                                        import webbrowser
+                                        webbrowser.open(update_url)
                                     show_message(page, "Abriendo descarga...", "green")
                                 except Exception as launch_error:
                                     print(f"launch_url failed: {launch_error}")
-                                    # Si falla, copiar al portapapeles y avisar
-                                    try:
-                                        page.set_clipboard(update_url)
-                                        show_message(page, "URL copiada. Abre Chrome y pega la URL", "orange")
-                                    except Exception as clipboard_error:
-                                        print(f"clipboard failed: {clipboard_error}")
-                                        show_message(page, "Error al abrir descarga", "red")
+                                    await handle_copy(None)
                             else:
                                 show_message(page, "Error: URL no disponible", "red")
                         
-                        # Crear SnackBar con botón de descarga
-                        snack = ft.SnackBar(
-                            content=ft.Row([
-                                ft.Icon(ft.Icons.SYSTEM_UPDATE, color="white"),
-                                ft.Text(f"¡Nueva versión disponible: {new_ver}!", color="white", weight="bold"),
-                            ], alignment=ft.MainAxisAlignment.START),
-                            action="DESCARGAR",
-                            on_action=handle_download,
-                            duration=10000, # 10 segundos
-                            bgcolor="#2196F3"
+                        async def handle_copy(e):
+                            try:
+                                await page.set_clipboard_async(update_url)
+                                show_message(page, "✅ Enlace copiado. Pégalo en tu navegador.", "green")
+                            except Exception:
+                                try:
+                                    page.set_clipboard(update_url)
+                                    show_message(page, "✅ Enlace copiado. Pégalo en tu navegador.", "green")
+                                except Exception:
+                                    show_message(page, "No se pudo copiar el enlace", "red")
+
+                        async def close_dlg(e):
+                            dlg.open = False
+                            page.update()
+
+                        dlg = ft.AlertDialog(
+                            modal=True,
+                            title=ft.Row([
+                                ft.Icon(ft.Icons.SYSTEM_UPDATE, color="#2196F3"),
+                                ft.Text("Actualización Disponible", weight="bold"),
+                            ]),
+                            content=ft.Column([
+                                ft.Text(f"Nueva versión: {new_ver}", size=16, weight="bold", color="#2196F3"),
+                                ft.Text("Se recomienda actualizar para obtener mejoras y correcciones.", size=13),
+                                ft.Divider(),
+                                ft.Text("Si no se abre la descarga, copia el enlace:", size=11, color="grey"),
+                                ft.Row([
+                                    ft.IconButton(ft.Icons.COPY, tooltip="Copiar enlace", on_click=handle_copy),
+                                    ft.Text(update_url or "", size=10, italic=True, 
+                                           overflow=ft.TextOverflow.ELLIPSIS, expand=True),
+                                ]),
+                            ], tight=True, width=450),
+                            actions=[
+                                ft.TextButton("Más tarde", on_click=close_dlg),
+                                ft.FilledButton("DESCARGAR", icon=ft.Icons.DOWNLOAD, on_click=handle_download),
+                            ],
+                            actions_alignment=ft.MainAxisAlignment.END,
                         )
-                        page.overlay.append(snack)
-                        snack.open = True
+                        page.overlay.append(dlg)
+                        dlg.open = True
                         page.update()
                     
-                    show_update_alert()
+                    page.run_task(show_update_alert_async)
             except Exception as e:
                 print(f"Update check failed: {e}")
                 pass

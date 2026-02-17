@@ -64,6 +64,6 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: macos-dmg-v0.11.20
+          name: macos-dmg-v0.11.21
           path: dist/*.dmg
           retention-days: 30

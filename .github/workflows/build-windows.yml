@@ -55,6 +55,6 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: windows-installer-v0.11.20
+          name: windows-installer-v0.11.21
           path: Output/*.exe
           retention-days: 30

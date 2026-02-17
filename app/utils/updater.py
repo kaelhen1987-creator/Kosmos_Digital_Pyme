@@ -65,9 +65,14 @@ def check_for_updates(current_version, platform=None):
                             # Buscar el asset correcto según la plataforma
                             download_url = html_url # Fallback a la página HTML
                             
-                            if platform and assets:
+                            # Fix: platform puede ser Enum (PagePlatform.MACOS),
+                            # convertir a string lowercase para comparar
+                            plat_str = str(platform).lower() if platform else ""
+                            print(f"Platform string for matching: '{plat_str}'")
+                            
+                            if plat_str and assets:
                                 # Buscar el archivo correcto según la plataforma
-                                if platform == "android":
+                                if "android" in plat_str:
                                     # Buscar .apk
                                     for asset in assets:
                                         if asset.get("name", "").lower().endswith(".apk"):
@@ -75,7 +80,7 @@ def check_for_updates(current_version, platform=None):
                                             print(f"Found Android APK: {download_url}")
                                             break
                                             
-                                elif platform == "windows":
+                                elif "windows" in plat_str:
                                     # Buscar .exe o Setup.exe
                                     for asset in assets:
                                         name = asset.get("name", "").lower()
@@ -84,7 +89,7 @@ def check_for_updates(current_version, platform=None):
                                             print(f"Found Windows installer: {download_url}")
                                             break
                                             
-                                elif platform == "macos":
+                                elif "macos" in plat_str:
                                     # Buscar .dmg o .app.zip
                                     for asset in assets:
                                         name = asset.get("name", "").lower()
