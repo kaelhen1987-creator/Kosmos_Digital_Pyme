@@ -20,8 +20,8 @@ from app.utils.helpers import show_message # Importar helper para mensajes
 
 # --- SYSTEM VERSION ---
 # Versión de la App
-# v0.11.21 - Fix sistema de actualización (platform detection + diálogo persistente)
-APP_VERSION = "0.11.21"
+# v0.11.22 - Fix cálculo "Efectivo Esperado" en cierre de caja (solo suma EFECTIVO)
+APP_VERSION = "0.11.22"
 WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
 # ----------------------
 async def main(page: ft.Page):

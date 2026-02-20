@@ -839,14 +839,15 @@ class InventarioModel:
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         
-        # 1. Sumar ventas DESDE el inicio del turno
-        cursor.execute("SELECT SUM(total) FROM ventas WHERE fecha >= ?", (t_inicio,))
+        # 1. Sumar ventas EN EFECTIVO DESDE el inicio del turno
+        # Solo contamos efectivo para el teórico en caja física
+        cursor.execute("SELECT SUM(total) FROM ventas WHERE fecha >= ? AND COALESCE(medio_pago, 'EFECTIVO') = 'EFECTIVO'", (t_inicio,))
         res = cursor.fetchone()
         ventas_total = res[0] if res[0] else 0
         
-        # 2. Sumar ABONOS (Pagos) DESDE el inicio del turno
-        # Estos son dinero real que entra a la caja
-        cursor.execute("SELECT SUM(monto) FROM movimientos_cuenta WHERE tipo='PAGO' AND fecha >= ?", (t_inicio,))
+        # 2. Sumar ABONOS (Pagos) EN EFECTIVO DESDE el inicio del turno
+        # Solo contamos pagos recibidos en efectivo
+        cursor.execute("SELECT SUM(monto) FROM movimientos_cuenta WHERE tipo='PAGO' AND fecha >= ? AND COALESCE(medio_pago, 'EFECTIVO') = 'EFECTIVO'", (t_inicio,))
         res = cursor.fetchone()
         abonos_total = res[0] if res[0] else 0
         

@@ -44,6 +44,6 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: android-apk-v0.11.21
+          name: android-apk-v0.11.22
           path: build/apk/*.apk
           retention-days: 30
