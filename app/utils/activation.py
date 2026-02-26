@@ -11,7 +11,7 @@ import sys
 if getattr(sys, 'frozen', False):
     # Si está empaquetado (.app/.exe), usar carpeta Documentos
     home_dir = os.path.expanduser("~")
-    data_dir = os.path.join(home_dir, "Documents", "SOS_Digital_PyME")
+    data_dir = os.path.join(home_dir, "Documents", "Digital_PyME")
     if not os.path.exists(data_dir):
         try:
             os.makedirs(data_dir)

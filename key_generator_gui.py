@@ -4,8 +4,14 @@ import calendar
 import sys
 import os
 
-# Importar logica de activacion
-sys.path.append(os.getcwd())
+# Importar logica de activacion (compatible con PyInstaller y ejecución normal)
+if getattr(sys, 'frozen', False):
+    # PyInstaller bundle: agregar la carpeta temporal al path
+    sys.path.insert(0, sys._MEIPASS)
+else:
+    # Modo normal: agregar directorio del script al path
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 try:
     from app.utils.activation import generate_subscription_key
 except ImportError:
@@ -56,8 +62,8 @@ def main(page: ft.Page):
     def toggle_custom_days(e):
         """Show/hide custom days input based on dropdown selection"""
         try:
-            # Use e.control.value to get the new value
-            selected = e.control.value
+            # Flet 0.80+: on_select pasa el valor en e.data
+            selected = e.data if hasattr(e, 'data') and e.data else e.control.value
             
             # Update visibility
             custom_days_input.visible = (selected == "custom")
@@ -81,8 +87,9 @@ def main(page: ft.Page):
         ],
         value="1",
         text_size=16,
-        on_change=toggle_custom_days,
     )
+    # Asignar evento después de crear (compatible con Flet 0.28+ y 0.80+)
+    duration_dropdown.on_change = toggle_custom_days
 
     # Output: License Key
     key_output = ft.TextField(

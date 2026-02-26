@@ -1,0 +1,47 @@
+name: Build Key Generator (Windows)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build_keygen:
+    name: Build Key Generator EXE
+    runs-on: windows-latest
+    env:
+      PYTHONUTF8: 1
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install Dependencies
+        run: |
+          pip install flet pyinstaller
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --onefile --windowed `
+            --name "KeyGenerator" `
+            --add-data "app/utils/activation.py;app/utils" `
+            --add-data "app/utils/__init__.py;app/utils" `
+            --add-data "app/__init__.py;app" `
+            --hidden-import flet `
+            --hidden-import app.utils.activation `
+            key_generator_gui.py
+
+      - name: Debug - List output
+        if: always()
+        run: |
+          Write-Host "=== dist directory ==="
+          Get-ChildItem -Path dist -Recurse -ErrorAction SilentlyContinue | Select-Object FullName, Length
+
+      - name: Upload Key Generator EXE
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: KeyGenerator-Windows
+          path: dist/KeyGenerator.exe
+          retention-days: 90
