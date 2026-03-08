@@ -17,10 +17,10 @@ jobs:
       PYTHONUTF8: 1 # Muy importante en Windows para evitar errores de caracteres
       PYTHONIOENCODING: utf-8
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       
@@ -34,7 +34,8 @@ jobs:
           pip install Pillow
           python -c "from PIL import Image; img = Image.open('assets/icon.png'); img.save('assets/icon.ico', format='ICO', sizes=[(256,256),(128,128),(64,64),(48,48),(32,32),(16,16)])"
           Remove-Item assets/icon.png
-          Rename-Item assets/icon.ico assets/icon.png
+          # AQUÍ ESTÁ EL ARREGLO: Usamos Move-Item en lugar de Rename-Item
+          Move-Item assets/icon.ico assets/icon.png
 
       - name: Flet Build Windows
         run: |
@@ -61,7 +62,7 @@ jobs:
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 
       - name: Upload Windows Installer as Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: windows-installer-v0.11.22
