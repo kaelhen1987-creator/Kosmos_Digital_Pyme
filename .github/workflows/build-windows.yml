@@ -32,12 +32,14 @@ jobs:
       - name: Convert Icon to ICO format
         run: |
           pip install Pillow
-          python -c "from PIL import Image; img = Image.open('assets/icon.png'); img.save('icon.ico', format='ICO', sizes=[(256,256),(128,128),(64,64),(48,48),(32,32),(16,16)])"
+          python -c "from PIL import Image; img = Image.open('assets/icon.png'); img.save('assets/icon.ico', format='ICO', sizes=[(256,256),(128,128),(64,64),(48,48),(32,32),(16,16)])"
+          Remove-Item assets/icon.png
+          Rename-Item assets/icon.ico assets/icon.png
 
       - name: Flet Build Windows
         run: |
           chcp 65001
-          flet build windows --verbose --yes --project sosdigitalpyme --no-rich-output --skip-flutter-doctor --icon icon.ico
+          flet build windows --verbose --yes --project sosdigitalpyme --no-rich-output --skip-flutter-doctor
       
       - name: Debug - List build output
         run: |
