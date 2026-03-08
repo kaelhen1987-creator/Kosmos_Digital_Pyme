@@ -15,6 +15,7 @@ jobs:
     runs-on: windows-latest
     env:
       PYTHONUTF8: 1 # Muy importante en Windows para evitar errores de caracteres
+      PYTHONIOENCODING: utf-8
     steps:
       - uses: actions/checkout@v4
       
@@ -30,7 +31,8 @@ jobs:
 
       - name: Flet Build Windows
         run: |
-          flet build windows --verbose --yes
+          chcp 65001
+          flet build windows --verbose --yes --project sosdigitalpyme --no-rich-output --skip-flutter-doctor
       
       - name: Debug - List build output
         run: |
