@@ -29,10 +29,15 @@ jobs:
           pip install flet
           if (Test-Path requirements.txt) { pip install -r requirements.txt }
 
+      - name: Convert Icon to ICO format
+        run: |
+          pip install Pillow
+          python -c "from PIL import Image; img = Image.open('assets/icon.png'); img.save('icon.ico', format='ICO', sizes=[(256,256),(128,128),(64,64),(48,48),(32,32),(16,16)])"
+
       - name: Flet Build Windows
         run: |
           chcp 65001
-          flet build windows --verbose --yes --project sosdigitalpyme --no-rich-output --skip-flutter-doctor
+          flet build windows --verbose --yes --project sosdigitalpyme --no-rich-output --skip-flutter-doctor --icon icon.ico
       
       - name: Debug - List build output
         run: |
