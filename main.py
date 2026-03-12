@@ -20,8 +20,8 @@ from app.utils.helpers import show_message # Importar helper para mensajes
 
 # --- SYSTEM VERSION ---
 # Versión de la App
-# v0.11.22 - Fix cálculo "Efectivo Esperado" en cierre de caja (solo suma EFECTIVO)
-APP_VERSION = "0.11.22"
+# v0.11.23 - Categorías Dinámicas + Sistema de Anulación de Ventas (Void)
+APP_VERSION = "0.11.23"
 WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
 # ----------------------
 async def main(page: ft.Page):
@@ -77,6 +77,7 @@ async def main(page: ft.Page):
     print(f"Database path: {db_path}")
 
     model = InventarioModel(db_path)
+    print("DEBUG: Database initialized and Migrations verified (V5).")
     
     # ---------------------------------------------------------
     # LAYOUT PRINCIPAL (APP)

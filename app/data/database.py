@@ -134,6 +134,9 @@ class InventarioModel:
 
         # 9. Tabla Configuración (Key-Value)
         cursor.execute('''
+            CREATE TABLE IF NOT EXISTS config (
+                key TEXT PRIMARY KEY,
+                value TEXT
             )
         ''')
 
@@ -144,6 +147,14 @@ class InventarioModel:
                 payload_json TEXT NOT NULL,
                 fecha_guardado TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 sincronizado BOOLEAN DEFAULT 0
+            )
+        ''')
+        
+        # 11. Tabla Categorías
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS categorias (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nombre TEXT UNIQUE NOT NULL
             )
         ''')
         
@@ -227,6 +238,52 @@ class InventarioModel:
             conn.commit()
             print("Migración v3 aplicada.")
             current_version = 3
+
+        # --- MIGRACION 4: Tabla Categorías ---
+        if current_version < 4:
+            print("Aplicando Migración v4 (Tabla Categorías)...")
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS categorias (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nombre TEXT UNIQUE NOT NULL
+                )
+            ''')
+            # Poblar con valores por defecto
+            default_cats = ["General", "Promociones", "Bebidas", "Cafés", "Sandwiches", "Pastelería", "Almacén", "Cigarros", "Lácteos", "Aseo", "Fiambrería", "Verdurería", "Granel"]
+            for cat in default_cats:
+                cursor.execute("INSERT OR IGNORE INTO categorias (nombre) VALUES (?)", (cat,))
+                
+            # Poblar con categorías existentes en productos, normalizándolas
+            cursor.execute("SELECT DISTINCT categoria FROM productos WHERE categoria IS NOT NULL")
+            existing_cats = cursor.fetchall()
+            for row in existing_cats:
+                if row[0]:
+                    norm_cat = row[0].strip().title()
+                    if norm_cat:
+                        cursor.execute("INSERT OR IGNORE INTO categorias (nombre) VALUES (?)", (norm_cat,))
+            
+            cursor.execute("INSERT OR REPLACE INTO config (key, value) VALUES ('db_version', '4')")
+            conn.commit()
+            print("Migración v4 aplicada.")
+            current_version = 4
+
+        # --- MIGRACION 5: Estado de Ventas y Movimientos ---
+        if current_version < 5:
+            print("Aplicando Migración v5 (Estado de Ventas y Movimientos)...")
+            try:
+                # 1. Ventas
+                cursor.execute("ALTER TABLE ventas ADD COLUMN estado TEXT DEFAULT 'Completada'")
+                # 2. Movimientos Cuenta
+                cursor.execute("ALTER TABLE movimientos_cuenta ADD COLUMN estado TEXT DEFAULT 'Completada'")
+                print("Columnas 'estado' agregadas.")
+            except sqlite3.OperationalError as e:
+                print(f"Error en Migración v5: {e}")
+                pass
+            
+            cursor.execute("INSERT OR REPLACE INTO config (key, value) VALUES ('db_version', '5')")
+            conn.commit()
+            print("Migración v5 aplicada.")
+            current_version = 5
         
         conn.close()
 
@@ -250,6 +307,127 @@ class InventarioModel:
         cursor.execute("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", (key, value))
         conn.commit()
         conn.close()
+
+    # ==========================================
+    # METODOS CATEGORIAS
+    # ==========================================
+    def get_all_categories(self):
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute("SELECT nombre FROM categorias ORDER BY nombre ASC")
+        res = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        return res
+
+    def add_category(self, nombre):
+        if not nombre: return
+        # Normalizar: " mascotas " -> "Mascotas"
+        nombre_normalizado = nombre.strip().title()
+        if not nombre_normalizado or nombre_normalizado == "Todas": return
+        
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("INSERT INTO categorias (nombre) VALUES (?)", (nombre_normalizado,))
+            conn.commit()
+        except sqlite3.IntegrityError:
+            pass # Ya existe
+        finally:
+            conn.close()
+
+    def update_category(self, old_name, new_name):
+        """Actualiza el nombre de una categoría y cambia los productos asociados."""
+        new_name = new_name.strip().title()
+        if not new_name or old_name == new_name or new_name == "Todas":
+            return False
+
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        try:
+            # 1. Actualizar la tabla de categorías
+            cursor.execute("UPDATE categorias SET nombre = ? WHERE nombre = ?", (new_name, old_name))
+            # 2. Actualizar los productos que tenían la categoría vieja
+            cursor.execute("UPDATE productos SET categoria = ? WHERE categoria = ?", (new_name, old_name))
+            conn.commit()
+            return True
+        except Exception as e:
+            print(f"Error al actualizar categoría: {e}")
+            return False
+        finally:
+            conn.close()
+
+    def delete_category(self, category_name):
+        """Elimina una categoría y mueve sus productos a 'General'."""
+        # Protección: Evitar que borren las categorías base
+        categorias_protegidas = ["General", "Todas"]
+        if category_name in categorias_protegidas:
+            return False
+
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        try:
+            # 1. Mover productos a "General"
+            cursor.execute("UPDATE productos SET categoria = 'General' WHERE categoria = ?", (category_name,))
+            # 2. Borrar la categoría de la tabla
+            cursor.execute("DELETE FROM categorias WHERE nombre = ?", (category_name,))
+            conn.commit()
+            return True
+        finally:
+            conn.close()
+
+    def anular_venta(self, id_venta):
+        """
+        Anula una venta: 
+        1. Devuelve el stock (maneja productos normales y promos).
+        2. Cambia estado del movimiento de cuenta a 'Anulada' si aplica.
+        3. Cambia estado de la venta a 'Anulada'.
+        """
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        try:
+            # 1. Verificar existencia y estado
+            cursor.execute("SELECT estado, medio_pago, total FROM ventas WHERE id = ?", (id_venta,))
+            venta = cursor.fetchone()
+            if not venta:
+                return False, "La venta no existe."
+            
+            estado_actual, medio_pago, total = venta
+            if estado_actual == 'Anulada':
+                return False, "Esta venta ya fue anulada anteriormente."
+
+            # 2. Restaurar Stock
+            cursor.execute("SELECT producto_id, cantidad FROM detalle_ventas WHERE venta_id = ?", (id_venta,))
+            detalles = cursor.fetchall()
+            
+            for pid, cantidad in detalles:
+                # Chequear si es promo para devolver stock de sus componentes
+                cursor.execute("SELECT producto_id, cantidad FROM promocion_items WHERE promocion_id = ?", (pid,))
+                promo_items = cursor.fetchall()
+                
+                if promo_items:
+                    for comp_pid, comp_qty in promo_items:
+                        total_return = comp_qty * cantidad
+                        # Usamos UPDATE sin check de existencia por robustez (blindaje)
+                        cursor.execute("UPDATE productos SET stock = stock + ? WHERE id = ?", (total_return, comp_pid))
+                else:
+                    # Producto normal
+                    cursor.execute("UPDATE productos SET stock = stock + ? WHERE id = ?", (cantidad, pid))
+
+            # 3. Anular Movimiento de Cuenta si existe (Fiado/Deuda)
+            cursor.execute("UPDATE movimientos_cuenta SET estado = 'Anulada' WHERE venta_id = ?", (id_venta,))
+
+            # 4. Cambiar estado de la venta
+            cursor.execute("UPDATE ventas SET estado = 'Anulada' WHERE id = ?", (id_venta,))
+            
+            conn.commit()
+            return True, "Venta anulada correctamente. Stock restaurado."
+            
+        except Exception as e:
+            conn.rollback()
+            print(f"Error crítico al anular venta: {e}")
+            return False, f"Error interno: {e}"
+        finally:
+            conn.close()
 
     # ==========================================
     # METODOS CRUD PRODUCTOS
@@ -572,7 +750,7 @@ class InventarioModel:
     def get_sales_report(self):
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM ventas ORDER BY fecha DESC")
+        cursor.execute("SELECT * FROM ventas WHERE estado = 'Completada' ORDER BY fecha DESC")
         res = cursor.fetchall()
         conn.close()
         return res
@@ -649,8 +827,8 @@ class InventarioModel:
         query = '''
             SELECT 
                 c.id, c.nombre, c.telefono, c.alias, c.limite_credito,
-                COALESCE(SUM(CASE WHEN m.tipo = 'DEUDA' THEN m.monto ELSE 0 END), 0) as total_deuda,
-                COALESCE(SUM(CASE WHEN m.tipo = 'PAGO' THEN m.monto ELSE 0 END), 0) as total_pagado
+                COALESCE(SUM(CASE WHEN m.tipo = 'DEUDA' AND COALESCE(m.estado, 'Completada') = 'Completada' THEN m.monto ELSE 0 END), 0) as total_deuda,
+                COALESCE(SUM(CASE WHEN m.tipo = 'PAGO' AND COALESCE(m.estado, 'Completada') = 'Completada' THEN m.monto ELSE 0 END), 0) as total_pagado
             FROM clientes c
             LEFT JOIN movimientos_cuenta m ON c.id = m.cliente_id
             GROUP BY c.id
@@ -790,7 +968,7 @@ class InventarioModel:
                     COUNT(*) as cantidad,
                     SUM(total) as total_vendido
                 FROM ventas
-                WHERE fecha >= ?
+                WHERE fecha >= ? AND estado = 'Completada'
                 GROUP BY metodo
             ''', (fecha_inicio,))
             
@@ -806,6 +984,7 @@ class InventarioModel:
                 WHERE tipo = 'PAGO' 
                   AND fecha >= ?
                   AND medio_pago IS NOT NULL
+                  AND estado = 'Completada'
                 GROUP BY metodo
             ''', (fecha_inicio,))
             
@@ -848,7 +1027,7 @@ class InventarioModel:
         
         # 1. Sumar ventas EN EFECTIVO DESDE el inicio del turno
         # Solo contamos efectivo para el teórico en caja física
-        cursor.execute("SELECT SUM(total) FROM ventas WHERE fecha >= ? AND COALESCE(medio_pago, 'EFECTIVO') = 'EFECTIVO'", (t_inicio,))
+        cursor.execute("SELECT SUM(total) FROM ventas WHERE fecha >= ? AND COALESCE(medio_pago, 'EFECTIVO') = 'EFECTIVO' AND estado = 'Completada'", (t_inicio,))
         res = cursor.fetchone()
         ventas_total = res[0] if res[0] else 0
         
@@ -902,7 +1081,7 @@ class InventarioModel:
             
         try:
             # 1. Ventas Totales (Bruto)
-            cursor.execute("SELECT SUM(total) FROM ventas WHERE fecha BETWEEN ? AND ?", (start_date, end_date))
+            cursor.execute("SELECT SUM(total) FROM ventas WHERE fecha BETWEEN ? AND ? AND estado = 'Completada'", (start_date, end_date))
             res = cursor.fetchone()
             total_ventas = res[0] or 0
             
@@ -1001,7 +1180,7 @@ class InventarioModel:
             end_date += "T23:59:59"
             
         try:
-            cursor.execute("SELECT id, fecha, total, medio_pago FROM ventas WHERE fecha BETWEEN ? AND ? ORDER BY fecha DESC", 
+            cursor.execute("SELECT id, fecha, total, medio_pago FROM ventas WHERE fecha BETWEEN ? AND ? AND estado = 'Completada' ORDER BY fecha DESC", 
                            (start_date, end_date))
             return cursor.fetchall()
         finally:
@@ -1050,7 +1229,7 @@ class InventarioModel:
         
         try:
             # 1. Obtener Ventas
-            cursor.execute("SELECT id, fecha, total FROM ventas")
+            cursor.execute("SELECT id, fecha, total FROM ventas WHERE estado = 'Completada'")
             sales = cursor.fetchall()
             for s in sales:
                 events.append({

@@ -23,7 +23,7 @@ def build_inventory_view(page: ft.Page, model):
         filled=True,
         border_width=2,
     )
-    category_field = ft.Dropdown(
+    category_dropdown = ft.Dropdown(
         label="Categoría",
         bgcolor="white",
         border_color="#2196F3",
@@ -32,23 +32,184 @@ def build_inventory_view(page: ft.Page, model):
         filled=True,
         border_width=2,
         expand=True,
-        options=[
-            ft.dropdown.Option("General"),
-            ft.dropdown.Option("Promociones"),
-            ft.dropdown.Option("Bebidas"),
-            ft.dropdown.Option("Cafés"),
-            ft.dropdown.Option("Sandwiches"),
-            ft.dropdown.Option("Pastelería"),
-            ft.dropdown.Option("Almacén"),
-            ft.dropdown.Option("Cigarros"),
-            ft.dropdown.Option("Lácteos"),
-            ft.dropdown.Option("Aseo"),
-            ft.dropdown.Option("Fiambrería"),  # BULK
-            ft.dropdown.Option("Verdurería"),  # BULK
-            ft.dropdown.Option("Granel"),      # BULK
-        ],
-        hint_text="Categoría", # Mostrar esto cuando no hay selección
+        options=[ft.dropdown.Option(c) for c in model.get_all_categories()],
+        value="General",
+        hint_text="Categoría",
     )
+
+    def open_add_category_dialog(e):
+        new_cat_field = ft.TextField(
+            label="Nombre de la Categoría", 
+            autofocus=True,
+            max_length=20,
+            hint_text="Ej: Mascotas"
+        )
+        
+        def save_category(e):
+            name = new_cat_field.value.strip().title()
+            if not name:
+                new_cat_field.error_text = "El nombre no puede estar vacío"
+                new_cat_field.update()
+                return
+            
+            if name == "Todas":
+                new_cat_field.error_text = "'Todas' es un nombre reservado"
+                new_cat_field.update()
+                return
+            
+            if name:
+                model.add_category(name)
+                # Actualizar opciones del dropdown
+                new_cats = model.get_all_categories()
+                category_dropdown.options = [ft.dropdown.Option(c) for c in new_cats]
+                category_dropdown.value = name
+                category_dropdown.update()
+                show_message(page, f"Categoría '{name}' agregada", "green")
+                dlg_cat.open = False
+                page.update()
+            else:
+                new_cat_field.error_text = "Ingrese un nombre"
+                new_cat_field.update()
+
+        dlg_cat = ft.AlertDialog(
+            title=ft.Text("Nueva Categoría"),
+            content=new_cat_field,
+            actions=[
+                ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_cat)),
+                ft.FilledButton("Guardar", on_click=save_category),
+            ],
+        )
+        page.overlay.append(dlg_cat)
+        dlg_cat.open = True
+        page.update()
+
+    def open_manage_categories_dialog(e):
+        lista_categorias_ui = ft.Column(scroll=ft.ScrollMode.AUTO, height=300, spacing=10)
+
+        def actualizar_dropdown_principal():
+            opciones = model.get_all_categories()
+            category_dropdown.options = [ft.dropdown.Option(cat) for cat in opciones]
+            if category_dropdown.value not in opciones:
+                category_dropdown.value = "General"
+            category_dropdown.update()
+
+        def recargar_lista():
+            lista_categorias_ui.controls.clear()
+            for cat in model.get_all_categories():
+                es_protegida = cat in ["General", "Todas"]
+                
+                lista_categorias_ui.controls.append(
+                    ft.Container(
+                        content=ft.Row(
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                            controls=[
+                                ft.Text(cat, weight="bold", color="black"),
+                                ft.Row([
+                                    ft.IconButton(
+                                        icon=ft.Icons.EDIT,
+                                        icon_color="blue",
+                                        tooltip="Editar",
+                                        on_click=lambda e, c=cat: abrir_dialogo_edicion_cat(c)
+                                    ),
+                                    ft.IconButton(
+                                        icon=ft.Icons.DELETE,
+                                        icon_color="red",
+                                        tooltip="Eliminar",
+                                        disabled=es_protegida,
+                                        on_click=lambda e, c=cat: confirmar_borrado_cat(c)
+                                    )
+                                ], spacing=0)
+                            ]
+                        ),
+                        bgcolor="#f5f5f5",
+                        padding=10,
+                        border_radius=5
+                    )
+                )
+            page.update()
+
+        def abrir_dialogo_edicion_cat(nombre_viejo):
+            txt_nuevo_nombre = ft.TextField(label="Nuevo nombre", value=nombre_viejo, autofocus=True, max_length=20)
+            
+            def guardar_edicion(e):
+                nuevo_nombre = txt_nuevo_nombre.value.strip().title()
+                if not nuevo_nombre:
+                    txt_nuevo_nombre.error_text = "El nombre no puede estar vacío"
+                    txt_nuevo_nombre.update()
+                    return
+                if nuevo_nombre == "Todas":
+                    txt_nuevo_nombre.error_text = "'Todas' es reservado"
+                    txt_nuevo_nombre.update()
+                    return
+                    
+                if model.update_category(nombre_viejo, nuevo_nombre):
+                    recargar_lista()
+                    actualizar_dropdown_principal()
+                    dialogo_editar.open = False
+                    show_message(page, f"Categoría '{nombre_viejo}' actualizada a '{nuevo_nombre}'", "green")
+                    page.update()
+
+            dialogo_editar = ft.AlertDialog(
+                title=ft.Text(f"Editar: {nombre_viejo}"),
+                content=txt_nuevo_nombre,
+                actions=[
+                    ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dialogo_editar)),
+                    ft.FilledButton("Guardar", on_click=guardar_edicion)
+                ]
+            )
+            page.overlay.append(dialogo_editar)
+            dialogo_editar.open = True
+            page.update()
+
+        def confirmar_borrado_cat(nombre_cat):
+            def proceder_borrado(e):
+                if model.delete_category(nombre_cat):
+                    recargar_lista()
+                    actualizar_dropdown_principal()
+                    dialogo_borrar.open = False
+                    show_message(page, f"Categoría '{nombre_cat}' eliminada. Productos movidos a 'General'.", "orange")
+                    page.update()
+
+            dialogo_borrar = ft.AlertDialog(
+                title=ft.Text("Confirmar Eliminación"),
+                content=ft.Text(f"¿Estás seguro de eliminar '{nombre_cat}'?\nLos productos asociados pasarán a 'General'."),
+                actions=[
+                    ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dialogo_borrar)),
+                    ft.FilledButton("Eliminar", icon=ft.Icons.DELETE, bgcolor="red", color="white", on_click=proceder_borrado)
+                ]
+            )
+            page.overlay.append(dialogo_borrar)
+            dialogo_borrar.open = True
+            page.update()
+
+        recargar_lista()
+
+        dlg_manage = ft.AlertDialog(
+            title=ft.Text("Gestionar Categorías"),
+            content=ft.Container(content=lista_categorias_ui, width=400),
+            actions=[
+                ft.TextButton("Cerrar", on_click=lambda e: close_dialog(dlg_manage))
+            ]
+        )
+        page.overlay.append(dlg_manage)
+        dlg_manage.open = True
+        page.update()
+
+    category_field = ft.Row([
+        category_dropdown,
+        ft.IconButton(
+            icon=ft.Icons.ADD_CIRCLE,
+            icon_color="#2196F3",
+            tooltip="Nueva Categoría",
+            on_click=open_add_category_dialog
+        ),
+        ft.IconButton(
+            icon=ft.Icons.SETTINGS,
+            icon_color="#2196F3",
+            tooltip="Gestionar Categorías",
+            on_click=open_manage_categories_dialog
+        )
+    ], alignment=ft.MainAxisAlignment.START, spacing=0)
     
     price_field = ft.TextField(
         label="Precio sin IVA",
@@ -63,23 +224,23 @@ def build_inventory_view(page: ft.Page, model):
         expand=1,
     )
     stock_field = ft.TextField(
-        label="Stock Inicial",
+        label="Stock Inicial (Opcional)",
         bgcolor="white",
         color="black",
         keyboard_type=ft.KeyboardType.NUMBER,
         border_color="#2196F3",
-        hint_text="50",
+        hint_text="0",
         filled=True,
         border_width=2,
         expand=1,
     )
     critic_field = ft.TextField(
-        label="Stock Crítico",
+        label="Stock Crítico (Opcional)",
         bgcolor="white",
         color="black",
         keyboard_type=ft.KeyboardType.NUMBER,
         border_color="#2196F3",
-        hint_text="5",
+        hint_text="0",
         filled=True,
         border_width=2,
         expand=1,
@@ -244,14 +405,19 @@ def build_inventory_view(page: ft.Page, model):
                 return
             
             codigo_barras = barcode_field.value.strip() if barcode_field.value else None
-            categoria = category_field.value
+            categoria = category_dropdown.value
             if not categoria: categoria = "General"
             
             expiration = expiration_field.value.strip() if expiration_field.value else None
             
             precio_sin_iva = float(price_field.value)
-            stock = int(stock_field.value)
-            critico = int(critic_field.value)
+            
+            # Stock y Crítico son opcionales (Default 0)
+            stock_val = stock_field.value.strip() if stock_field.value else ""
+            stock = int(stock_val) if stock_val else 0
+            
+            crit_val = critic_field.value.strip() if critic_field.value else ""
+            critico = int(crit_val) if crit_val else 0
             
             if precio_sin_iva <= 0 or stock < 0 or critico < 0:
                 show_message(page, "Los valores deben ser positivos", "orange")
@@ -265,7 +431,7 @@ def build_inventory_view(page: ft.Page, model):
             
             name_field.value = ""
             barcode_field.value = ""
-            category_field.value = "General"
+            category_dropdown.value = "General"
             price_field.value = ""
             stock_field.value = ""
             critic_field.value = ""
@@ -487,28 +653,17 @@ def build_inventory_view(page: ft.Page, model):
         
         edit_name = ft.TextField(label="Nombre", value=p_name)
         edit_barcode = ft.TextField(label="Código de Barras", value=p_barcode if p_barcode else "")
+        
+        # Opciones dinámicas para el diálogo de edición
+        current_cats = model.get_all_categories()
         edit_cat = ft.Dropdown(
             label="Categoría",
-            options=[
-                ft.dropdown.Option("General"),
-                ft.dropdown.Option("Promociones"),
-                ft.dropdown.Option("Bebidas"),
-                ft.dropdown.Option("Cafés"),
-                ft.dropdown.Option("Sandwiches"),
-                ft.dropdown.Option("Pastelería"),
-                ft.dropdown.Option("Almacén"),
-                ft.dropdown.Option("Cigarros"),
-                ft.dropdown.Option("Lácteos"),
-                ft.dropdown.Option("Aseo"),
-                ft.dropdown.Option("Fiambrería"),  # BULK
-                ft.dropdown.Option("Verdurería"),  # BULK
-                ft.dropdown.Option("Granel"),      # BULK
-            ],
-            value=p_cat if p_cat else "General"
+            options=[ft.dropdown.Option(c) for c in current_cats],
+            value=p_cat if p_cat in current_cats else "General"
         )
         edit_price = ft.TextField(label="Precio", value=str(p_price), keyboard_type=ft.KeyboardType.NUMBER)
-        edit_stock = ft.TextField(label="Stock", value=str(p_stock), keyboard_type=ft.KeyboardType.NUMBER)
-        edit_critic = ft.TextField(label="Crítico", value=str(p_crit), keyboard_type=ft.KeyboardType.NUMBER)
+        edit_stock = ft.TextField(label="Stock (Opcional)", value=str(p_stock), keyboard_type=ft.KeyboardType.NUMBER)
+        edit_critic = ft.TextField(label="Crítico (Opcional)", value=str(p_crit), keyboard_type=ft.KeyboardType.NUMBER)
         edit_exp = ft.TextField(label="Vencimiento (YYYY-MM-DD)", value=p_exp if p_exp else "")
         
         def save_edit(e):
@@ -519,8 +674,13 @@ def build_inventory_view(page: ft.Page, model):
                 exp = edit_exp.value.strip() if edit_exp.value else None
                 
                 precio = float(edit_price.value)
-                stock = int(edit_stock.value)
-                critico = int(edit_critic.value)
+                
+                # Opcionales en Edición
+                s_val = edit_stock.value.strip() if edit_stock.value else ""
+                stock = int(s_val) if s_val else 0
+                
+                c_val = edit_critic.value.strip() if edit_critic.value else ""
+                critico = int(c_val) if c_val else 0
                 
                 if not nombre or precio <= 0 or stock < 0 or critico < 0:
                     show_message(page, "Verifica los valores", "orange")
