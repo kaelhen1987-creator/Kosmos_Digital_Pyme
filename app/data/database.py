@@ -134,9 +134,16 @@ class InventarioModel:
 
         # 9. Tabla Configuración (Key-Value)
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS config (
-                key TEXT PRIMARY KEY,
-                value TEXT
+            )
+        ''')
+
+        # 10. Tabla Ventas Offline (Bóveda de Contingencia)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS ventas_offline (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                payload_json TEXT NOT NULL,
+                fecha_guardado TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                sincronizado BOOLEAN DEFAULT 0
             )
         ''')
         

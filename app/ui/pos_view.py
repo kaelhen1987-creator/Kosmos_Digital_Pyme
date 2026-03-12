@@ -1,7 +1,12 @@
 import flet as ft
 from app.utils.helpers import is_mobile, show_message
+from app.data.ventas_repository import VentasRepository
 
 def build_pos_view(page: ft.Page, model, shared_cart=None):
+    # Repositorio de Ventas (Offline-First)
+    ventas_repo = VentasRepository(db_name=model.db_name)
+    
+    # --- UI States ---
     # Usamos Column en lugar de ListView para que crezcan con el contenido (altura dinámica)
     # y el scroll sea manejado por la página principal (ft.Column scrollable)
     product_list = ft.Column(spacing=10, expand=False) 
@@ -499,10 +504,31 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                 dlg_payment.open = False
                 page.update()
                 
+                # 4. 🛡️ INTERCEPCIÓN OFFLINE-FIRST (Cloud Sync)
+                # Preparamos el payload simplificado para la nube
+                payload = {
+                    "venta_local_id": venta_id,
+                    "items": [
+                        {"producto_id": pid, "cantidad": item['qty'], "precio": item['info'][2]}
+                        for pid, item in items.items()
+                    ],
+                    "total": total_venta,
+                    "medio_pago": payment_type,
+                    "descuento": discount_percent,
+                    "fecha": fecha_actual
+                }
+                
+                # Intentamos guardar/sincronizar (en segundo plano o bloqueante corto)
+                # En esta fase, lo llamamos directamente para ver el resultado.
+                res_sync = ventas_repo.guardar_venta(payload)
+                
                 msg = f"Venta #{venta_id} exitosa"
-                if payment_type == 'DEUDA':
-                    msg += " (Registrada en Cuaderno)"
-                show_message(page, msg, "green")
+                if res_sync["status"] == "offline":
+                    msg += " (Modo Offline)"
+                else:
+                    msg += " (Sincronizada)"
+                    
+                show_message(page, msg, "green" if res_sync["status"] == "online" else "orange")
                 
             except Exception as ex:
                 show_message(page, f"Error: {str(ex)}", "red")
