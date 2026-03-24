@@ -14,8 +14,9 @@ jobs:
     name: Build Windows Executable
     runs-on: windows-latest
     env:
-      PYTHONUTF8: 1 # Muy importante en Windows para evitar errores de caracteres
+      PYTHONUTF8: 1
       PYTHONIOENCODING: utf-8
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v6
       
