@@ -65,7 +65,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                         ft.Text("Carrito vacío", color="#444444", size=13, text_align="center")
                     ], alignment=ft.MainAxisAlignment.CENTER,
                        horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
-                    alignment=ft.alignment.center, height=120
+                    alignment=ft.Alignment(0.0, 0.0), height=120
                 )
             )
         else:
@@ -161,7 +161,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
         if not products:
             product_row.controls.append(
                 ft.Container(ft.Text("Sin resultados", color=DIM, italic=True),
-                             padding=20, alignment=ft.alignment.center)
+                             padding=20, alignment=ft.Alignment(0.0, 0.0))
             )
         else:
             for p in products:

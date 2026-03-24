@@ -409,13 +409,13 @@ def build_reports_view(page: ft.Page, model):
         shape=ft.RoundedRectangleBorder(radius=6),
         side=ft.BorderSide(2, "#2196F3"),
         padding=ft.padding.symmetric(horizontal=14, vertical=8),
-        alignment=ft.alignment.center_left
+        alignment=ft.Alignment(-1.0, 0.0)
     )
     style_inactive = ft.ButtonStyle(
         bgcolor="transparent", color=TEXT_DIM,
         shape=ft.RoundedRectangleBorder(radius=6),
         padding=ft.padding.symmetric(horizontal=14, vertical=8),
-        alignment=ft.alignment.center_left
+        alignment=ft.Alignment(-1.0, 0.0)
     )
 
     for i, label in enumerate(nav_labels):

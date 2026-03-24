@@ -267,7 +267,7 @@ def build_clients_view(page: ft.Page, model):
             bgcolor=av_color,
             width=44, height=44,
             border_radius=22,
-            alignment=ft.alignment.center
+            alignment=ft.Alignment(0.0, 0.0)
         )
 
         # Progreso de crédito
@@ -338,7 +338,7 @@ def build_clients_view(page: ft.Page, model):
             clients_list.controls.append(
                 ft.Container(
                     ft.Text("No se encontraron clientes", color="#888888", text_align="center"),
-                    padding=30, alignment=ft.alignment.center
+                    padding=30, alignment=ft.Alignment(0.0, 0.0)
                 )
             )
         else:

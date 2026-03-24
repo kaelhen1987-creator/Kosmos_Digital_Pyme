@@ -41,7 +41,7 @@ async def original_main(page: ft.Page):
             ft.Text("Iniciando Digital PyME...", size=18, weight="bold", color="#333333"),
             ft.Text("Por favor, concede los permisos de carpeta si el sistema lo solicita.", size=13, color="grey", text_align="center")
         ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=15),
-        alignment=ft.alignment.center,
+        alignment=ft.Alignment(0.0, 0.0),
         expand=True
     )
     page.add(loading_view)
@@ -656,7 +656,7 @@ async def original_main(page: ft.Page):
                             bgcolor="#2196F3",
                             width=28, height=28,
                             border_radius=6,
-                            alignment=ft.alignment.center
+                            alignment=ft.Alignment(0.0, 0.0)
                         ),
                         ft.Text("Digital PyME", color="white", weight="bold", size=14)
                     ], spacing=8),

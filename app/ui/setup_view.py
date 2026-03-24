@@ -41,7 +41,7 @@ def build_setup_view(page: ft.Page, model, on_success_callback):
 
     logo = ft.Container(
         content=ft.Text("K", size=44, weight="bold", color="white", font_family="monospace"),
-        width=80, height=80, bgcolor=ACCENT, border_radius=18, alignment=ft.alignment.center,
+        width=80, height=80, bgcolor=ACCENT, border_radius=18, alignment=ft.Alignment(0.0, 0.0),
         shadow=ft.BoxShadow(blur_radius=28, color=ft.Colors.with_opacity(0.45, ACCENT), spread_radius=2)
     )
 
@@ -83,7 +83,7 @@ def build_setup_view(page: ft.Page, model, on_success_callback):
             expand=True
         ),
         bgcolor=BG,
-        alignment=ft.alignment.center,
+        alignment=ft.Alignment(0.0, 0.0),
         expand=True,
         padding=40
     )

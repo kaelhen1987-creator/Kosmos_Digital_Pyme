@@ -63,7 +63,7 @@ def build_activation_view(page: ft.Page, on_success_callback):
         width=90, height=90,
         bgcolor=ACCENT,
         border_radius=20,
-        alignment=ft.alignment.center,
+        alignment=ft.Alignment(0.0, 0.0),
         shadow=ft.BoxShadow(blur_radius=30, color=ft.Colors.with_opacity(0.5, ACCENT), spread_radius=2)
     )
 
@@ -118,7 +118,7 @@ def build_activation_view(page: ft.Page, on_success_callback):
     return ft.Container(
         content=content,
         bgcolor=BG,
-        alignment=ft.alignment.center,
+        alignment=ft.Alignment(0.0, 0.0),
         expand=True,
         padding=40
     )

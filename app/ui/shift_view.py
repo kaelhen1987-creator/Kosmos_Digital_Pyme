@@ -82,7 +82,7 @@ def build_shift_view(page: ft.Page, model, on_success_callback):
                 content=ft.Icon(ft.Icons.BACKSPACE_OUTLINED, color="white", size=20),
                 bgcolor="#3a1a1a",
                 border_radius=10,
-                alignment=ft.alignment.center,
+                alignment=ft.Alignment(0.0, 0.0),
                 width=90, height=56,
                 on_click=lambda e: press_key("⌫"),
                 ink=True
@@ -91,7 +91,7 @@ def build_shift_view(page: ft.Page, model, on_success_callback):
             content=ft.Text(label, size=22, weight="bold", color=WHITE),
             bgcolor=FIELD_BG,
             border_radius=10,
-            alignment=ft.alignment.center,
+            alignment=ft.Alignment(0.0, 0.0),
             width=90, height=56,
             on_click=lambda e, k=label: press_key(k),
             ink=True,
@@ -187,12 +187,12 @@ def build_shift_view(page: ft.Page, model, on_success_callback):
         padding=ft.padding.symmetric(horizontal=40, vertical=32),
         border_radius=20,
         shadow=ft.BoxShadow(spread_radius=0, blur_radius=30, color="#80000000"),
-        alignment=ft.alignment.center
+        alignment=ft.Alignment(0.0, 0.0)
     )
 
     return ft.Container(
         content=card,
-        alignment=ft.alignment.center,
+        alignment=ft.Alignment(0.0, 0.0),
         expand=True,
         bgcolor=BG
     )
