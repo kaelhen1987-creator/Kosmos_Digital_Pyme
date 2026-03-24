@@ -8,42 +8,38 @@ from datetime import datetime
 SECRET_SALT = "SOS_DIGITAL_PYME_2026_SECURE_SALT_!@#"
 
 import sys
-if getattr(sys, 'frozen', False):
-    # Si está empaquetado (.app/.exe), usar carpeta Documentos
-    home_dir = os.path.expanduser("~")
-    data_dir = os.path.join(home_dir, "Documents", "Digital_PyME")
-    if not os.path.exists(data_dir):
-        try:
-            os.makedirs(data_dir)
-        except OSError:
-            pass
-    ACTIVATION_FILE = os.path.join(data_dir, "activation.lic")
-else:
-    # Modo Dev
-    ACTIVATION_FILE = "activation.lic"
+# NOTA: sys.frozen NO es confiable en Flet builds empaquetados.
+# Siempre guardamos la licencia en ~/Documents/Digital_PyME/ para garantizar
+# que una instalación fresca NO encuentre el archivo y muestre la pantalla de activación.
+_home_dir = os.path.expanduser("~")
+_data_dir = os.path.join(_home_dir, "Documents", "Digital_PyME")
+if not os.path.exists(_data_dir):
+    try:
+        os.makedirs(_data_dir)
+    except OSError:
+        pass
+ACTIVATION_FILE = os.path.join(_data_dir, "activation.lic")
 
 def get_persistent_id():
     """Genera/Recupera un ID único almacenado en archivo (Device Lock para Android)."""
-    f_path = "device.id"
-    # Buscar data_dir en globals (definido al inicio del modulo)
-    if 'data_dir' in globals():
-        f_path = os.path.join(data_dir, "device.id")
-        
+    f_path = os.path.join(_data_dir, "device.id")
+
     if os.path.exists(f_path):
         try:
             with open(f_path, "r") as f:
                 content = f.read().strip()
                 if len(content) > 5: return content
         except: pass
-        
+
     # Generar nuevo si no existe o fallo lectura
     new_id = str(uuid.uuid4()).upper()
     try:
         with open(f_path, "w") as f:
             f.write(new_id)
     except: pass
-    
+
     return new_id
+
 
 def get_hardware_id():
     """
