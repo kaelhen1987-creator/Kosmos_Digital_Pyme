@@ -44,41 +44,44 @@ async def main(page: ft.Page):
     import os
     import shutil
     
-    db_name = "sos_pyme.db"
-    home_dir = os.path.expanduser("~")
-    data_dir = os.path.join(home_dir, "Documents", "Digital_PyME")
-    
-    # MIGRATION: Renombrar carpeta antigua si existe
-    old_data_dir = os.path.join(home_dir, "Documents", "SOS_Digital_PyME")
-    if os.path.exists(old_data_dir) and not os.path.exists(data_dir):
-        try:
-            os.rename(old_data_dir, data_dir)
-            print(f"Migrated old data folder: {old_data_dir} -> {data_dir}")
-        except Exception as e:
-            print(f"Error migrando carpeta de datos: {e}")
+    try:
+        db_name = "sos_pyme.db"
+        home_dir = os.path.expanduser("~")
+        data_dir = os.path.join(home_dir, "Documents", "Digital_PyME")
+        
+        # MIGRATION: Renombrar carpeta antigua si existe
+        old_data_dir = os.path.join(home_dir, "Documents", "SOS_Digital_PyME")
+        if os.path.exists(old_data_dir) and not os.path.exists(data_dir):
+            try:
+                os.rename(old_data_dir, data_dir)
+            except Exception as e:
+                print(f"Error migrando carpeta de datos: {e}")
 
-    # Crear carpeta si no existe
-    if not os.path.exists(data_dir):
-        try:
-            os.makedirs(data_dir)
-        except OSError:
-            pass
-    
-    db_path = os.path.join(data_dir, db_name)
-    
-    # MIGRATION: Si existe una DB en la carpeta de instalación, moverla a Documents
-    local_db = os.path.join(os.path.dirname(os.path.abspath(__file__)), db_name)
-    if os.path.exists(local_db) and not os.path.exists(db_path):
-        try:
-            shutil.copy2(local_db, db_path)
-            print(f"Migrated local DB to Documents: {local_db} -> {db_path}")
-        except Exception as e:
-            print(f"Error migrando DB local: {e}")
-    
-    print(f"Database path: {db_path}")
-
-    model = InventarioModel(db_path)
-    print("DEBUG: Database initialized and Migrations verified (V5).")
+        # Crear carpeta si no existe
+        if not os.path.exists(data_dir):
+            try:
+                os.makedirs(data_dir)
+            except OSError:
+                pass
+        
+        db_path = os.path.join(data_dir, db_name)
+        
+        # MIGRATION: Si existe una DB en la carpeta de instalación, moverla a Documents
+        local_db = os.path.join(os.path.dirname(os.path.abspath(__file__)), db_name)
+        if os.path.exists(local_db) and not os.path.exists(db_path):
+            try:
+                shutil.copy2(local_db, db_path)
+            except Exception as e:
+                print(f"Error migrando DB local: {e}")
+        
+        model = InventarioModel(db_path)
+        print("DEBUG: Database initialized and Migrations verified (V5).")
+    except Exception as e:
+        import traceback
+        err_trace = traceback.format_exc()
+        page.add(ft.Text(f"Error Crítico Inicializando DB:\n{e}\n\n{err_trace}", color="red", selectable=True))
+        page.update()
+        return
     
     # ---------------------------------------------------------
     # LAYOUT PRINCIPAL (APP)
