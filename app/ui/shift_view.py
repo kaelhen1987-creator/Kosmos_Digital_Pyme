@@ -1,110 +1,198 @@
 
 import flet as ft
 from app.utils.helpers import show_message
+import datetime
 
 def build_shift_view(page: ft.Page, model, on_success_callback):
     """
-    Vista de Apertura de Turno (Caja).
-    Obliga al usuario a ingresar un monto inicial para poder usar el sistema.
+    Vista de Apertura de Turno — diseño oscuro con teclado numérico integrado.
     """
-    
+
+    # ── Paleta ────────────────────────────────────────────────────
+    BG       = "#2c2c2c"
+    CARD_BG  = "#1e1e1e"
+    FIELD_BG = "#111111"
+    ACCENT   = "#2196F3"
+    WHITE    = "#ffffff"
+    DIM      = "#888888"
+
+    # ── Estado del monto ──────────────────────────────────────────
+    amount_value = [""]
+
+    # ── Campos de UI ──────────────────────────────────────────────
+    now = datetime.datetime.now()
+    days_es = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"]
+    months_es = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"]
+    date_str = f"{days_es[now.weekday()]} {now.day} {months_es[now.month-1]} · {now.strftime('%H:%M')} hrs"
 
     name_field = ft.TextField(
-        label="Nombre del Cajero/a",
-        hint_text="Ej: Juan Pérez",
-        prefix_icon=ft.Icons.PERSON,
+        hint_text="Nombre del Cajero/a",
+        hint_style=ft.TextStyle(color=DIM),
         autofocus=True,
-        text_size=18,
+        text_size=16,
+        color=WHITE,
+        bgcolor=FIELD_BG,
+        border_color="#444444",
+        focused_border_color=ACCENT,
+        border_radius=10,
+        filled=True,
+        content_padding=ft.padding.symmetric(horizontal=16, vertical=14),
+        prefix_icon=ft.Icons.PERSON_OUTLINE,
         width=300,
-        border_color="#2196F3",
-        color="black",         # Texto visible
-        bgcolor="white",       # Fondo claro
-        filled=True
     )
 
-    amount_field = ft.TextField(
-        label="Dinero en Caja (Apertura) $",
-        hint_text="Ej: 5000",
-        keyboard_type=ft.KeyboardType.NUMBER,
-        text_align="right",
-        text_size=24,
-        width=300,
-        border_color="#2196F3",
-        color="black",         # Texto visible
-        bgcolor="white",       # Fondo claro
-        filled=True
+    amount_display = ft.Text(
+        "$0",
+        size=36,
+        weight="bold",
+        color=WHITE,
+        text_align=ft.TextAlign.CENTER,
     )
+
+    amount_label = ft.Text(
+        "Fondo de apertura",
+        size=12,
+        color=DIM,
+        text_align=ft.TextAlign.CENTER,
+    )
+
+    def update_display():
+        val = amount_value[0]
+        if val == "":
+            amount_display.value = "$0"
+        else:
+            try:
+                amount_display.value = f"${int(val):,}".replace(",", ".")
+            except:
+                amount_display.value = f"${val}"
+        amount_display.update()
+
+    def press_key(key):
+        if key == "⌫":
+            amount_value[0] = amount_value[0][:-1]
+        elif key == "0" and amount_value[0] == "":
+            pass  # No permitir cero como primer dígito
+        elif len(amount_value[0]) < 10:
+            amount_value[0] += key
+        update_display()
+
+    def make_key_btn(label):
+        if label == "⌫":
+            return ft.Container(
+                content=ft.Icon(ft.Icons.BACKSPACE_OUTLINED, color="white", size=20),
+                bgcolor="#3a1a1a",
+                border_radius=10,
+                alignment=ft.alignment.center,
+                width=90, height=56,
+                on_click=lambda e: press_key("⌫"),
+                ink=True
+            )
+        return ft.Container(
+            content=ft.Text(label, size=22, weight="bold", color=WHITE),
+            bgcolor=FIELD_BG,
+            border_radius=10,
+            alignment=ft.alignment.center,
+            width=90, height=56,
+            on_click=lambda e, k=label: press_key(k),
+            ink=True,
+            border=ft.border.all(1, "#2a2a2a")
+        )
+
+    keypad = ft.Column([
+        ft.Row([make_key_btn("7"), make_key_btn("8"), make_key_btn("9")], spacing=8, alignment=ft.MainAxisAlignment.CENTER),
+        ft.Row([make_key_btn("4"), make_key_btn("5"), make_key_btn("6")], spacing=8, alignment=ft.MainAxisAlignment.CENTER),
+        ft.Row([make_key_btn("1"), make_key_btn("2"), make_key_btn("3")], spacing=8, alignment=ft.MainAxisAlignment.CENTER),
+        ft.Row([make_key_btn("0"), make_key_btn("⌫")],                  spacing=8, alignment=ft.MainAxisAlignment.CENTER),
+    ], spacing=8)
 
     def handle_open_shift(e):
+        name_val = name_field.value.strip()
+        if not name_val:
+            show_message(page, "Debe ingresar su nombre", "red")
+            return
+        val = amount_value[0]
+        if not val:
+            show_message(page, "Debe ingresar el fondo de apertura", "red")
+            return
         try:
-            name_val = name_field.value.strip()
-            if not name_val:
-                show_message(page, "Debe ingresar su nombre", "red")
-                return
-
-            val_str = amount_field.value.strip()
-            if not val_str:
-                show_message(page, "Debe ingresar un monto", "red")
-                return
-            
-            # Validar que sea número positivo
-            amount = float(val_str)
+            amount = float(val)
             if amount < 0:
                 show_message(page, "El monto no puede ser negativo", "red")
                 return
-
-            # Iniciar turno en DB
             model.iniciar_turno(amount, usuario=name_val)
-            
             show_message(page, f"Turno abierto por {name_val} con ${amount:,.0f}", "green")
-            
-            # Callback para cambiar a la vista principal
             on_success_callback()
-            
         except ValueError:
-            show_message(page, "Ingrese un número válido para el monto", "red")
+            show_message(page, "Ingrese un número válido", "red")
         except Exception as ex:
             show_message(page, f"Error: {str(ex)}", "red")
 
-    # Tarjeta Central
+    # ── Turno anterior ────────────────────────────────────────────
+    prev_shift_txt = ft.Text("", color=DIM, size=12, text_align=ft.TextAlign.CENTER)
+    try:
+        prev = model.get_last_closed_turno()
+        if prev:
+            usr   = prev.get("usuario", "?")
+            cierre= prev.get("hora_cierre", "")[:5] if prev.get("hora_cierre") else "--:--"
+            total = prev.get("total_ventas", 0)
+            prev_shift_txt.value = f"Turno anterior: {usr} · cierre {cierre} hrs · ${total:,.0f} en ventas"
+    except:
+        pass
+
+    # ── Card central ─────────────────────────────────────────────
     card = ft.Container(
         content=ft.Column([
-            ft.Icon(ft.Icons.POINT_OF_SALE, size=64, color="#2196F3"),
-            ft.Text("Apertura de Caja", size=28, weight="bold", color="#333333"),
-            ft.Text("Ingrese sus datos para comenzar el turno.", 
-                   size=16, color="grey", text_align="center"),
-            ft.Divider(height=20, color="transparent"),
+            # Logo
+            ft.Image(src="kosmos_logo.png", width=80, height=80),
+            ft.Text("Apertura de caja", size=26, weight="bold", color=WHITE),
+            ft.Text(date_str, color=DIM, size=13),
+            ft.Container(height=10),
+            # Campo nombre
             name_field,
-            ft.Divider(height=10, color="transparent"),
-            amount_field,
-            ft.Divider(height=20, color="transparent"),
+            ft.Container(height=8),
+            # Display de monto
+            ft.Container(
+                content=ft.Column([
+                    amount_label,
+                    amount_display,
+                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=2),
+                bgcolor=FIELD_BG,
+                border_radius=10,
+                padding=ft.padding.symmetric(horizontal=20, vertical=12),
+                width=300,
+                border=ft.border.all(1, "#2a2a2a")
+            ),
+            ft.Container(height=8),
+            # Teclado numérico
+            keypad,
+            ft.Container(height=16),
+            # Botón abrir caja
             ft.FilledButton(
-                "ABRIR CAJA",
-                icon=ft.Icons.CHECK,
+                "Abrir caja",
                 on_click=handle_open_shift,
                 style=ft.ButtonStyle(
-                    bgcolor="#2196F3",
-                    color="white",
-                    padding=20,
-                    text_style=ft.TextStyle(size=18, weight="bold")
+                    bgcolor=ACCENT, color=WHITE,
+                    shape=ft.RoundedRectangleBorder(radius=12),
+                    padding=ft.padding.symmetric(horizontal=40, vertical=16)
                 ),
-                width=300
-            )
-        ], horizontal_alignment="center", alignment="center"),
-        bgcolor="white",
-        padding=40,
+                width=300, height=52
+            ),
+            ft.Container(height=12),
+            # Info turno anterior
+            prev_shift_txt,
+        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+           alignment=ft.MainAxisAlignment.CENTER,
+           spacing=6, tight=True),
+        bgcolor=CARD_BG,
+        padding=ft.padding.symmetric(horizontal=40, vertical=32),
         border_radius=20,
-        shadow=ft.BoxShadow(
-            spread_radius=1,
-            blur_radius=15,
-            color=ft.Colors.with_opacity(0.2, "black"),
-        ),
-        alignment=ft.Alignment(0, 0)
+        shadow=ft.BoxShadow(spread_radius=0, blur_radius=30, color="#80000000"),
+        alignment=ft.alignment.center
     )
 
     return ft.Container(
         content=card,
-        alignment=ft.Alignment(0, 0),
+        alignment=ft.alignment.center,
         expand=True,
-        bgcolor="#f5f5f5"
+        bgcolor=BG
     )

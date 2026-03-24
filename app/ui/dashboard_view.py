@@ -98,13 +98,15 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
     # ==========================
     
     # Textos de resumen
-    txt_total_ventas = ft.Text("$0", size=24, weight="bold", color="white")
-    txt_total_gastos = ft.Text("$0", size=24, weight="bold", color="white")
-    txt_ganancia = ft.Text("$0", size=24, weight="bold", color="white")
+    txt_total_ventas = ft.Text("$0", size=22, weight="bold", color="#2196F3")
+    txt_total_gastos = ft.Text("$0", size=22, weight="bold", color="#F44336")
+    txt_ganancia = ft.Text("$0", size=22, weight="bold", color="#4CAF50")
+    txt_ganancia_margen = ft.Text("0.0% margen", size=11, color="#4CAF50")
+    txt_transacciones = ft.Text("0", size=22, weight="bold", color="white")
+    txt_trans_promedio = ft.Text("prom. $0", size=11, color="grey")
     
     # Listas
-    sales_list = ft.ListView(spacing=5, height=200, padding=10)
-    expenses_list = ft.ListView(spacing=5, height=200, padding=10)
+    activity_list = ft.ListView(spacing=0, expand=True, padding=0)
     
     # ==========================
     # 2. ALERTA DE VENCIMIENTO
@@ -184,15 +186,30 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
                 count = len(exp_items)
                 expiring_alert.content = ft.Container(
                     content=ft.Row([
-                        ft.Icon(ft.Icons.WARNING_ROUNDED, color="white"),
-                        ft.Text(f"ATENCIÓN: Tienes {count} productos próximos a vencer.", color="white", weight="bold", expand=True),
-                        ft.ElevatedButton("Ver Detalle", color="red", bgcolor="white", 
-                                          on_click=lambda e: show_expiring_details(exp_items))
+                        ft.Container(
+                            content=ft.Row([
+                                ft.Container(
+                                    width=8, height=8,
+                                    bgcolor="#F44336",
+                                    border_radius=50
+                                ),
+                                ft.Text(f"{count} productos próximos a vencer", color="#F44336", weight="bold", size=13, expand=True),
+                            ], spacing=8),
+                            expand=True
+                        ),
+                        ft.OutlinedButton(
+                            "Ver detalle",
+                            on_click=lambda e: show_expiring_details(exp_items),
+                            style=ft.ButtonStyle(
+                                side=ft.BorderSide(1, "#F44336"),
+                                color="#F44336"
+                            )
+                        )
                     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                    bgcolor="#D32F2F", # Red 700
-                    padding=10,
+                    bgcolor="#FFF5F5",
+                    padding=ft.padding.symmetric(horizontal=15, vertical=10),
                     border_radius=8,
-                    shadow=ft.BoxShadow(spread_radius=1, blur_radius=3, color=ft.Colors.with_opacity(0.3, "black"))
+                    border=ft.border.all(1, "#FFCDD2")
                 )
                 expiring_alert.visible = True
             else:
@@ -204,145 +221,96 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
             print(f"Error checking expiration: {e}")
 
     def refresh_data(initial=False):
-        # Obtener turno activo
         turno = model.get_active_turno()
-        
         if turno:
-            # turno: (id, fecha_inicio, fecha_fin, monto_inicial, monto_final, usuario)
             _, t_inicio, _, _, _, _ = turno
-            
-            # Obtener reporte financiero DESDE el inicio del turno hasta AHORA
             fin_report = model.get_financial_report(start_date=t_inicio)
             
-            # Usamos "total_ventas" (Bruto) o "efectivo_ventas" (Real en caja). 
-            # El usuario pidió "Ventas diarias de la sesion", usaré Bruto para "Ventas" 
-            # y Utilidad u otro para Ganancia.
             total_s = fin_report["total_ventas"]
             total_e = fin_report["total_gastos"]
-            total_a = fin_report.get("total_abonos", 0) # Abonos
+            total_a = fin_report.get("total_abonos", 0)
             
-            # Ajuste solicitado: Ganancia = Ventas + Abonos - Gastos
             profit = total_s + total_a - total_e
             
-            # Actualizar tarjetas
-            txt_total_ventas.value = f"${total_s:,.0f}"
-            txt_total_gastos.value = f"${total_e:,.0f}"
-            txt_ganancia.value = f"${profit:,.0f}"
-            
-            # Color dinámico para ganancia
-            if profit >= 0:
-                card_profit.bgcolor = "#4CAF50" # Verde
-                txt_ganancia.color = "white"
-            else:
-                card_profit.bgcolor = "#F44336" # Rojo
-                txt_ganancia.color = "white"
-                
-            # --- LISTAS ---
-            # Filtrar listas para mostrar solo lo de esta sesion
-            
-            # 1. Ventas
             sales = model.get_sales_report() 
             session_sales = [s for s in sales if s[1] >= t_inicio] if sales else []
 
-            # 2. Abonos (Pagos de Deudas)
             payments = model.get_payments_report()
-            session_payments = [p for p in payments if p[2] >= t_inicio] if payments else [] # fecha is index 2
+            session_payments = [p for p in payments if p[2] >= t_inicio] if payments else []
             
-            # Combinar y Ordenar por fecha desc
-            combined_income = []
+            expenses = model.get_expenses_report()
+            session_expenses = [e for e in expenses if e[3] >= t_inicio] if expenses else []
+
+            tx_count = len(session_sales) + len(session_payments)
+            promedio = (total_s + total_a) / tx_count if tx_count > 0 else 0
+            margen = (profit / (total_s + total_a) * 100) if (total_s + total_a) > 0 else 0
+            
+            # Actualizar tarjetas numéricas
+            txt_total_ventas.value = f"${total_s + total_a:,.0f}"
+            txt_total_gastos.value = f"${total_e:,.0f}"
+            txt_ganancia.value = f"${profit:,.0f}"
+            txt_ganancia_margen.value = f"{margen:.1f}% margen"
+            txt_transacciones.value = str(tx_count)
+            txt_trans_promedio.value = f"prom. ${promedio:,.0f}"
+            
+            if profit >= 0:
+                txt_ganancia.color = "#4CAF50"
+                txt_ganancia_margen.color = "#4CAF50"
+            else:
+                txt_ganancia.color = "#F44336"
+                txt_ganancia_margen.color = "#F44336"
+                
+            combined_activity = []
             for s in session_sales:
-                combined_income.append({
-                    "id": s[0],
-                    "date": s[1], 
-                    "label": f"Venta #{s[0]}", 
-                    "amount": s[2], 
-                    "color": "green",
-                    "type": "VENTA",
-                    "description": ""
+                combined_activity.append({
+                    "id": s[0], "date": s[1], "label": f"Venta #{s[0]}", 
+                    "amount": s[2], "color": "#4CAF50", "type": "VENTA", "sign": "+", "description": ""
                 })
             for p in session_payments:
-                combined_income.append({
-                    "id": p[0],
-                    "date": p[2], 
-                    "label": f"Abono #{p[0]}", 
-                    "amount": p[4], 
-                    "color": "blue",
-                    "type": "ABONO",
-                    "description": f"{p[5]} (Cliente: {p[7]})" # Descripcion + Cliente Nombre (idx 7)
+                combined_activity.append({
+                    "id": p[0], "date": p[2], "label": f"Abono #{p[0]}", 
+                    "amount": p[4], "color": "#4CAF50", "type": "ABONO", "sign": "+", "description": f"{p[5]}"
+                })
+            for e in session_expenses:
+                combined_activity.append({
+                    "id": e[0], "date": e[3], "label": e[1],
+                    "amount": e[2], "color": "#F44336", "type": "GASTO", "sign": "-", "description": ""
                 })
             
-            # Sort desc
-            combined_income.sort(key=lambda x: x["date"], reverse=True)
+            combined_activity.sort(key=lambda x: x["date"], reverse=True)
 
-            sales_list.controls.clear()
-            if not combined_income:
-                 sales_list.controls.append(ft.Text("Sin ingresos en esta sesión", color="grey"))
+            activity_list.controls.clear()
+            if not combined_activity:
+                 activity_list.controls.append(ft.Container(ft.Text("Sin actividad en esta sesión", color="grey", text_align="center"), padding=20))
             else:
-                for item in combined_income[:20]: # Aumentar limite un poco
-                    # Mostrar Hora
+                for item in combined_activity[:50]: 
                     raw_date = item["date"]
                     hora_fmt = raw_date.split('T')[1][:5] if 'T' in raw_date else raw_date
                     
-                    sales_list.controls.append(
+                    activity_list.controls.append(
                         ft.Container(
                             content=ft.Row([
-                                ft.Row([
-                                    ft.Icon(ft.Icons.RECEIPT if item["type"]=="VENTA" else ft.Icons.PAYMENT, size=16, color="grey"),
-                                    ft.Text(f"{item['label']} - {hora_fmt}", size=12),
-                                ]),
-                                ft.Row([
-                                    ft.Text(f"${item['amount']:,.0f}", weight="bold", color=item["color"]),
-                                    ft.Icon(ft.Icons.CHEVRON_RIGHT, size=16, color="grey")
-                                ])
-                            ], alignment="space_between"),
-                            bgcolor="white", 
-                            padding=5, 
-                            border_radius=5,
-                            on_click=lambda e, it=item: show_details(it), # Interactivity
-                            ink=True
+                                ft.Text(item['label'], size=14, weight="w500", color="white", expand=1),
+                                ft.Text(hora_fmt, size=12, color="#888888"),
+                                ft.Container(width=10),
+                                ft.Text(f"{item['sign']}${item['amount']:,.0f}", weight="bold", color=item["color"], width=80, text_align=ft.TextAlign.RIGHT)
+                            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                            padding=ft.padding.symmetric(vertical=15, horizontal=20),
+                            border=ft.border.only(bottom=ft.border.BorderSide(1, "#2a2a2a")),
+                            on_click=lambda e, it=item: show_details(it) if it["type"] != "GASTO" else None,
+                            ink=True if item["type"] != "GASTO" else False
                         )
                     )
-            
-            expenses = model.get_expenses_report() # Trae todo
-            
-            expenses_list.controls.clear()
-            if not expenses:
-                expenses_list.controls.append(ft.Text("No hay gastos registrados", color="grey"))
-            else:
-                # Filtrar gastos >= t_inicio
-                session_expenses = [e for e in expenses if e[3] >= t_inicio]
-                
-                if not session_expenses:
-                    expenses_list.controls.append(ft.Text("Sin gastos en esta sesión", color="grey"))
-                else:
-                    for e in session_expenses[:10]:
-                        eid, desc, monto, fecha, cat = e
-                        # Si `fecha` tiene T, sacamos hora. 
-                        # Nota: gastos tiene estructura (id, desc, monto, fecha, cat)
-                        hora_fmt = fecha.split('T')[1][:5] if 'T' in fecha else fecha
-                        expenses_list.controls.append(
-                            ft.Container(
-                                content=ft.Row([
-                                    ft.Text(f"{desc} ({hora_fmt})", size=12),
-                                    ft.Text(f"-${monto:,.0f}", weight="bold", color="red"),
-                                ], alignment="space_between"),
-                                bgcolor="white", padding=5, border_radius=5
-                            )
-                        )
-
         else:
-            # NO HAY TURNO ACTIVO -> Mostrar Zeros o Mensaje
             txt_total_ventas.value = "$0"
             txt_total_gastos.value = "$0"
             txt_ganancia.value = "$0"
-            card_profit.bgcolor = "grey"
-            card_profit.bgcolor = "#9E9E9E"
+            txt_ganancia_margen.value = "0.0% margen"
+            txt_transacciones.value = "0"
+            txt_trans_promedio.value = "prom. $0"
             
-            sales_list.controls.clear()
-            sales_list.controls.append(ft.Text("Caja Cerrada. Inicie turno.", color="grey", italic=True))
-            
-            expenses_list.controls.clear()
-            expenses_list.controls.append(ft.Text("Caja Cerrada.", color="grey", italic=True))
+            activity_list.controls.clear()
+            activity_list.controls.append(ft.Container(ft.Text("Caja Cerrada. Inicie turno.", color="grey", italic=True, text_align="center"), padding=20))
             
         if not initial:
             page.update()
@@ -351,45 +319,48 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
         update_expiring_alert(update_ui=not initial)
 
     # ==========================
-    # 2. UI - TARJETAS SUPERIORES
+    # 2. UI - TARJETAS LATERALES (KPIs)
     # ==========================
-    def build_stat_card(title, value_control, color):
+    def build_stat_card_vertical(title, value_control, subtitle_control=None):
+        content = [
+            ft.Text(title, color="#aaaaaa", size=13, weight="w400"),
+            value_control
+        ]
+        if subtitle_control:
+            content.append(subtitle_control)
+            
         return ft.Container(
-            content=ft.Column([
-                ft.Text(
-                    title, 
-                    color="white", 
-                    size=14, 
-                    weight="w500",
-                    text_align="center"
-                ),
-                ft.Container(height=5),  # Espaciado
-                value_control
-            ], 
-            alignment=ft.MainAxisAlignment.CENTER, 
-            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            spacing=0),
-            bgcolor=color,
-            padding=ft.padding.symmetric(vertical=25, horizontal=20),
-            border_radius=12,
-            expand=True,
-            shadow=ft.BoxShadow(
-                spread_radius=1,
-                blur_radius=8,
-                color=ft.Colors.with_opacity(0.2, "black"),
-                offset=ft.Offset(0, 2),
-            )
+            content=ft.Column(content, spacing=3),
+            bgcolor="#2c2c2c",
+            padding=12,
+            border_radius=10,
+            width=float("inf"),
         )
 
-    card_sales = build_stat_card("VENTAS", txt_total_ventas, "#2196F3")
-    card_expenses = build_stat_card("GASTOS", txt_total_gastos, "#FF9800")
-    card_profit = build_stat_card("GANANCIA", txt_ganancia, "#4CAF50")  # Bgcolor se actualiza dinamicamente
+    card_sales = build_stat_card_vertical("Ventas", txt_total_ventas)
+    card_expenses = build_stat_card_vertical("Gastos", txt_total_gastos)
+    card_profit = build_stat_card_vertical("Ganancia", txt_ganancia, txt_ganancia_margen)
+    card_tx = build_stat_card_vertical("Transacciones", txt_transacciones, txt_trans_promedio)
+
+    left_column = ft.Container(
+        content=ft.Column([
+            ft.Container(
+                content=ft.Text("Resumen del día", size=16, weight="bold", color="white"),
+                padding=ft.padding.only(left=0, top=15, bottom=5)
+            ),
+            card_sales,
+            card_expenses,
+            card_profit,
+            card_tx
+        ], spacing=10),
+        width=float("inf")
+    )
 
     # ==========================
-    # 3. FORMULARIO DE GASTOS
+    # 3. FORMULARIO DE GASTOS COMPACTO
     # ==========================
-    desc_field = ft.TextField(label="Descripción del Gasto", hint_text="Ej: Luz, Internet", bgcolor="white", filled=True)
-    amount_field = ft.TextField(label="Monto", hint_text="5000", keyboard_type=ft.KeyboardType.NUMBER, bgcolor="white", filled=True)
+    desc_field = ft.TextField(hint_text="Descripción del gasto", bgcolor="#2c2c2c", filled=True, expand=2, height=40, content_padding=10, text_size=14, hint_style=ft.TextStyle(color="#666666"), color="white", border_color="#444444")
+    amount_field = ft.TextField(hint_text="Monto", keyboard_type=ft.KeyboardType.NUMBER, bgcolor="#2c2c2c", filled=True, expand=1, height=40, content_padding=10, text_size=14, hint_style=ft.TextStyle(color="#666666"), color="white", border_color="#444444")
     
     def add_expense_click(e):
         try:
@@ -406,83 +377,66 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
             desc_field.value = ""
             amount_field.value = ""
             refresh_data()
-            show_message(page, "Gasto registrado correctamente", "green")
+            desc_field.focus()
         except ValueError:
             show_message(page, "Monto inválido", "red")
         except Exception as ex:
             show_message(page, f"Error: {str(ex)}", "red")
 
     expense_form = ft.Container(
-        content=ft.Column([
-            ft.Text("REGISTRAR GASTO", weight="bold", size=16, color="#D32F2F"),
-            ft.Container(height=10),  # Espaciado
-            ft.ResponsiveRow([
-                ft.Column([desc_field], col={"xs": 10, "sm": 10, "md": 8}),
-                ft.Column([amount_field], col={"xs": 10, "sm": 10, "md": 4}),
-            ], alignment=ft.MainAxisAlignment.CENTER),
+        content=ft.Row([
+            desc_field,
+            amount_field,
             ft.FilledButton(
-                "Registrar Gasto", 
+                "Registrar", 
                 on_click=add_expense_click, 
-                style=ft.ButtonStyle(bgcolor="#F44336", color="white"),
-                width=200,
+                style=ft.ButtonStyle(bgcolor="#F44336", color="white", shape=ft.RoundedRectangleBorder(radius=5)),
+                height=40
             )
-        ], spacing=10, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-        bgcolor="white",
-        padding=20,
+        ], spacing=10),
+        padding=15,
+        border=ft.border.only(top=ft.border.BorderSide(1, "#333333")),
+    )
+
+    activity_list.expand = False
+    right_column = ft.Container(
+        content=ft.Column([
+            # Top Header
+            ft.Container(
+                content=ft.Row([
+                    ft.Text("Actividad del día", size=16, weight="bold", color="white", expand=True),
+                    ft.Container(
+                        content=ft.Text("En vivo", size=12, color="#4CAF50", weight="bold"),
+                        bgcolor="#1a3a1a",
+                        padding=ft.padding.symmetric(horizontal=10, vertical=5),
+                        border_radius=15,
+                        border=ft.border.all(1, "#4CAF50")
+                    )
+                ]),
+                padding=ft.padding.only(left=20, right=20, top=15, bottom=5)
+            ),
+            # List
+            ft.Container(content=activity_list, height=360),
+            # Form
+            expense_form
+        ]),
+        bgcolor="#1e1e1e",
         border_radius=10,
-        border=ft.border.all(1, "#E0E0E0"),
-        shadow=ft.BoxShadow(
-            spread_radius=0,
-            blur_radius=4,
-            color=ft.Colors.with_opacity(0.1, "black"),
-            offset=ft.Offset(0, 2),
-        )
     )
 
     refresh_data(initial=True) # Cargar datos iniciales
     
     return ft.Container(
         content=ft.Column([
-            # Cabecera con Titulo
-            ft.Container(
-                content=ft.Row([
-                    ft.Text("PANEL FINANCIERO", size=24, weight="bold", color="white"),
-                ], alignment=ft.MainAxisAlignment.CENTER),
-                bgcolor="#607D8B", padding=15, border_radius=10
-            ),
             # ALERTA DE VENCIMIENTO
             expiring_alert,
-            # Tarjetas
+            # Main Layout
             ft.ResponsiveRow([
-                ft.Column([card_sales], col={"xs": 12, "md": 4}),
-                ft.Column([card_expenses], col={"xs": 12, "md": 4}),
-                ft.Column([card_profit], col={"xs": 12, "md": 4}),
-            ], spacing=10),
-            # Form Gasto
-            expense_form,
-            # Listas
-            ft.ResponsiveRow([
-                ft.Column([
-                    ft.Container(
-                        content=ft.Column([
-                            ft.Text("Historial de Ingresos (Ventas y Abonos)", weight="bold", size=16, color="#2E7D32"), 
-                            sales_list
-                        ]),
-                        bgcolor="#E8F5E9", padding=10, border_radius=10
-                    )
-                ], col={"xs": 12, "md": 6}),
-                ft.Column([
-                    ft.Container(
-                        content=ft.Column([
-                            ft.Text("Historial de Gastos", weight="bold", size=16, color="#C62828"), 
-                            expenses_list
-                        ]),
-                        bgcolor="#FFEBEE", padding=10, border_radius=10
-                    )
-                ], col={"xs": 12, "md": 6}),
-            ]),
-        ], spacing=15, scroll=ft.ScrollMode.AUTO),
+                ft.Column([left_column], col={"xs": 12, "md": 5, "lg": 3}, horizontal_alignment=ft.CrossAxisAlignment.STRETCH),
+                ft.Column([right_column], col={"xs": 12, "md": 7, "lg": 9}, horizontal_alignment=ft.CrossAxisAlignment.STRETCH),
+            ], vertical_alignment=ft.CrossAxisAlignment.START, run_spacing=10)
+        ], expand=True, scroll=ft.ScrollMode.AUTO),
         expand=True,
-        bgcolor="#f5f5f5",  # Fix: Fondo claro
-        padding=10
+        bgcolor="#121212",
+        padding=20
     )

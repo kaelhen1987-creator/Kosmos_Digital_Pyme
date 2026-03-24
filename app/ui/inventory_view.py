@@ -277,7 +277,13 @@ def build_inventory_view(page: ft.Page, model):
             price_preview.value = "Precio con IVA (19%): $0"
             price_preview.update()
     
-    product_list = ft.ListView(spacing=10, padding=10, expand=True)
+    product_grid = ft.Row(
+        wrap=True,
+        scroll=ft.ScrollMode.AUTO,
+        expand=True,
+        spacing=10,
+        run_spacing=10,
+    )
     
     # Campo de búsqueda para inventario
     search_inventory = ft.TextField(
@@ -292,107 +298,70 @@ def build_inventory_view(page: ft.Page, model):
     )
     
     def refresh_products(search_query=""):
-        product_list.controls.clear()
+        product_grid.controls.clear()
         products = model.get_all_products()
         
-        # Filtrar por búsqueda
         if search_query:
             products = [p for p in products if search_query.lower() in p[1].lower()]
         
         if not products:
-             # ... (empty state) ...
              pass
         else:
             for p in products:
-                # Desempaquetar producto (ahora incluye categoria y vencimiento)
-                # Schema eventual: id, nombre, precio, stock, critico, barcode, categoria, vencimiento
+                # Schema: id, nombre, precio, stock, critico, barcode, categoria, vencimiento
                 p_id, p_name, p_price, p_stock, p_crit, p_barcode, p_cat, p_exp = None, None, 0, 0, 0, None, "General", None
                 
-                # Manejo robusto de versiones de tuplas
                 if len(p) >= 8:
                     p_id, p_name, p_price, p_stock, p_crit, p_barcode, p_cat, p_exp = p[:8]
                 elif len(p) == 7:
-                    p_id, p_name, p_price, p_stock, p_crit, p_barcode, p_cat = p
+                    p_id, p_name, p_price, p_stock, p_crit, p_barcode, p_cat = p[:7]
                 elif len(p) == 6:
-                    p_id, p_name, p_price, p_stock, p_crit, p_barcode = p
+                    p_id, p_name, p_price, p_stock, p_crit, p_barcode = p[:6]
                 else:
-                    p_id, p_name, p_price, p_stock, p_crit = p
+                    p_id, p_name, p_price, p_stock, p_crit = p[:5]
                 
-                # Check None
                 if not p_cat: p_cat = "General"
                 
-                bg_color = "white"
-                if p_stock <= p_crit:
-                    bg_color = "#ffcccc"
-                elif p_stock <= p_crit + 5:
-                    bg_color = "#fff9c4"
+                is_critic = p_stock <= p_crit
+                border_color = "red" if is_critic else "transparent"
+                stock_color = "red" if is_critic else "green"
+                stock_icon = ft.Icons.WARNING_ROUNDED if is_critic else ft.Icons.CHECK
                 
-                # Info extra para mostrar vencimiento si existe
-                subtitle_info = f"Código: {p_barcode if p_barcode else '--'}"
-                if p_exp:
-                    subtitle_info += f" | Vence: {p_exp}"
+                subtitle = f"{p_cat}"
+                if p_exp: subtitle += f" · Vence {p_exp}"
 
-                product_list.controls.append(
+                product_grid.controls.append(
                     ft.Container(
+                        width=280,
                         content=ft.Column([
-                            # Fila 1: Nombre y Categoria + Menú
                             ft.Row([
                                 ft.Column([
-                                    ft.Text(f"{p_name}", size=18, weight="bold", color="black"),
-                                    ft.Container(
-                                        content=ft.Text(p_cat.upper(), size=10, color="white"),
-                                        bgcolor="green", padding=3, border_radius=4
-                                    )
-                                ], spacing=2),
+                                    ft.Text(p_name, size=16, weight="bold", color="white", max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                                    ft.Text(subtitle, size=12, color="#888888", max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)
+                                ], spacing=0, expand=True),
                                 ft.PopupMenuButton(
                                     icon=ft.Icons.MORE_VERT,
-                                    icon_color="black",
+                                    icon_color="#888888",
                                     items=[
-                                        ft.PopupMenuItem(
-                                            content=ft.Text("Editar"), 
-                                            icon=ft.Icons.EDIT, 
-                                            on_click=lambda e, pid=p_id, pdata=p: open_edit_dialog(pid, pdata)
-                                        ),
-                                        ft.PopupMenuItem(
-                                            content=ft.Text("Eliminar", color="red"),
-                                            icon=ft.Icons.DELETE, 
-                                            on_click=lambda e, pid=p_id: delete_product(pid)
-                                        ),
-                                        ft.PopupMenuItem(
-                                            content=ft.Text("Agregar Stock"), 
-                                            icon=ft.Icons.ADD_BOX, 
-                                            on_click=lambda e, pid=p_id: quick_add_stock(pid)
-                                        ),
+                                        ft.PopupMenuItem(content=ft.Text("Editar"), icon=ft.Icons.EDIT, on_click=lambda e, pid=p_id, pdata=p: open_edit_dialog(pid, pdata)),
+                                        ft.PopupMenuItem(content=ft.Text("Agregar Stock"), icon=ft.Icons.ADD_BOX, on_click=lambda e, pid=p_id: quick_add_stock(pid)),
+                                        ft.PopupMenuItem(content=ft.Text("Eliminar", color="red"), icon=ft.Icons.DELETE, on_click=lambda e, pid=p_id: delete_product(pid)),
                                     ]
                                 ),
                             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                             
-                            ft.Divider(color="grey"),
-                            
-                            # Fila 2: Detalles (Precio, Stock, Critico)
                             ft.Row([
-                                ft.Column([
-                                    ft.Text("Precio", size=12, color="grey"),
-                                    ft.Text(f"${p_price:,.0f}", size=16, weight="bold", color="black")
-                                ]),
-                                ft.Column([
-                                    ft.Text("Stock", size=12, color="grey"),
-                                    ft.Text(f"{p_stock}", size=16, weight="bold", color="red" if p_stock <= p_crit else "black")
-                                ]),
-                                ft.Column([
-                                    ft.Text("Crítico", size=12, color="grey"),
-                                    ft.Text(f"{p_crit}", size=16, color="black")
-                                ]),
-                                ft.Column([
-                                    ft.Text("Detalles", size=12, color="grey"),
-                                    ft.Text(subtitle_info, size=12, color="black")
-                                ]),
+                                ft.Text(f"${p_price:,.0f}", size=18, weight="bold", color="white"),
+                                ft.Row([
+                                    ft.Text(f"Stock: {p_stock}", size=14, weight="bold", color=stock_color),
+                                    ft.Icon(stock_icon, size=14, color=stock_color)
+                                ], spacing=2)
                             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                         ], spacing=10),
-                        bgcolor=bg_color,
+                        bgcolor="#2c2c2c",
                         padding=15,
-                        border_radius=10,
-                        border=ft.border.all(2, "grey"),
+                        border_radius=8,
+                        border=ft.border.only(left=ft.border.BorderSide(4, border_color), top=ft.border.BorderSide(1, "#3a3a3a"), right=ft.border.BorderSide(1, "#3a3a3a"), bottom=ft.border.BorderSide(1, "#3a3a3a"))
                     )
                 )
         page.update()
@@ -721,101 +690,73 @@ def build_inventory_view(page: ft.Page, model):
     
     refresh_products()
     
-    # Layout unificado (Responsive Grid)
-    form_fields = ft.ResponsiveRow([
-        ft.Container(name_field, col={"xs": 12, "md": 12}),
-        ft.Container(barcode_field, col={"xs": 12, "md": 6}),
-        ft.Container(category_field, col={"xs": 12, "md": 6}),
-        # Fila de números: 4+4+4 = 12 (Ocupa todo el ancho en Desktop)
-        ft.Container(price_field, col={"xs": 12, "md": 4}),
-        ft.Container(stock_field, col={"xs": 12, "md": 4}),
-        ft.Container(critic_field, col={"xs": 12, "md": 4}),
-        # Fila siguiente
-        ft.Container(expiration_field, col={"xs": 12, "md": 6}),
-    ], spacing=10)
+    drawer_visible = True
+    def toggle_drawer(e):
+        nonlocal drawer_visible
+        drawer_visible = not drawer_visible
+        form_panel.visible = drawer_visible
+        btn_toggle.text = "Ocultar" if drawer_visible else "Agregar"
+        btn_toggle.icon = ft.Icons.ARROW_FORWARD if drawer_visible else ft.Icons.ADD
+        btn_toggle.update()
+        page.update()
 
-    return ft.Container(
+    btn_toggle = ft.FilledButton(
+        "Ocultar" if drawer_visible else "Agregar", 
+        icon=ft.Icons.ARROW_FORWARD if drawer_visible else ft.Icons.ADD,
+        on_click=toggle_drawer,
+        style=ft.ButtonStyle(bgcolor="#4CAF50", color="white")
+    )
+
+    form_panel = ft.Container(
+        width=320,
+        padding=20,
+        bgcolor="#1e1e1e",
+        border_radius=ft.border_radius.only(top_right=10, bottom_right=10),
+        border=ft.border.all(1, "#333333"),
+        visible=drawer_visible,
         content=ft.Column([
-            # Header
-            ft.Container(
-                content=ft.Text("INVENTARIO", size=22, weight="bold", color="white"),
-                bgcolor="#2196F3",
-                padding=20,
-                border_radius=ft.border_radius.only(top_left=10, top_right=10),
-            ),
-            # Instrucciones
-            ft.Container(
-                content=ft.Text(
-                    "Completa el formulario para agregar nuevos productos:",
-                    size=14,
-                    color="black",
-                    weight="bold"
-                ),
-                bgcolor="#e3f2fd",
-                padding=10,
-            ),
-            # Formulario y Buscador (lado a lado en desktop, apilados en móvil)
-            # Formulario y Buscador con ResponsiveRow
-            ft.ResponsiveRow([
-                # Formulario (12/12 en móvil, 8/12 en desktop)
-                ft.Container(
-                    content=ft.Column([
-                        form_fields,
-                        ft.Column([
-                            price_preview,
-                            ft.Row([
-                                ft.FilledButton(
-                                    "AGREGAR PRODUCTO",
-                                    on_click=add_product,
-                                    style=ft.ButtonStyle(bgcolor="#4CAF50", color="white"),
-                                    height=50,
-                                    expand=True,
-                                ),
-                                ft.FilledButton(
-                                    "NUEVA PROMOCIÓN",
-                                    on_click=open_promo_dialog,
-                                    style=ft.ButtonStyle(bgcolor="#FF9800", color="white"),
-                                    height=50,
-                                    expand=True,
-                                ),
-                            ], spacing=10),
-                        ], spacing=10, horizontal_alignment="start", expand=True),
-                    ], spacing=15),
-                    bgcolor="#f5f5f5",
-                    padding=20,
-                    border_radius=10,
-                    border=ft.border.all(2, "#2196F3"),
-                    col={"xs": 12, "md": 8},
-                ),
-                # Buscador (12/12 en móvil, 4/12 en desktop)
-                ft.Container(
-                    content=ft.Column([
-                        ft.Text("BUSCAR PRODUCTOS", size=16, weight="bold", color="black", text_align="center"),
-                        search_inventory,
-                    ], spacing=10, horizontal_alignment="center"),
-                    bgcolor="white",
-                    padding=20,
-                    border_radius=10,
-                    border=ft.border.all(2, "#2196F3"),
-                    col={"xs": 12, "md": 4},
-                ),
-            ], spacing=10),
-            # Título de la lista
-            ft.Container(
-                content=ft.Text("PRODUCTOS REGISTRADOS", size=18, weight="bold", color="black"),
-                bgcolor="#e3f2fd",
-                padding=10,
-                margin=ft.margin.only(left=10, right=10),
-            ),
-            # Lista
-            ft.Container(
-                content=product_list,
-                expand=True,
-                margin=ft.margin.only(left=10, right=10, bottom=10),
-            ),
-        ], spacing=0, expand=True, scroll=ft.ScrollMode.AUTO),
-        bgcolor="white",
+            ft.Text("Nuevo Producto", size=20, weight="bold", color="white"),
+            ft.Divider(height=10, color="transparent"),
+            name_field,
+            barcode_field,
+            category_field,
+            price_field,
+            ft.Row([ft.Container(stock_field, expand=True), ft.Container(critic_field, expand=True)], spacing=10),
+            expiration_field,
+            price_preview,
+            ft.Divider(height=10, color="transparent"),
+            ft.FilledButton("Agregar", on_click=add_product, style=ft.ButtonStyle(bgcolor="#4CAF50", color="white"), height=45, expand=True, width=float("inf")),
+            ft.Divider(),
+            ft.TextButton("Nueva Promoción", icon=ft.Icons.NEW_LABEL, on_click=open_promo_dialog, expand=True, width=float("inf")),
+        ], spacing=10, scroll=ft.ScrollMode.AUTO, expand=True)
+    )
+
+    search_inventory.expand = True
+
+    main_panel = ft.Container(
+        expand=True,
+        padding=20,
+        bgcolor="#121212",
+        content=ft.Column([
+            ft.Row([
+                ft.Text("Productos registrados", size=24, weight="bold", color="white"),
+                btn_toggle
+            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            ft.Divider(height=10, color="transparent"),
+            ft.Container(search_inventory, width=450),
+            ft.Divider(height=15, color="transparent"),
+            product_grid
+        ], expand=True, spacing=0)
+    )
+
+    # Layout de la vista
+    return ft.Container(
+        content=ft.Row([
+            main_panel,
+            form_panel
+        ], expand=True, spacing=0),
+        bgcolor="#121212",
         border_radius=10,
         margin=10,
-        expand=True,
+        expand=True
     )

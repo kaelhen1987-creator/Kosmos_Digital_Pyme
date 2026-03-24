@@ -9,6 +9,7 @@ from app.ui.dashboard_view import build_dashboard_view
 from app.ui.clients_view import build_clients_view
 from app.ui.shift_view import build_shift_view  # Nueva Vista
 from app.ui.reports_view import build_reports_view # Nueva Vista Reportes
+from app.ui.settings_view import build_settings_view # Vista Configuración
 from app.utils.helpers import is_mobile
 
 # =============================================================================
@@ -411,17 +412,29 @@ async def main(page: ft.Page):
                 content_container.content = build_dashboard_view(page, model, on_logout_callback=handle_logout)
             elif index == 3:
                 content_container.content = build_clients_view(page, model)
-            else:
+            elif index == 4:
                 content_container.content = build_reports_view(page, model)
+            else:
+                content_container.content = build_settings_view(page, model)
             
             # Actualizar colores de botones (Desktop)
-            for i, btn in enumerate([btn_pos, btn_inv, btn_dash, btn_clients, btn_reports]):
+            for i, btn in enumerate([btn_pos, btn_inv, btn_dash, btn_clients, btn_reports, btn_settings]):
                 if i == index:
-                    btn.bgcolor = "#2196F3"
-                    btn.color = "white"
+                    btn.style = ft.ButtonStyle(
+                        bgcolor="#1a1a2e",
+                        color="#2196F3",
+                        side=ft.BorderSide(1, "#2196F3"),
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                        padding=ft.padding.symmetric(horizontal=14, vertical=8)
+                    )
                 else:
-                    btn.bgcolor = "white"
-                    btn.color = "#2196F3"
+                    btn.style = ft.ButtonStyle(
+                        bgcolor="transparent",
+                        color="#aaaaaa",
+                        side=ft.BorderSide(0, "transparent"),
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                        padding=ft.padding.symmetric(horizontal=14, vertical=8)
+                    )
             
             # Sincronizar Drawer (Móvil)
             if page.drawer:
@@ -512,6 +525,7 @@ async def main(page: ft.Page):
                 ft.ListTile(leading=ft.Icon(ft.Icons.DASHBOARD, color="black"), title=ft.Text("Caja", color="black"), on_click=lambda e: select_drawer_item(2)),
                 ft.ListTile(leading=ft.Icon(ft.Icons.PEOPLE, color="black"), title=ft.Text("Fiados", color="black"), on_click=lambda e: select_drawer_item(3)),
                 ft.ListTile(leading=ft.Icon(ft.Icons.BAR_CHART, color="black"), title=ft.Text("Reportes", color="black"), on_click=lambda e: select_drawer_item(4)),
+                ft.ListTile(leading=ft.Icon(ft.Icons.SETTINGS, color="black"), title=ft.Text("Configuración", color="black"), on_click=lambda e: select_drawer_item(5)),
                 ft.Divider(),
                 ft.ListTile(
                     leading=ft.Icon(ft.Icons.BACKUP, color="black"), 
@@ -578,26 +592,34 @@ async def main(page: ft.Page):
         )
         page.appbar = mobile_appbar
         
-        # Botones de navegación (textos cortos para móvil)
+        # Estilos de navegación
+        _nav_active = ft.ButtonStyle(
+            bgcolor="#1a1a2e", color="#2196F3",
+            side=ft.BorderSide(1, "#2196F3"),
+            shape=ft.RoundedRectangleBorder(radius=8),
+            padding=ft.padding.symmetric(horizontal=14, vertical=8)
+        )
+        _nav_inactive = ft.ButtonStyle(
+            bgcolor="transparent", color="#aaaaaa",
+            side=ft.BorderSide(0, "transparent"),
+            shape=ft.RoundedRectangleBorder(radius=8),
+            padding=ft.padding.symmetric(horizontal=14, vertical=8)
+        )
+
         def create_nav_btn(text, icon, idx):
-            return ft.FilledButton(
+            return ft.TextButton(
                 text,
                 icon=icon,
                 on_click=lambda e: switch_tab(idx),
-                style=ft.ButtonStyle(
-                    bgcolor="#2196F3" if idx == 0 else "white",
-                    color="white" if idx == 0 else "#2196F3",
-                    shape=ft.RoundedRectangleBorder(radius=5)
-                ),
-                expand=True,
-                height=50
+                style=_nav_active if idx == 0 else _nav_inactive,
             )
 
-        btn_pos = create_nav_btn("Ventas", "shopping_cart", 0)
-        btn_inv = create_nav_btn("Inventario", "list_alt", 1)
-        btn_dash = create_nav_btn("Caja", "dashboard", 2)
-        btn_clients = create_nav_btn("Fiados", "people", 3)
-        btn_reports = create_nav_btn("Reportes", "bar_chart", 4)
+        btn_pos      = create_nav_btn("Ventas",         ft.Icons.SHOPPING_CART_OUTLINED,  0)
+        btn_inv      = create_nav_btn("Inventario",     ft.Icons.INVENTORY_2_OUTLINED,     1)
+        btn_dash     = create_nav_btn("Caja",           ft.Icons.POINT_OF_SALE,            2)
+        btn_clients  = create_nav_btn("Fiados",         ft.Icons.PEOPLE_OUTLINE,           3)
+        btn_reports  = create_nav_btn("Reportes",       ft.Icons.BAR_CHART_OUTLINED,       4)
+        btn_settings = create_nav_btn("Configuración",  ft.Icons.SETTINGS_OUTLINED,        5)
         
         # Contenedor principal
         content_container = ft.Container(
@@ -610,16 +632,53 @@ async def main(page: ft.Page):
         # Contenedor para botones de desktop (referencia para ocultar/mostrar)
         top_nav_bar = ft.Container(
             content=ft.Row([
-                # Botonera Navegación
-                ft.Row([btn_pos, btn_inv, btn_dash, btn_clients, btn_reports], spacing=2, scroll=ft.ScrollMode.HIDDEN),
-                # Botones Acciones Globales
+                # Logo / Brand
+                ft.Container(
+                    content=ft.Row([
+                        ft.Container(
+                            content=ft.Text("K", color="white", size=14, weight="bold"),
+                            bgcolor="#2196F3",
+                            width=28, height=28,
+                            border_radius=6,
+                            alignment=ft.alignment.center
+                        ),
+                        ft.Text("Digital PyME", color="white", weight="bold", size=14)
+                    ], spacing=8),
+                    padding=ft.padding.only(right=16)
+                ),
+                # Divisor vertical
+                ft.Container(width=1, height=24, bgcolor="#2a2a2a"),
+                ft.Container(width=4),
+                # Tabs de navegación
+                ft.Row([btn_pos, btn_inv, btn_dash, btn_clients, btn_reports, btn_settings],
+                       spacing=2, scroll=ft.ScrollMode.HIDDEN, expand=True),
+                # Acciones globales
                 ft.Row([
-                    ft.IconButton(ft.Icons.BACKUP, tooltip="Copia de Seguridad", on_click=lambda e: show_backup_dialog(e)),
-                    btn_close_global
-                ])
-            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-            bgcolor="#e0e0e0",
-            padding=5,
+                    ft.IconButton(
+                        ft.Icons.BACKUP_OUTLINED,
+                        tooltip="Copia de Seguridad",
+                        icon_color="#aaaaaa",
+                        icon_size=20,
+                        on_click=lambda e: show_backup_dialog(e)
+                    ),
+                    ft.Container(
+                        content=ft.FilledButton(
+                            "Cerrar caja",
+                            icon=ft.Icons.LOGOUT,
+                            style=ft.ButtonStyle(
+                                bgcolor="#D32F2F", color="white",
+                                shape=ft.RoundedRectangleBorder(radius=8)
+                            ),
+                            on_click=handle_close_turn_global
+                        ),
+                        padding=ft.padding.only(left=8)
+                    )
+                ], spacing=4)
+            ], alignment=ft.MainAxisAlignment.START,
+               vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            bgcolor="#0d1117",
+            padding=ft.padding.symmetric(horizontal=16, vertical=8),
+            border=ft.border.only(bottom=ft.border.BorderSide(1, "#1a1a1a"))
         )
 
         # Layout principal (Columna con botónera y contenido)
@@ -713,7 +772,7 @@ if __name__ == "__main__":
 
     if mode == "WEB":
         # Modo Web (Navegador) - Solo para debug
-        ft.app(target=main, view=ft.AppView.WEB_BROWSER)
+        ft.app(target=main, view=ft.AppView.WEB_BROWSER, assets_dir="assets")
     else:
         # Modo desktop (ventana nativa)
-        ft.app(target=main)
+        ft.app(target=main, assets_dir="assets")
