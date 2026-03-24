@@ -9,19 +9,20 @@ SECRET_SALT = "SOS_DIGITAL_PYME_2026_SECURE_SALT_!@#"
 
 import sys
 # NOTA: sys.frozen NO es confiable en Flet builds empaquetados.
-# Siempre guardamos la licencia en ~/Documents/Digital_PyME/ para garantizar
-# que una instalación fresca NO encuentre el archivo y muestre la pantalla de activación.
 _home_dir = os.path.expanduser("~")
 _data_dir = os.path.join(_home_dir, "Documents", "Digital_PyME")
-if not os.path.exists(_data_dir):
-    try:
-        os.makedirs(_data_dir)
-    except OSError:
-        pass
 ACTIVATION_FILE = os.path.join(_data_dir, "activation.lic")
+
+def ensure_data_dir():
+    if not os.path.exists(_data_dir):
+        try:
+            os.makedirs(_data_dir)
+        except OSError:
+            pass
 
 def get_persistent_id():
     """Genera/Recupera un ID único almacenado en archivo (Device Lock para Android)."""
+    ensure_data_dir()
     f_path = os.path.join(_data_dir, "device.id")
 
     if os.path.exists(f_path):

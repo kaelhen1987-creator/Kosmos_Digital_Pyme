@@ -36,6 +36,21 @@ async def main(page: ft.Page):
     page.window.min_width = 350
     page.window.min_height = 600
     
+    # Mostrar mensaje inicial de carga ANTES de tocar el sistema de archivos (Evita pantalla blanca durante prompt de MacOS)
+    loading_view = ft.Container(
+        content=ft.Column([
+            ft.ProgressRing(color="#2196F3"),
+            ft.Text("Iniciando Digital PyME...", size=18, weight="bold", color="#333333"),
+            ft.Text("Por favor, concede los permisos de carpeta si el sistema lo solicita.", size=13, color="grey", text_align="center")
+        ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=15),
+        alignment=ft.alignment.center,
+        expand=True
+    )
+    page.add(loading_view)
+    # Pequeña pausa para asegurar que Flet pinte el UI antes de bloquear el hilo en el sistema de archivos (TCC Dialog)
+    import asyncio
+    await asyncio.sleep(0.5)
+    
     # Usar nueva base de datos
     # DETECCION DE ENTORNO - SIEMPRE usar Documents para persistencia
     # NOTA: sys.frozen NO funciona con Flet builds, así que siempre 
