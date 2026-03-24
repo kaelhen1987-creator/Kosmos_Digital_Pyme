@@ -2,22 +2,7 @@
 import flet as ft  # pyre-ignore
 # Imports de compatibilidad eliminados
 
-from app.data.database import InventarioModel  # pyre-ignore
-from app.ui.pos_view import build_pos_view  # pyre-ignore
-from app.ui.inventory_view import build_inventory_view  # pyre-ignore
-from app.ui.dashboard_view import build_dashboard_view  # pyre-ignore
-from app.ui.clients_view import build_clients_view  # pyre-ignore
-from app.ui.shift_view import build_shift_view  # pyre-ignore
-from app.ui.reports_view import build_reports_view  # pyre-ignore
-from app.ui.settings_view import build_settings_view  # pyre-ignore
-from app.utils.helpers import is_mobile  # pyre-ignore
-
-# =============================================================================
-# VISTA (FLET UI) - Main Entry Point
-# =============================================================================
-from app.utils.activation import is_activated
-from app.ui.activation_view import build_activation_view
-from app.utils.helpers import show_message # Importar helper para mensajes
+# Imports diferidos para que el catch global atrape cualquier ImportError de librerías nativas compiladas.
 
 # --- SYSTEM VERSION ---
 # Versión de la App
@@ -25,11 +10,24 @@ from app.utils.helpers import show_message # Importar helper para mensajes
 APP_VERSION = "0.11.24"
 WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
 # ----------------------
-async def main(page: ft.Page):
+async def original_main(page: ft.Page):
     page.title = "Digital PyME"
     page.theme_mode = ft.ThemeMode.LIGHT # Forzar modo claro
     page.bgcolor = "#f5f5f5"
     page.padding = 0
+    
+    # LAZY IMPORTS
+    from app.data.database import InventarioModel
+    from app.ui.pos_view import build_pos_view
+    from app.ui.inventory_view import build_inventory_view
+    from app.ui.dashboard_view import build_dashboard_view
+    from app.ui.clients_view import build_clients_view
+    from app.ui.shift_view import build_shift_view
+    from app.ui.reports_view import build_reports_view
+    from app.ui.settings_view import build_settings_view
+    from app.utils.helpers import is_mobile, show_message
+    from app.utils.activation import is_activated
+    from app.ui.activation_view import build_activation_view
     # page.scroll = ft.ScrollMode.AUTO  <-- Eliminado para evitar conflictos con layout responsivo
 
     # Configuración responsive
@@ -778,6 +776,16 @@ async def main(page: ft.Page):
 
     # Iniciar flujo
     start_flow()
+
+async def main(page: ft.Page):
+    try:
+        await original_main(page)
+    except Exception as e:
+        import traceback
+        err_trace = traceback.format_exc()
+        page.clean()
+        page.add(ft.Text(f"Error Crítico en UI:\n{e}\n\n{err_trace}", color="red", selectable=True))
+        page.update()
 
 if __name__ == "__main__":
     import sys
