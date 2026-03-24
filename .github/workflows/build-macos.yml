@@ -2,12 +2,11 @@ name: Build macOS App
 
 on:
   workflow_dispatch:
-  # Automatic builds disabled to save GitHub storage quota
-  # push:
-  #   branches: [ "main" ]
-  #   paths-ignore:
-  #     - '**.md'
-  #     - 'docs/**'
+  push:
+    branches: [ "main" ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
 
 jobs:
   macos_app:
