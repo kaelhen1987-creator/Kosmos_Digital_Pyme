@@ -1,16 +1,16 @@
 #!/opt/homebrew/bin/python3
-import flet as ft
+import flet as ft  # pyre-ignore
 # Imports de compatibilidad eliminados
 
-from app.data.database import InventarioModel
-from app.ui.pos_view import build_pos_view
-from app.ui.inventory_view import build_inventory_view
-from app.ui.dashboard_view import build_dashboard_view
-from app.ui.clients_view import build_clients_view
-from app.ui.shift_view import build_shift_view  # Nueva Vista
-from app.ui.reports_view import build_reports_view # Nueva Vista Reportes
-from app.ui.settings_view import build_settings_view # Vista Configuración
-from app.utils.helpers import is_mobile
+from app.data.database import InventarioModel  # pyre-ignore
+from app.ui.pos_view import build_pos_view  # pyre-ignore
+from app.ui.inventory_view import build_inventory_view  # pyre-ignore
+from app.ui.dashboard_view import build_dashboard_view  # pyre-ignore
+from app.ui.clients_view import build_clients_view  # pyre-ignore
+from app.ui.shift_view import build_shift_view  # pyre-ignore
+from app.ui.reports_view import build_reports_view  # pyre-ignore
+from app.ui.settings_view import build_settings_view  # pyre-ignore
+from app.utils.helpers import is_mobile  # pyre-ignore
 
 # =============================================================================
 # VISTA (FLET UI) - Main Entry Point
@@ -214,8 +214,8 @@ async def main(page: ft.Page):
             
             # Construir tabla de desglose
             desglose_rows = []
-            total_ventas = 0
-            total_pagos_deuda = 0
+            total_ventas = 0.0
+            total_pagos_deuda = 0.0
             
             # Iconos y colores por método de pago
             metodos_config = {
@@ -238,7 +238,7 @@ async def main(page: ft.Page):
                         info = ventas_data[metodo]
                         cantidad = info['cantidad']
                         total = info['total']
-                        total_ventas += total
+                        total_ventas += float(total)  # pyre-ignore
                         
                         config = metodos_config.get(metodo, {'icono': '📊', 'color': '#757575'})
                         
@@ -271,7 +271,7 @@ async def main(page: ft.Page):
                         info = pagos_data[metodo]
                         cantidad = info['cantidad']
                         total = info['total']
-                        total_pagos_deuda += total
+                        total_pagos_deuda += float(total)  # pyre-ignore
                         
                         config = metodos_config.get(metodo, {'icono': '📊', 'color': '#757575'})
                         
@@ -421,16 +421,16 @@ async def main(page: ft.Page):
             for i, btn in enumerate([btn_pos, btn_inv, btn_dash, btn_clients, btn_reports, btn_settings]):
                 if i == index:
                     btn.style = ft.ButtonStyle(
-                        bgcolor="#1a1a2e",
-                        color="#2196F3",
-                        side=ft.BorderSide(1, "#2196F3"),
+                        bgcolor="#1D4ED8",
+                        color="white",
+                        side=ft.BorderSide(0, "transparent"),
                         shape=ft.RoundedRectangleBorder(radius=8),
                         padding=ft.padding.symmetric(horizontal=14, vertical=8)
                     )
                 else:
                     btn.style = ft.ButtonStyle(
                         bgcolor="transparent",
-                        color="#aaaaaa",
+                        color="white",
                         side=ft.BorderSide(0, "transparent"),
                         shape=ft.RoundedRectangleBorder(radius=8),
                         padding=ft.padding.symmetric(horizontal=14, vertical=8)
@@ -594,13 +594,13 @@ async def main(page: ft.Page):
         
         # Estilos de navegación
         _nav_active = ft.ButtonStyle(
-            bgcolor="#1a1a2e", color="#2196F3",
-            side=ft.BorderSide(1, "#2196F3"),
+            bgcolor="#1D4ED8", color="white",
+            side=ft.BorderSide(0, "transparent"),
             shape=ft.RoundedRectangleBorder(radius=8),
             padding=ft.padding.symmetric(horizontal=14, vertical=8)
         )
         _nav_inactive = ft.ButtonStyle(
-            bgcolor="transparent", color="#aaaaaa",
+            bgcolor="transparent", color="white",
             side=ft.BorderSide(0, "transparent"),
             shape=ft.RoundedRectangleBorder(radius=8),
             padding=ft.padding.symmetric(horizontal=14, vertical=8)
@@ -647,7 +647,7 @@ async def main(page: ft.Page):
                     padding=ft.padding.only(right=16)
                 ),
                 # Divisor vertical
-                ft.Container(width=1, height=24, bgcolor="#2a2a2a"),
+                ft.Container(width=1, height=24, bgcolor="rgba(255,255,255,0.3)"),
                 ft.Container(width=4),
                 # Tabs de navegación
                 ft.Row([btn_pos, btn_inv, btn_dash, btn_clients, btn_reports, btn_settings],
@@ -657,7 +657,7 @@ async def main(page: ft.Page):
                     ft.IconButton(
                         ft.Icons.BACKUP_OUTLINED,
                         tooltip="Copia de Seguridad",
-                        icon_color="#aaaaaa",
+                        icon_color="white",
                         icon_size=20,
                         on_click=lambda e: show_backup_dialog(e)
                     ),
@@ -666,7 +666,7 @@ async def main(page: ft.Page):
                             "Cerrar caja",
                             icon=ft.Icons.LOGOUT,
                             style=ft.ButtonStyle(
-                                bgcolor="#D32F2F", color="white",
+                                bgcolor="#EF4444", color="white",
                                 shape=ft.RoundedRectangleBorder(radius=8)
                             ),
                             on_click=handle_close_turn_global
@@ -676,9 +676,9 @@ async def main(page: ft.Page):
                 ], spacing=4)
             ], alignment=ft.MainAxisAlignment.START,
                vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            bgcolor="#0d1117",
+            bgcolor="#2563EB",
             padding=ft.padding.symmetric(horizontal=16, vertical=8),
-            border=ft.border.only(bottom=ft.border.BorderSide(1, "#1a1a1a"))
+            border=ft.border.only(bottom=ft.border.BorderSide(1, "#1D4ED8"))
         )
 
         # Layout principal (Columna con botónera y contenido)

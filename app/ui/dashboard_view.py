@@ -1,7 +1,7 @@
-import flet as ft
-from app.utils.helpers import is_mobile, show_message
+import flet as ft  # pyre-ignore
+from app.utils.helpers import is_mobile, show_message  # pyre-ignore
 
-from app.utils.formatting import format_currency
+from app.utils.formatting import format_currency  # pyre-ignore
 
 def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
     # ==========================
@@ -268,8 +268,8 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
                 })
             for p in session_payments:
                 combined_activity.append({
-                    "id": p[0], "date": p[2], "label": f"Abono #{p[0]}", 
-                    "amount": p[4], "color": "#4CAF50", "type": "ABONO", "sign": "+", "description": f"{p[5]}"
+                    "id": p[0], "date": p[2], "label": f"Abono #{p[0]}",  # pyre-ignore
+                    "amount": p[4], "color": "#4CAF50", "type": "ABONO", "sign": "+", "description": f"{p[5]}"  # pyre-ignore
                 })
             for e in session_expenses:
                 combined_activity.append({

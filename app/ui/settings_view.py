@@ -11,29 +11,6 @@ DIM      = "#aaaaaa"
 
 def build_settings_view(page: ft.Page, model):
 
-    # ── Controles de Interfaz ──────────────────────────────────────────
-    dd_vista_caja = ft.Dropdown(
-        label="Modo de Vista Inicial (Ventas)",
-        options=[
-            ft.dropdown.Option("scanner", text="Modo Escáner (Lista)"),
-            ft.dropdown.Option("visual",  text="Modo Visual (Cajas)")
-        ],
-        value=model.get_config("vista_caja", "scanner"),
-        color="white", border_radius=8, border_color="#555555",
-    )
-    sw_mostrar_iva = ft.Switch(
-        value=model.get_config("mostrar_iva", "1") == "1",
-        active_color="#4CAF50"
-    )
-    sw_confirmar_borrar = ft.Switch(
-        value=model.get_config("confirmar_borrar", "1") == "1",
-        active_color="#4CAF50"
-    )
-    sw_sonido = ft.Switch(
-        value=model.get_config("sonido_scan", "0") == "1",
-        active_color="#4CAF50"
-    )
-
     # ── Controles de Impresión ─────────────────────────────────────────
     dd_impresora = ft.Dropdown(
         label="Tamaño de Impresora",
@@ -57,34 +34,16 @@ def build_settings_view(page: ft.Page, model):
     txt_address = ft.TextField(label="Dirección",            value=model.get_config("business_address", ""), bgcolor=CARD_BG, color="white", border_color="#555555", filled=True, border_radius=8)
     txt_phone   = ft.TextField(label="Teléfono",             value=model.get_config("business_phone", ""),   bgcolor=CARD_BG, color="white", border_color="#555555", filled=True, border_radius=8, keyboard_type=ft.KeyboardType.PHONE)
 
-    # ── Controles IVA y Precios ───────────────────────────────────────
-    sw_iva_precio = ft.Switch(
-        value=model.get_config("precio_incluye_iva", "1") == "1",
-        active_color="#4CAF50"
-    )
-    txt_iva_tasa = ft.TextField(
-        label="Tasa IVA (%)",
-        value=model.get_config("tasa_iva", "19"),
-        bgcolor=CARD_BG, color="white", border_color="#555555",
-        filled=True, border_radius=8, width=200,
-        keyboard_type=ft.KeyboardType.NUMBER
-    )
 
     # ── Guardar ───────────────────────────────────────────────────────
     def save_settings(e):
         try:
-            model.set_config("vista_caja",         dd_vista_caja.value)
-            model.set_config("mostrar_iva",         "1" if sw_mostrar_iva.value else "0")
-            model.set_config("confirmar_borrar",    "1" if sw_confirmar_borrar.value else "0")
-            model.set_config("sonido_scan",         "1" if sw_sonido.value else "0")
             model.set_config("tipo_impresora",      dd_impresora.value)
             model.set_config("ticket_mensaje",      txt_pie_pagina.value)
             model.set_config("business_name",       txt_name.value)
             model.set_config("business_rut",        txt_rut.value)
             model.set_config("business_address",    txt_address.value)
             model.set_config("business_phone",      txt_phone.value)
-            model.set_config("precio_incluye_iva",  "1" if sw_iva_precio.value else "0")
-            model.set_config("tasa_iva",            txt_iva_tasa.value)
             show_message(page, "Configuración guardada exitosamente.", "green")
         except Exception as ex:
             show_message(page, f"Error al guardar: {ex}", "red")
@@ -110,14 +69,6 @@ def build_settings_view(page: ft.Page, model):
         )
 
     # ── Secciones ─────────────────────────────────────────────────────
-    section_interfaz = ft.Column([
-        section_label("Preferencias Visuales"),
-        setting_row("Modo de vista inicial (ventas)", "Define cómo se muestra la pantalla al abrir", dd_vista_caja),
-        setting_row("Mostrar IVA en pantalla de ventas", "Muestra precio con y sin IVA", sw_mostrar_iva),
-        section_label("Comportamiento"),
-        setting_row("Sonido al agregar producto", "Beep al escanear código de barras", sw_sonido),
-        setting_row("Confirmación antes de eliminar", "Pedir confirmación al borrar ítems", sw_confirmar_borrar),
-    ], spacing=0, scroll=ft.ScrollMode.AUTO)
 
     section_impresion = ft.Column([
         section_label("Formato de Ticket"),
@@ -134,34 +85,13 @@ def build_settings_view(page: ft.Page, model):
         setting_row("Teléfono", "Contacto del negocio", txt_phone),
     ], spacing=0, scroll=ft.ScrollMode.AUTO)
 
-    section_iva = ft.Column([
-        section_label("Configuración de IVA"),
-        setting_row("Los precios ya incluyen IVA", "Si está activado, el precio ingresado ya lleva IVA incluido", sw_iva_precio),
-        setting_row("Tasa de IVA (%)", "Porcentaje de impuesto a aplicar", txt_iva_tasa),
-    ], spacing=0, scroll=ft.ScrollMode.AUTO)
-
-    section_seguridad = ft.Column([
-        section_label("Seguridad"),
-        ft.Container(
-            ft.Text("Próximamente: funciones de PIN y roles de usuario.", color=DIM, italic=True),
-            padding=20
-        )
-    ], spacing=0)
-
-    section_notificaciones = ft.Column([
-        section_label("Notificaciones"),
-        ft.Container(
-            ft.Text("Próximamente: alertas de stock crítico y vencimientos.", color=DIM, italic=True),
-            padding=20
-        )
-    ], spacing=0)
 
     section_respaldo = ft.Column([
         section_label("Respaldo de datos"),
         ft.Container(
             content=ft.Column([
                 ft.Text("Base de datos local", color="white", size=14, weight="bold"),
-                ft.Text(f"Ubicación: ~/Documents/Digital_PyME/sos_pyme.db", color=DIM, size=12),
+                ft.Text("Ubicación: ~/Documents/Digital_PyME/sos_pyme.db", color=DIM, size=12),
                 ft.Container(height=10),
                 ft.OutlinedButton(
                     "Abrir carpeta de datos",
@@ -176,12 +106,8 @@ def build_settings_view(page: ft.Page, model):
 
     # ── Mapa de secciones ─────────────────────────────────────────────
     sections = [
-        ("Interfaz",          section_interfaz),
-        ("Impresión",         section_impresion),
         ("Datos del negocio", section_negocio),
-        ("IVA y precios",     section_iva),
-        ("Notificaciones",    section_notificaciones),
-        ("Seguridad",         section_seguridad),
+        ("Impresión",         section_impresion),
         ("Respaldo",          section_respaldo),
     ]
 
@@ -203,18 +129,18 @@ def build_settings_view(page: ft.Page, model):
         alignment=ft.alignment.center_left
     )
 
-    def set_section(index):
-        current_idx[0] = index
-        content_area.content = sections[index][1]
+    def set_section(idx):
+        current_idx[0] = idx
         for i, btn in enumerate(nav_buttons):
-            btn.style = style_active if i == index else style_inactive
+            btn.style = style_active if i == idx else style_inactive
+        content_area.content = sections[idx][1]
         page.update()
 
-    for i, (label, _) in enumerate(sections):
+    for i, (name, _) in enumerate(sections):
         btn = ft.TextButton(
-            label,
-            style=style_active if i == 0 else style_inactive,
+            content=ft.Text(name, size=13),
             on_click=lambda e, idx=i: set_section(idx),
+            style=style_active if i == 0 else style_inactive,
             width=float("inf")
         )
         nav_buttons.append(btn)

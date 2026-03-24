@@ -345,7 +345,7 @@ def build_inventory_view(page: ft.Page, model):
                                     items=[
                                         ft.PopupMenuItem(content=ft.Text("Editar"), icon=ft.Icons.EDIT, on_click=lambda e, pid=p_id, pdata=p: open_edit_dialog(pid, pdata)),
                                         ft.PopupMenuItem(content=ft.Text("Agregar Stock"), icon=ft.Icons.ADD_BOX, on_click=lambda e, pid=p_id: quick_add_stock(pid)),
-                                        ft.PopupMenuItem(content=ft.Text("Eliminar", color="red"), icon=ft.Icons.DELETE, on_click=lambda e, pid=p_id: delete_product(pid)),
+                                        ft.PopupMenuItem(content=ft.Text("Eliminar", color="red"), icon=ft.Icons.DELETE, on_click=lambda e, pid=p_id, pname=p_name: delete_product(pid, pname)),
                                     ]
                                 ),
                             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
@@ -441,13 +441,49 @@ def build_inventory_view(page: ft.Page, model):
     
     # ...
 
-    def delete_product(product_id):
-        try:
-            model.delete_product(product_id)
-            show_message(page, "Producto eliminado", "green")
-            refresh_products()
-        except Exception as ex:
-            show_message(page, f"Error al eliminar: {str(ex)}", "red")
+    def delete_product(product_id, product_name="este producto"):
+        def confirm_delete(e):
+            dlg_confirm.open = False
+            page.update()
+            try:
+                model.delete_product(product_id)
+                show_message(page, f"'{product_name}' eliminado.", "green")
+                refresh_products()
+            except Exception as ex:
+                show_message(page, f"Error al eliminar: {str(ex)}", "red")
+
+        def cancel_delete(e):
+            dlg_confirm.open = False
+            page.update()
+
+        dlg_confirm = ft.AlertDialog(
+            title=ft.Row([
+                ft.Icon(ft.Icons.WARNING_ROUNDED, color="#F44336", size=22),
+                ft.Text("¿Eliminar producto?", color="white", size=16, weight="bold")
+            ], spacing=8),
+            content=ft.Text(
+                f"Estás por eliminar \"{product_name}\".\n\nEsta acción no se puede deshacer.",
+                color="#aaaaaa", size=13
+            ),
+            actions=[
+                ft.TextButton("Cancelar", on_click=cancel_delete,
+                              style=ft.ButtonStyle(color="#aaaaaa")),
+                ft.FilledButton(
+                    "Sí, eliminar",
+                    icon=ft.Icons.DELETE_FOREVER,
+                    style=ft.ButtonStyle(bgcolor="#D32F2F", color="white",
+                                        shape=ft.RoundedRectangleBorder(radius=8)),
+                    on_click=confirm_delete
+                ),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+            bgcolor="#1e1e1e",
+            shape=ft.RoundedRectangleBorder(radius=12)
+        )
+        page.overlay.append(dlg_confirm)
+        dlg_confirm.open = True
+        page.update()
+
 
     def quick_add_stock(product_id):
         add_stock_field = ft.TextField(label="Cantidad a agregar", keyboard_type=ft.KeyboardType.NUMBER, autofocus=True)
