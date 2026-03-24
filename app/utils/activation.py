@@ -58,12 +58,11 @@ def get_hardware_id():
     
     try:
         if system == 'Darwin': # macOS
-            # Comando: ioreg -rd1 -c IOPlatformExpertDevice | grep IOPlatformUUID
-            cmd = "ioreg -rd1 -c IOPlatformExpertDevice | grep IOPlatformUUID"
-            output = subprocess.check_output(cmd, shell=True).decode()
-            # Formato esperado: "  "IOPlatformUUID" = "00000000-0000-0000-0000-000000000000"\n"
-            if "IOPlatformUUID" in output:
-                return output.split('"')[-2]
+            # En una aplicación empacada (Flet build), el uso de subprocess con shell=True
+            # llama a recursos no permitidos por el App Sandbox de macOS, lo que 
+            # provoca un SIGKILL inmediato al proceso Python, resultando en pantalla blanca.
+            # Por lo tanto, usamos el Persistent ID también para macOS.
+            return get_persistent_id()
                 
         elif system == 'Windows': # Windows
             # Método 1: WMIC (BIOS UUID) - Preferido
