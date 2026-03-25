@@ -6,13 +6,18 @@ from app.utils.formatting import format_currency
 from app.utils.pdf_exporter import generate_report_pdf
 
 # Tema oscuro
-BG      = "#121212"
-PANEL_BG = "#1e1e1e"
-CARD_BG  = "#2c2c2c"
-BORDER   = "#2a2a2a"
-TEXT_DIM = "#aaaaaa"
-
 def build_reports_view(page: ft.Page, model):
+    from app.utils.theme import theme_manager
+    BG = theme_manager.get_color("bg_color")
+    SURFACE = theme_manager.get_color("surface")
+    BORDER = theme_manager.get_color("border")
+    PRIMARY = theme_manager.get_color("primary")
+    REVENUE = theme_manager.get_color("revenue")
+    EXPENSE = theme_manager.get_color("expense")
+    TEXT = theme_manager.get_color("text_primary")
+    DIM = theme_manager.get_color("text_secondary")
+    FIELD_BG = theme_manager.get_color("field_bg")
+
 
     today = datetime.date.today()
     first_day = today.replace(day=1)
@@ -28,24 +33,24 @@ def build_reports_view(page: ft.Page, model):
     }
 
     # ── Controles de métricas (cada sección tiene los suyos) ───────────
-    def mk_txt(v="$0", size=22, color="white", bold=True):
+    def mk_txt(v="$0", size=22, color=TEXT, bold=True):
         return ft.Text(v, size=size, weight="bold" if bold else "normal", color=color)
 
     # Sección 0 – Métricas generales
-    m_ventas    = mk_txt(color="#2196F3")
-    m_gastos    = mk_txt(color="#F44336")
-    m_profit    = mk_txt(color="#4CAF50")
-    m_tx_lbl    = ft.Text("0 transacciones", size=12, color=TEXT_DIM)
-    m_exp_lbl   = ft.Text("0 egresos", size=12, color=TEXT_DIM)
-    m_margin    = ft.Text("0% margen", size=12, color="#4CAF50")
-    m_cash_in   = mk_txt(color="white")
+    m_ventas    = mk_txt(color=PRIMARY)
+    m_gastos    = mk_txt(color=EXPENSE)
+    m_profit    = mk_txt(color=REVENUE)
+    m_tx_lbl    = ft.Text("0 transacciones", size=12, color=DIM)
+    m_exp_lbl   = ft.Text("0 egresos", size=12, color=DIM)
+    m_margin    = ft.Text("0% margen", size=12, color=REVENUE)
+    m_cash_in   = mk_txt(color=TEXT)
     m_credit    = mk_txt(color="#FF9800")
-    m_abonos    = mk_txt(color="#4CAF50")
+    m_abonos    = mk_txt(color=REVENUE)
 
     # Sección 1 – Flujo de caja (controles SEPARADOS para evitar doble padre)
-    f_cash_in   = mk_txt(color="white")
+    f_cash_in   = mk_txt(color=TEXT)
     f_credit    = mk_txt(color="#FF9800")
-    f_abonos    = mk_txt(color="#4CAF50")
+    f_abonos    = mk_txt(color=REVENUE)
 
     # Top productos
     top_7_list  = ft.Column(spacing=4)
@@ -62,27 +67,27 @@ def build_reports_view(page: ft.Page, model):
         details = model.get_sale_details(sale_id)
         rows = [
             ft.DataRow(cells=[
-                ft.DataCell(ft.Text(d[0], size=12, color="white")),
-                ft.DataCell(ft.Text(str(d[1]), size=12, color="white")),
-                ft.DataCell(ft.Text(format_currency(d[2]), size=12, color="white")),
+                ft.DataCell(ft.Text(d[0], size=12, color=TEXT)),
+                ft.DataCell(ft.Text(str(d[1]), size=12, color=TEXT)),
+                ft.DataCell(ft.Text(format_currency(d[2]), size=12, color=TEXT)),
             ])
             for d in details
         ]
         table = ft.DataTable(
             columns=[
-                ft.DataColumn(ft.Text("Producto", weight="bold", size=12, color=TEXT_DIM)),
-                ft.DataColumn(ft.Text("Cant.", weight="bold", size=12, color=TEXT_DIM)),
-                ft.DataColumn(ft.Text("Precio", weight="bold", size=12, color=TEXT_DIM)),
+                ft.DataColumn(ft.Text("Producto", weight="bold", size=12, color=DIM)),
+                ft.DataColumn(ft.Text("Cant.", weight="bold", size=12, color=DIM)),
+                ft.DataColumn(ft.Text("Precio", weight="bold", size=12, color=DIM)),
             ],
             rows=rows, column_spacing=20, heading_row_height=36, data_row_min_height=36,
         )
         dlg = ft.AlertDialog(
-            title=ft.Text(f"Detalle Venta #{sale_id}", color="white"),
+            title=ft.Text(f"Detalle Venta #{sale_id}", color=TEXT),
             content=ft.Container(
                 content=ft.Column([table], scroll=ft.ScrollMode.AUTO, height=300),
-                bgcolor="#212121", padding=10, border_radius=8,
+                bgcolor=SURFACE, padding=10, border_radius=8,
             ),
-            bgcolor="#212121",
+            bgcolor=SURFACE,
             actions=[ft.TextButton("Cerrar", on_click=lambda e: _close(dlg))],
         )
         page.overlay.append(dlg)
@@ -179,7 +184,7 @@ def build_reports_view(page: ft.Page, model):
 
             if not sales_history:
                 history_sales_list.controls.append(
-                    ft.Container(ft.Text("Sin ventas en este período.", color=TEXT_DIM, italic=True), padding=20)
+                    ft.Container(ft.Text("Sin ventas en este período.", color=DIM, italic=True), padding=20)
                 )
             else:
                 for sale in sales_history:
@@ -193,11 +198,11 @@ def build_reports_view(page: ft.Page, model):
                         ft.Container(
                             content=ft.Row([
                                 ft.Column([
-                                    ft.Text(f"Venta #{s_id}", weight="bold", color="white", size=14),
-                                    ft.Text(f"{dp} {tp}", size=11, color=TEXT_DIM)
+                                    ft.Text(f"Venta #{s_id}", weight="bold", color=TEXT, size=14),
+                                    ft.Text(f"{dp} {tp}", size=11, color=DIM)
                                 ], spacing=2, expand=True),
                                 ft.Column([
-                                    ft.Text(f"${s_total:,.0f}", weight="bold", color="#4CAF50", size=15),
+                                    ft.Text(f"${s_total:,.0f}", weight="bold", color=REVENUE, size=15),
                                     ft.Container(
                                         ft.Text(s_pago, size=10, color=pc, weight="bold"),
                                         bgcolor=ft.Colors.with_opacity(0.12, pc),
@@ -226,7 +231,7 @@ def build_reports_view(page: ft.Page, model):
 
             if not expenses:
                 history_expenses_list.controls.append(
-                    ft.Container(ft.Text("Sin gastos en este período.", color=TEXT_DIM, italic=True), padding=20)
+                    ft.Container(ft.Text("Sin gastos en este período.", color=DIM, italic=True), padding=20)
                 )
             else:
                 for exp in expenses:
@@ -236,10 +241,10 @@ def build_reports_view(page: ft.Page, model):
                         ft.Container(
                             content=ft.Row([
                                 ft.Column([
-                                    ft.Text(e_desc, weight="bold", color="white", size=14),
-                                    ft.Text(dp, size=11, color=TEXT_DIM)
+                                    ft.Text(e_desc, weight="bold", color=TEXT, size=14),
+                                    ft.Text(dp, size=11, color=DIM)
                                 ], spacing=2, expand=True),
-                                ft.Text(f"-${e_monto:,.0f}", weight="bold", color="#F44336", size=15)
+                                ft.Text(f"-${e_monto:,.0f}", weight="bold", color=EXPENSE, size=15)
                             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                             padding=ft.padding.symmetric(horizontal=20, vertical=14),
                             border=ft.border.only(bottom=ft.border.BorderSide(1, BORDER)),
@@ -251,7 +256,7 @@ def build_reports_view(page: ft.Page, model):
             history_fiados_list.controls.clear()
             if not clients_debt:
                 history_fiados_list.controls.append(
-                    ft.Container(ft.Text("Sin fiados pendientes.", color=TEXT_DIM, italic=True), padding=20)
+                    ft.Container(ft.Text("Sin fiados pendientes.", color=DIM, italic=True), padding=20)
                 )
             else:
                 for c in clients_debt:
@@ -259,8 +264,8 @@ def build_reports_view(page: ft.Page, model):
                         ft.Container(
                             content=ft.Row([
                                 ft.Column([
-                                    ft.Text(c['nombre'], weight="bold", color="white", size=14),
-                                    ft.Text(c['alias'] if c['alias'] else "Sin alias", color=TEXT_DIM, size=11)
+                                    ft.Text(c['nombre'], weight="bold", color=TEXT, size=14),
+                                    ft.Text(c['alias'] if c['alias'] else "Sin alias", color=DIM, size=11)
                                 ], spacing=2, expand=True),
                                 ft.Text(f"${c['saldo_actual']:,.0f}", weight="bold", color="#FF9800", size=15)
                             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
@@ -274,18 +279,18 @@ def build_reports_view(page: ft.Page, model):
                 products = model.get_top_selling_products(days=days)
                 col.controls.clear()
                 col.controls.append(ft.Row([
-                    ft.Text("Producto", size=11, color=TEXT_DIM, weight="bold", expand=True),
-                    ft.Text("Cant.", size=11, color=TEXT_DIM, weight="bold")
+                    ft.Text("Producto", size=11, color=DIM, weight="bold", expand=True),
+                    ft.Text("Cant.", size=11, color=DIM, weight="bold")
                 ]))
                 if not products:
-                    col.controls.append(ft.Text("Sin datos", size=12, color=TEXT_DIM))
+                    col.controls.append(ft.Text("Sin datos", size=12, color=DIM))
                 else:
                     for i, (name, qty) in enumerate(products, 1):
                         col.controls.append(ft.Container(
                             content=ft.Row([
-                                ft.Text(f"{i}. {name}", size=13, color="white", expand=True,
+                                ft.Text(f"{i}. {name}", size=13, color=TEXT, expand=True,
                                         no_wrap=True, overflow=ft.TextOverflow.ELLIPSIS),
-                                ft.Text(str(qty), size=13, color="#4CAF50", weight="bold")
+                                ft.Text(str(qty), size=13, color=REVENUE, weight="bold")
                             ]),
                             padding=ft.padding.symmetric(vertical=8),
                             border=ft.border.only(bottom=ft.border.BorderSide(1, BORDER))
@@ -302,21 +307,21 @@ def build_reports_view(page: ft.Page, model):
 
     # ── Helpers UI ────────────────────────────────────────────────────
     def dcard(title, val_ctrl, sub_ctrl=None):
-        col = [ft.Text(title, color=TEXT_DIM, size=13), val_ctrl]
+        col = [ft.Text(title, color=DIM, size=13), val_ctrl]
         if sub_ctrl: col.append(sub_ctrl)
         return ft.Container(
             content=ft.Column(col, spacing=4),
-            bgcolor=CARD_BG, padding=16, border_radius=10,
+            bgcolor=SURFACE, padding=16, border_radius=10,
             border=ft.border.all(1, BORDER), expand=True
         )
 
     note = ft.Text(
         "Nota: \"Efectivo real\" considera ventas en efectivo + abonos, descontando ventas al fiado.",
-        size=11, italic=True, color=TEXT_DIM
+        size=11, italic=True, color=DIM
     )
     note2 = ft.Text(
         "El flujo de caja separa ingresos reales de las ventas al crédito.",
-        size=11, italic=True, color=TEXT_DIM
+        size=11, italic=True, color=DIM
     )
 
     def top_block(title, lst, color):
@@ -326,17 +331,17 @@ def build_reports_view(page: ft.Page, model):
                 ft.Container(height=8),
                 lst
             ], spacing=0, tight=True),
-            bgcolor=CARD_BG, padding=16, border_radius=10, expand=True
+            bgcolor=SURFACE, padding=16, border_radius=10, expand=True
         )
 
     def list_section(title, lst_ctrl):
         return ft.Container(
             content=ft.Column([
-                ft.Text(title, size=16, weight="bold", color="white"),
+                ft.Text(title, size=16, weight="bold", color=TEXT),
                 ft.Container(height=5),
                 ft.Container(
                     content=lst_ctrl, expand=True,
-                    bgcolor=PANEL_BG, border_radius=10,
+                    bgcolor=SURFACE, border_radius=10,
                     clip_behavior=ft.ClipBehavior.HARD_EDGE
                 )
             ], expand=True),
@@ -347,7 +352,7 @@ def build_reports_view(page: ft.Page, model):
     sections_map = {
         0: ft.Container(
             content=ft.Column([
-                ft.Text("Métricas generales", size=16, weight="bold", color="white"),
+                ft.Text("Métricas generales", size=16, weight="bold", color=TEXT),
                 ft.Container(height=10),
                 ft.Row([dcard("Ventas brutas", m_ventas, m_tx_lbl),
                         dcard("Gastos operativos", m_gastos, m_exp_lbl),
@@ -363,7 +368,7 @@ def build_reports_view(page: ft.Page, model):
         ),
         1: ft.Container(
             content=ft.Column([
-                ft.Text("Flujo de caja", size=16, weight="bold", color="white"),
+                ft.Text("Flujo de caja", size=16, weight="bold", color=TEXT),
                 ft.Container(height=10),
                 ft.Row([dcard("Efectivo en caja", f_cash_in),
                         dcard("Al fiado (crédito)", f_credit),
@@ -375,7 +380,7 @@ def build_reports_view(page: ft.Page, model):
         ),
         2: ft.Container(
             content=ft.Column([
-                ft.Text("Top productos", size=16, weight="bold", color="white"),
+                ft.Text("Top productos", size=16, weight="bold", color=TEXT),
                 ft.Container(height=10),
                 ft.Row([
                     top_block("Top 7 Días",  top_7_list,  "#E91E63"),
@@ -405,14 +410,14 @@ def build_reports_view(page: ft.Page, model):
         page.update()
 
     style_active = ft.ButtonStyle(
-        bgcolor="#2c2c2c", color="white",
+        bgcolor=SURFACE, color=TEXT,
         shape=ft.RoundedRectangleBorder(radius=6),
-        side=ft.BorderSide(2, "#2196F3"),
+        side=ft.BorderSide(2, PRIMARY),
         padding=ft.padding.symmetric(horizontal=14, vertical=8),
         alignment=ft.Alignment(-1.0, 0.0)
     )
     style_inactive = ft.ButtonStyle(
-        bgcolor="transparent", color=TEXT_DIM,
+        bgcolor="transparent", color=DIM,
         shape=ft.RoundedRectangleBorder(radius=6),
         padding=ft.padding.symmetric(horizontal=14, vertical=8),
         alignment=ft.Alignment(-1.0, 0.0)
@@ -429,7 +434,7 @@ def build_reports_view(page: ft.Page, model):
 
     left_nav = ft.Container(
         content=ft.Column([
-            ft.Text(f"Período: {today.strftime('%B %Y')}", size=12, color=TEXT_DIM),
+            ft.Text(f"Período: {today.strftime('%B %Y')}", size=12, color=DIM),
             ft.Container(height=12),
             *nav_buttons,
             ft.Container(expand=True),
@@ -437,27 +442,27 @@ def build_reports_view(page: ft.Page, model):
                 "Exportar PDF",
                 on_click=lambda e: export_pdf(),
                 style=ft.ButtonStyle(
-                    side=ft.BorderSide(1, "#2196F3"), color="#2196F3",
+                    side=ft.BorderSide(1, "#2196F3"), color=PRIMARY,
                     shape=ft.RoundedRectangleBorder(radius=8)
                 ),
                 width=float("inf")
             )
         ], spacing=4, expand=True),
-        width=220, bgcolor=PANEL_BG, padding=16,
+        width=220, bgcolor=SURFACE, padding=16,
         border_radius=10, border=ft.border.all(1, BORDER)
     )
 
     filter_bar = ft.Row([
         ft.TextField(ref=start_date_ref, value=str(first_day),
-                     bgcolor=CARD_BG, filled=True, color="white", height=42,
+                     bgcolor=SURFACE, filled=True, color=TEXT, height=42,
                      content_padding=10, border_color="#555555",
                      on_submit=refresh_report, keyboard_type=ft.KeyboardType.DATETIME, text_size=14),
         ft.TextField(ref=end_date_ref, value=str(today),
-                     bgcolor=CARD_BG, filled=True, color="white", height=42,
+                     bgcolor=SURFACE, filled=True, color=TEXT, height=42,
                      content_padding=10, border_color="#555555",
                      on_submit=refresh_report, keyboard_type=ft.KeyboardType.DATETIME, text_size=14),
         ft.FilledButton("Filtrar", on_click=refresh_report,
-                        style=ft.ButtonStyle(bgcolor="#37474F", color="white"), height=42)
+                        style=ft.ButtonStyle(bgcolor=PRIMARY, color="white"), height=42)
     ], spacing=10)
 
     refresh_report()
@@ -470,7 +475,7 @@ def build_reports_view(page: ft.Page, model):
                 left_nav,
                 ft.Container(
                     content=content_area,
-                    expand=True, bgcolor=PANEL_BG, padding=20,
+                    expand=True, bgcolor=SURFACE, padding=20,
                     border_radius=10, border=ft.border.all(1, BORDER)
                 )
             ], spacing=12, expand=True, vertical_alignment=ft.CrossAxisAlignment.START)

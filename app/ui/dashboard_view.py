@@ -4,6 +4,17 @@ from app.utils.helpers import is_mobile, show_message  # pyre-ignore
 from app.utils.formatting import format_currency  # pyre-ignore
 
 def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
+    from app.utils.theme import theme_manager
+    BG = theme_manager.get_color("bg_color")
+    SURFACE = theme_manager.get_color("surface")
+    BORDER = theme_manager.get_color("border")
+    PRIMARY = theme_manager.get_color("primary")
+    REVENUE = theme_manager.get_color("revenue")
+    EXPENSE = theme_manager.get_color("expense")
+    TEXT = theme_manager.get_color("text_primary")
+    DIM = theme_manager.get_color("text_secondary")
+    FIELD_BG = theme_manager.get_color("field_bg")
+
     # ==========================
     # 0. LOGICA DE DETALLES (DIALOGOS)
     # ==========================
@@ -66,7 +77,7 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
 
         content = ft.Column([
             ft.Text(f"Fecha: {formatted_date}", size=16),
-            ft.Text(f"Monto: {format_currency(item['amount'])}", size=20, weight=ft.FontWeight.BOLD, color="green"),
+            ft.Text(f"Monto: {format_currency(item['amount'])}", size=20, weight=ft.FontWeight.BOLD, color=REVENUE),
             ft.Divider(),
             ft.Text(f"Info: {item['description']}", size=16),
         ], tight=True)
@@ -98,11 +109,11 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
     # ==========================
     
     # Textos de resumen
-    txt_total_ventas = ft.Text("$0", size=22, weight="bold", color="#2196F3")
-    txt_total_gastos = ft.Text("$0", size=22, weight="bold", color="#F44336")
-    txt_ganancia = ft.Text("$0", size=22, weight="bold", color="#4CAF50")
-    txt_ganancia_margen = ft.Text("0.0% margen", size=11, color="#4CAF50")
-    txt_transacciones = ft.Text("0", size=22, weight="bold", color="white")
+    txt_total_ventas = ft.Text("$0", size=22, weight="bold", color=PRIMARY)
+    txt_total_gastos = ft.Text("$0", size=22, weight="bold", color=EXPENSE)
+    txt_ganancia = ft.Text("$0", size=22, weight="bold", color=REVENUE)
+    txt_ganancia_margen = ft.Text("0.0% margen", size=11, color=REVENUE)
+    txt_transacciones = ft.Text("0", size=22, weight="bold", color=TEXT)
     txt_trans_promedio = ft.Text("prom. $0", size=11, color="grey")
     
     # Listas
@@ -190,10 +201,10 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
                             content=ft.Row([
                                 ft.Container(
                                     width=8, height=8,
-                                    bgcolor="#F44336",
+                                    bgcolor=EXPENSE,
                                     border_radius=50
                                 ),
-                                ft.Text(f"{count} productos próximos a vencer", color="#F44336", weight="bold", size=13, expand=True),
+                                ft.Text(f"{count} productos próximos a vencer", color=EXPENSE, weight="bold", size=13, expand=True),
                             ], spacing=8),
                             expand=True
                         ),
@@ -202,11 +213,11 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
                             on_click=lambda e: show_expiring_details(exp_items),
                             style=ft.ButtonStyle(
                                 side=ft.BorderSide(1, "#F44336"),
-                                color="#F44336"
+                                color=EXPENSE
                             )
                         )
                     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                    bgcolor="#FFF5F5",
+                    bgcolor=SURFACE,
                     padding=ft.padding.symmetric(horizontal=15, vertical=10),
                     border_radius=8,
                     border=ft.border.all(1, "#FFCDD2")
@@ -290,13 +301,13 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
                     activity_list.controls.append(
                         ft.Container(
                             content=ft.Row([
-                                ft.Text(item['label'], size=14, weight="w500", color="white", expand=1),
-                                ft.Text(hora_fmt, size=12, color="#888888"),
+                                ft.Text(item['label'], size=14, weight="w500", color=TEXT, expand=1),
+                                ft.Text(hora_fmt, size=12, color=DIM),
                                 ft.Container(width=10),
                                 ft.Text(f"{item['sign']}${item['amount']:,.0f}", weight="bold", color=item["color"], width=80, text_align=ft.TextAlign.RIGHT)
                             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                             padding=ft.padding.symmetric(vertical=15, horizontal=20),
-                            border=ft.border.only(bottom=ft.border.BorderSide(1, "#2a2a2a")),
+                            border=ft.border.only(bottom=ft.border.BorderSide(1, BORDER)),
                             on_click=lambda e, it=item: show_details(it) if it["type"] != "GASTO" else None,
                             ink=True if item["type"] != "GASTO" else False
                         )
@@ -323,7 +334,7 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
     # ==========================
     def build_stat_card_vertical(title, value_control, subtitle_control=None):
         content = [
-            ft.Text(title, color="#aaaaaa", size=13, weight="w400"),
+            ft.Text(title, color=DIM, size=13, weight="w400"),
             value_control
         ]
         if subtitle_control:
@@ -331,7 +342,7 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
             
         return ft.Container(
             content=ft.Column(content, spacing=3),
-            bgcolor="#2c2c2c",
+            bgcolor=SURFACE,
             padding=12,
             border_radius=10,
             width=float("inf"),
@@ -345,7 +356,7 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
     left_column = ft.Container(
         content=ft.Column([
             ft.Container(
-                content=ft.Text("Resumen del día", size=16, weight="bold", color="white"),
+                content=ft.Text("Resumen del día", size=16, weight="bold", color=TEXT),
                 padding=ft.padding.only(left=0, top=15, bottom=5)
             ),
             card_sales,
@@ -359,8 +370,8 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
     # ==========================
     # 3. FORMULARIO DE GASTOS COMPACTO
     # ==========================
-    desc_field = ft.TextField(hint_text="Descripción del gasto", bgcolor="#2c2c2c", filled=True, expand=2, height=40, content_padding=10, text_size=14, hint_style=ft.TextStyle(color="#666666"), color="white", border_color="#444444")
-    amount_field = ft.TextField(hint_text="Monto", keyboard_type=ft.KeyboardType.NUMBER, bgcolor="#2c2c2c", filled=True, expand=1, height=40, content_padding=10, text_size=14, hint_style=ft.TextStyle(color="#666666"), color="white", border_color="#444444")
+    desc_field = ft.TextField(hint_text="Descripción del gasto", bgcolor=SURFACE, filled=True, expand=2, height=40, content_padding=10, text_size=14, hint_style=ft.TextStyle(color="#666666"), color=TEXT, border_color=DIM)
+    amount_field = ft.TextField(hint_text="Monto", keyboard_type=ft.KeyboardType.NUMBER, bgcolor=SURFACE, filled=True, expand=1, height=40, content_padding=10, text_size=14, hint_style=ft.TextStyle(color="#666666"), color=TEXT, border_color=DIM)
     
     def add_expense_click(e):
         try:
@@ -390,7 +401,7 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
             ft.FilledButton(
                 "Registrar", 
                 on_click=add_expense_click, 
-                style=ft.ButtonStyle(bgcolor="#F44336", color="white", shape=ft.RoundedRectangleBorder(radius=5)),
+                style=ft.ButtonStyle(bgcolor=EXPENSE, color="white", shape=ft.RoundedRectangleBorder(radius=5)),
                 height=40
             )
         ], spacing=10),
@@ -404,10 +415,10 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
             # Top Header
             ft.Container(
                 content=ft.Row([
-                    ft.Text("Actividad del día", size=16, weight="bold", color="white", expand=True),
+                    ft.Text("Actividad del día", size=16, weight="bold", color=TEXT, expand=True),
                     ft.Container(
-                        content=ft.Text("En vivo", size=12, color="#4CAF50", weight="bold"),
-                        bgcolor="#1a3a1a",
+                        content=ft.Text("En vivo", size=12, color=REVENUE, weight="bold"),
+                        bgcolor=SURFACE,
                         padding=ft.padding.symmetric(horizontal=10, vertical=5),
                         border_radius=15,
                         border=ft.border.all(1, "#4CAF50")
@@ -420,7 +431,7 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
             # Form
             expense_form
         ]),
-        bgcolor="#1e1e1e",
+        bgcolor=SURFACE,
         border_radius=10,
     )
 
@@ -437,6 +448,6 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
             ], vertical_alignment=ft.CrossAxisAlignment.START, run_spacing=10)
         ], expand=True, scroll=ft.ScrollMode.AUTO),
         expand=True,
-        bgcolor="#121212",
+        bgcolor=BG,
         padding=20
     )

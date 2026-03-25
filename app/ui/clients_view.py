@@ -2,15 +2,26 @@ import flet as ft
 from app.utils.helpers import show_message, is_mobile
 
 def build_clients_view(page: ft.Page, model):
+    from app.utils.theme import theme_manager
+    BG = theme_manager.get_color("bg_color")
+    SURFACE = theme_manager.get_color("surface")
+    BORDER = theme_manager.get_color("border")
+    PRIMARY = theme_manager.get_color("primary")
+    REVENUE = theme_manager.get_color("revenue")
+    EXPENSE = theme_manager.get_color("expense")
+    TEXT = theme_manager.get_color("text_primary")
+    DIM = theme_manager.get_color("text_secondary")
+    FIELD_BG = theme_manager.get_color("field_bg")
+
     # --- Estado Local ---
     clients_list = ft.ListView(spacing=0, expand=True, padding=0)
     search_field = ft.TextField(
         hint_text="Buscar cliente...",
         hint_style=ft.TextStyle(color="#666666"),
-        bgcolor="#2c2c2c",
+        bgcolor=SURFACE,
         filled=True,
-        border_color="#444444",
-        color="white",
+        border_color=DIM,
+        color=TEXT,
         height=48,
         content_padding=ft.padding.symmetric(horizontal=16, vertical=10),
         text_size=15,
@@ -19,9 +30,9 @@ def build_clients_view(page: ft.Page, model):
     )
 
     # Stat labels
-    txt_deuda_total = ft.Text("$0", size=22, weight="bold", color="#F44336")
-    txt_clientes_activos = ft.Text("0", size=22, weight="bold", color="white")
-    txt_mayor_deuda = ft.Text("—", size=16, weight="bold", color="white")
+    txt_deuda_total = ft.Text("$0", size=22, weight="bold", color=EXPENSE)
+    txt_clientes_activos = ft.Text("0", size=22, weight="bold", color=TEXT)
+    txt_mayor_deuda = ft.Text("—", size=16, weight="bold", color=TEXT)
 
     all_clients = []
 
@@ -73,7 +84,7 @@ def build_clients_view(page: ft.Page, model):
         dlg_new_client.content = ft.Column([name_field, phone_field, alias_field, limit_field], tight=True, width=300)
         dlg_new_client.actions = [
             ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_new_client)),
-            ft.FilledButton("Guardar", on_click=save_client, style=ft.ButtonStyle(bgcolor="blue", color="white"))
+            ft.FilledButton("Guardar", on_click=save_client, style=ft.ButtonStyle(bgcolor=PRIMARY, color="white"))
         ]
         if dlg_new_client not in page.overlay:
             page.overlay.append(dlg_new_client)
@@ -105,7 +116,7 @@ def build_clients_view(page: ft.Page, model):
         dlg_edit_client.content = ft.Column([name_field, phone_field, alias_field, limit_field], tight=True, width=300)
         dlg_edit_client.actions = [
             ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_edit_client)),
-            ft.FilledButton("Actualizar", on_click=update_client_action, style=ft.ButtonStyle(bgcolor="blue", color="white"))
+            ft.FilledButton("Actualizar", on_click=update_client_action, style=ft.ButtonStyle(bgcolor=PRIMARY, color="white"))
         ]
         if dlg_edit_client not in page.overlay:
             page.overlay.append(dlg_edit_client)
@@ -125,7 +136,7 @@ def build_clients_view(page: ft.Page, model):
         dlg_confirm_delete.content = ft.Text(f"¿Eliminar a '{client['nombre']}'? Se borrará todo su historial.", size=16)
         dlg_confirm_delete.actions = [
             ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_confirm_delete)),
-            ft.FilledButton("Eliminar", on_click=confirm_delete, style=ft.ButtonStyle(bgcolor="red", color="white"))
+            ft.FilledButton("Eliminar", on_click=confirm_delete, style=ft.ButtonStyle(bgcolor=EXPENSE, color="white"))
         ]
         if dlg_confirm_delete not in page.overlay:
             page.overlay.append(dlg_confirm_delete)
@@ -149,8 +160,8 @@ def build_clients_view(page: ft.Page, model):
                     content=ft.Row([
                         ft.Icon(icon, color=color, size=20),
                         ft.Column([
-                            ft.Text(m_desc, color="white", weight="bold", size=14, overflow=ft.TextOverflow.ELLIPSIS),
-                            ft.Text(f"{m_date} • {m_type}", color="white54", size=12),
+                            ft.Text(m_desc, color=TEXT, weight="bold", size=14, overflow=ft.TextOverflow.ELLIPSIS),
+                            ft.Text(f"{m_date} • {m_type}", color=DIM, size=12),
                         ], expand=True, spacing=2),
                         ft.Text(f"{sign}${m_amount:,.0f}", color=color, weight="bold", size=14),
                     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
@@ -187,7 +198,7 @@ def build_clients_view(page: ft.Page, model):
             dlg_payment.content = ft.Column([amount_field, payment_method_dropdown], tight=True, spacing=10)
             dlg_payment.actions = [
                 ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_payment)),
-                ft.FilledButton("Confirmar", on_click=save_payment, style=ft.ButtonStyle(bgcolor="green", color="white"))
+                ft.FilledButton("Confirmar", on_click=save_payment, style=ft.ButtonStyle(bgcolor=REVENUE, color="white"))
             ]
             if dlg_payment not in page.overlay:
                 page.overlay.append(dlg_payment)
@@ -198,20 +209,20 @@ def build_clients_view(page: ft.Page, model):
             content=ft.Column([
                 ft.Row([
                     ft.FilledButton("Registrar Pago", icon="attach_money",
-                                    style=ft.ButtonStyle(bgcolor="green", color="white"),
+                                    style=ft.ButtonStyle(bgcolor=REVENUE, color="white"),
                                     on_click=open_payment_dialog),
                 ], alignment=ft.MainAxisAlignment.CENTER),
                 ft.Divider(color="white24"),
-                ft.Text("Historial de Movimientos", weight="bold", color="white"),
+                ft.Text("Historial de Movimientos", weight="bold", color=TEXT),
                 ft.Container(content=ft.ListView(controls=history_items, expand=True, spacing=0, padding=0), height=300),
             ], width=600, height=400),
-            bgcolor="#212121",
+            bgcolor=SURFACE,
             padding=20,
             border_radius=10
         )
-        dlg_client_detail.title = ft.Text(f"{client['nombre']} - Saldo: ${client['saldo_actual']:,.0f}", color="white")
+        dlg_client_detail.title = ft.Text(f"{client['nombre']} - Saldo: ${client['saldo_actual']:,.0f}", color=TEXT)
         dlg_client_detail.content = dlg_content
-        dlg_client_detail.bgcolor = "#212121"
+        dlg_client_detail.bgcolor = SURFACE
         dlg_client_detail.actions = [ft.TextButton("Cerrar", on_click=lambda e: close_dialog(dlg_client_detail))]
         if dlg_client_detail not in page.overlay:
             page.overlay.append(dlg_client_detail)
@@ -246,7 +257,7 @@ def build_clients_view(page: ft.Page, model):
         dlg_payment.content = ft.Column([amount_field, payment_method_dropdown], tight=True, spacing=10)
         dlg_payment.actions = [
             ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_payment)),
-            ft.FilledButton("Confirmar", on_click=save_payment, style=ft.ButtonStyle(bgcolor="green", color="white"))
+            ft.FilledButton("Confirmar", on_click=save_payment, style=ft.ButtonStyle(bgcolor=REVENUE, color="white"))
         ]
         if dlg_payment not in page.overlay:
             page.overlay.append(dlg_payment)
@@ -263,7 +274,7 @@ def build_clients_view(page: ft.Page, model):
         initials = get_initials(c['nombre'])
         av_color = get_avatar_color(c['nombre'])
         avatar = ft.Container(
-            content=ft.Text(initials, color="white", weight="bold", size=14),
+            content=ft.Text(initials, color=TEXT, weight="bold", size=14),
             bgcolor=av_color,
             width=44, height=44,
             border_radius=22,
@@ -278,12 +289,12 @@ def build_clients_view(page: ft.Page, model):
             ratio = min(saldo / limite, 1.0)
             pct = int(ratio * 100)
             progress_controls = [
-                ft.ProgressBar(value=ratio, color="#F44336", bgcolor="#3a3a3a", height=4, border_radius=2, width=float("inf")),
-                ft.Text(f"Límite ${limite:,.0f} · {pct}% usado", size=11, color="#888888")
+                ft.ProgressBar(value=ratio, color=EXPENSE, bgcolor=BORDER, height=4, border_radius=2, width=float("inf")),
+                ft.Text(f"Límite ${limite:,.0f} · {pct}% usado", size=11, color=DIM)
             ]
         else:
             progress_controls = [
-                ft.Text("Sin límite", size=11, color="#888888")
+                ft.Text("Sin límite", size=11, color=DIM)
             ]
 
         alias_str = f"· {c['alias']}" if c['alias'] else "· Sin alias"
@@ -292,20 +303,20 @@ def build_clients_view(page: ft.Page, model):
             content=ft.Row([
                 avatar,
                 ft.Column([
-                    ft.Text(f"{c['nombre']} {alias_str}", size=15, weight="bold", color="white",
+                    ft.Text(f"{c['nombre']} {alias_str}", size=15, weight="bold", color=TEXT,
                             overflow=ft.TextOverflow.ELLIPSIS),
                     *progress_controls
                 ], expand=True, spacing=4),
                 ft.Column([
                     ft.Text(debt_label, size=16, weight="bold", color=debt_color),
-                    ft.Text(debt_sublabel, size=11, color="#888888")
+                    ft.Text(debt_sublabel, size=11, color=DIM)
                 ], horizontal_alignment=ft.CrossAxisAlignment.END, spacing=2),
                 ft.Column([
                     ft.OutlinedButton(
                         "Historial",
                         style=ft.ButtonStyle(
                             side=ft.BorderSide(1, "#555555"),
-                            color="white",
+                            color=TEXT,
                             shape=ft.RoundedRectangleBorder(radius=6),
                             padding=ft.padding.symmetric(horizontal=10, vertical=4)
                         ),
@@ -316,7 +327,7 @@ def build_clients_view(page: ft.Page, model):
                         "Abono",
                         style=ft.ButtonStyle(
                             side=ft.BorderSide(1, "#4CAF50"),
-                            color="#4CAF50",
+                            color=REVENUE,
                             shape=ft.RoundedRectangleBorder(radius=6),
                             padding=ft.padding.symmetric(horizontal=10, vertical=4)
                         ),
@@ -326,8 +337,8 @@ def build_clients_view(page: ft.Page, model):
                 ], spacing=4, horizontal_alignment=ft.CrossAxisAlignment.END),
             ], spacing=14, vertical_alignment=ft.CrossAxisAlignment.CENTER),
             padding=ft.padding.symmetric(horizontal=20, vertical=14),
-            border=ft.border.only(bottom=ft.border.BorderSide(1, "#2a2a2a")),
-            bgcolor="#1e1e1e",
+            border=ft.border.only(bottom=ft.border.BorderSide(1, BORDER)),
+            bgcolor=SURFACE,
             on_click=lambda e, cl=c: open_client_detail(cl),
             ink=False
         )
@@ -337,7 +348,7 @@ def build_clients_view(page: ft.Page, model):
         if not clients:
             clients_list.controls.append(
                 ft.Container(
-                    ft.Text("No se encontraron clientes", color="#888888", text_align="center"),
+                    ft.Text("No se encontraron clientes", color=DIM, text_align="center"),
                     padding=30, alignment=ft.Alignment(0.0, 0.0)
                 )
             )
@@ -375,24 +386,24 @@ def build_clients_view(page: ft.Page, model):
     stat_cards = ft.Row([
         ft.Container(
             content=ft.Column([
-                ft.Text("Deuda total", color="#aaaaaa", size=12),
+                ft.Text("Deuda total", color=DIM, size=12),
                 txt_deuda_total
             ], spacing=2),
-            bgcolor="#2c2c2c", padding=16, border_radius=10, expand=True
+            bgcolor=SURFACE, padding=16, border_radius=10, expand=True
         ),
         ft.Container(
             content=ft.Column([
-                ft.Text("Clientes activos", color="#aaaaaa", size=12),
+                ft.Text("Clientes activos", color=DIM, size=12),
                 txt_clientes_activos
             ], spacing=2),
-            bgcolor="#2c2c2c", padding=16, border_radius=10, expand=True
+            bgcolor=SURFACE, padding=16, border_radius=10, expand=True
         ),
         ft.Container(
             content=ft.Column([
-                ft.Text("Mayor deuda", color="#aaaaaa", size=12),
+                ft.Text("Mayor deuda", color=DIM, size=12),
                 txt_mayor_deuda
             ], spacing=2),
-            bgcolor="#2c2c2c", padding=16, border_radius=10, expand=True
+            bgcolor=SURFACE, padding=16, border_radius=10, expand=True
         ),
     ], spacing=10)
 
@@ -406,7 +417,7 @@ def build_clients_view(page: ft.Page, model):
                 ft.FilledButton(
                     "+ Nuevo cliente",
                     on_click=open_new_client_dialog,
-                    style=ft.ButtonStyle(bgcolor="#1976D2", color="white"),
+                    style=ft.ButtonStyle(bgcolor=PRIMARY, color="white"),
                     height=48
                 )
             ], spacing=10),
@@ -417,13 +428,13 @@ def build_clients_view(page: ft.Page, model):
             ft.Container(
                 content=clients_list,
                 expand=True,
-                bgcolor="#1e1e1e",
+                bgcolor=SURFACE,
                 border_radius=10,
-                border=ft.border.all(1, "#2a2a2a"),
+                border=ft.border.all(1, BORDER),
                 clip_behavior=ft.ClipBehavior.HARD_EDGE
             )
         ], expand=True, spacing=0),
         padding=20,
         expand=True,
-        bgcolor="#121212"
+        bgcolor=BG
     )

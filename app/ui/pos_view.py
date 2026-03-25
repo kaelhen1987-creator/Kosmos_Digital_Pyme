@@ -2,16 +2,24 @@ import flet as ft  # pyre-ignore
 from app.utils.helpers import is_mobile, show_message  # pyre-ignore
 from app.utils.printer_helper import generar_ticket_texto, imprimir_ticket  # pyre-ignore
 
-# ── Paleta POS ─────────────────────────────────────────────────────────────
-CART_BG  = "#0d1117"
-BG       = "#121212"
-CARD_BG  = "#1e1e1e"
-DIM      = "#aaaaaa"
-ACCENT   = "#2196F3"
-GREEN    = "#4CAF50"
-BORDER   = "#1a1a1a"
+# ── Ya no se usa paleta global estática, se inyecta en la vista ─────────
 
 def build_pos_view(page: ft.Page, model, shared_cart=None):
+
+    from app.utils.theme import theme_manager
+    CART_BG  = theme_manager.get_color("surface")
+    BG       = theme_manager.get_color("bg_color")
+    CARD_BG  = theme_manager.get_color("surface")
+    SURFACE  = theme_manager.get_color("surface")
+    DIM      = theme_manager.get_color("text_secondary")
+    ACCENT   = theme_manager.get_color("nav_bg")
+    GREEN    = theme_manager.get_color("revenue")
+    BORDER   = theme_manager.get_color("border")
+    TEXT     = theme_manager.get_color("text_primary")
+    RED      = theme_manager.get_color("expense")
+    EXPENSE  = theme_manager.get_color("expense")
+    PRIMARY  = theme_manager.get_color("primary")
+
     # --- 1. STATE VARIABLES ---
     cart = shared_cart if shared_cart is not None else {}
     current_category = ["Todas"]
@@ -21,7 +29,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
     # --- 2. FORWARD REFS ---
     cart_list      = ft.ListView(spacing=0, expand=True, padding=0)
     cart_count_txt = ft.Text("Carrito · 0 ítems", color=DIM, size=12)
-    total_text     = ft.Text("$0", size=32, weight="bold", color="white")
+    total_text     = ft.Text("$0", size=32, weight="bold", color=TEXT)
     iva_txt        = ft.Text("IVA incluido (19%)", color=DIM, size=11)
 
     product_row = ft.Row(wrap=True, spacing=10, run_spacing=10)
@@ -42,7 +50,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                         ft.Icon(ft.Icons.WARNING_ROUNDED, color="white"),
                         ft.Text(f"⚠️  {current_count} productos próximos a vencer.", color="white", weight="bold"),
                     ]),
-                    bgcolor="#D32F2F", duration=5000,
+                    bgcolor=RED, duration=5000,
                 )
                 page.overlay.append(snack)
                 snack.open = True
@@ -61,8 +69,8 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
             cart_list.controls.append(
                 ft.Container(
                     content=ft.Column([
-                        ft.Icon(ft.Icons.SHOPPING_CART_OUTLINED, color="#333333", size=40),
-                        ft.Text("Carrito vacío", color="#444444", size=13, text_align="center")
+                        ft.Icon(ft.Icons.SHOPPING_CART_OUTLINED, color=TEXT, size=40),
+                        ft.Text("Carrito vacío", color=DIM, size=13, text_align="center")
                     ], alignment=ft.MainAxisAlignment.CENTER,
                        horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
                     alignment=ft.Alignment(0.0, 0.0), height=120
@@ -81,7 +89,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                     ft.Container(
                         content=ft.Row([
                             ft.Column([
-                                ft.Text(info[1], color="white", size=13, weight="bold",
+                                ft.Text(info[1], color=TEXT, size=13, weight="bold",
                                         overflow=ft.TextOverflow.ELLIPSIS, no_wrap=True),
                                 ft.Text(f"${info[2]:,.0f} c/u", color=DIM, size=11)
                             ], spacing=2, expand=True),
@@ -89,7 +97,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                                 ft.IconButton(ft.Icons.REMOVE, icon_color=DIM, icon_size=16,
                                               style=ft.ButtonStyle(padding=2),
                                               on_click=lambda e, p=pid: _cart_dec(p)),
-                                ft.Text(qty_str, color="white", size=13, weight="bold",
+                                ft.Text(qty_str, color=TEXT, size=13, weight="bold",
                                         width=32, text_align="center"),
                                 ft.IconButton(ft.Icons.ADD, icon_color=ACCENT, icon_size=16,
                                               style=ft.ButtonStyle(padding=2),
@@ -111,10 +119,10 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                 cart_list.controls.append(ft.Container(
                     content=ft.Column([
                         ft.Row([ft.Text("Subtotal:", color=DIM, size=12),
-                                ft.Text(f"${subtotal:,.0f}", color="white", size=12)],
+                                ft.Text(f"${subtotal:,.0f}", color=TEXT, size=12)],
                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                        ft.Row([ft.Text(f"Descuento ({discount_pct}%):", color="#F44336", size=12),
-                                ft.Text(f"-${discount_amt:,.0f}", color="#F44336", size=12, weight="bold")],
+                        ft.Row([ft.Text(f"Descuento ({discount_pct}%):", color=RED, size=12),
+                                ft.Text(f"-${discount_amt:,.0f}", color=RED, size=12, weight="bold")],
                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                     ], spacing=4), padding=ft.padding.symmetric(horizontal=14, vertical=8)
                 ))
@@ -181,7 +189,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                 )
 
                 if is_promo:
-                    card_bg    = "#1a0a2e"
+                    card_bg    = SURFACE
                     border_cl  = "#9C27B0"
                     name_color = "#CE93D8"
                     price_color= "#CE93D8"
@@ -191,8 +199,8 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                     )
                 else:
                     card_bg    = CARD_BG
-                    border_cl  = "#444444" if not is_low else "#F44336"
-                    name_color = "white"
+                    border_cl  = EXPENSE if is_low else BORDER
+                    name_color = TEXT
                     price_color= GREEN
                     top_label  = None
 
@@ -300,11 +308,11 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                 except: hora = "--:--"
                 history_list_dlg.controls.append(
                     ft.Container(content=ft.Row([
-                        ft.Column([ft.Text(f"Ticket #{s_id} - {hora}", weight="bold", color="black"),
-                                   ft.Text(f"Total: ${s_total:,.0f} ({s_medio})", size=12, color="black")], expand=True, spacing=2),
-                        ft.IconButton(icon=ft.Icons.NOT_INTERESTED, icon_color="red", tooltip="Anular Venta",
+                        ft.Column([ft.Text(f"Ticket #{s_id} - {hora}", weight="bold", color=TEXT),
+                                   ft.Text(f"Total: ${s_total:,.0f} ({s_medio})", size=12, color=TEXT)], expand=True, spacing=2),
+                        ft.IconButton(icon=ft.Icons.NOT_INTERESTED, icon_color=RED, tooltip="Anular Venta",
                                       on_click=lambda e, sid=s_id: confirm_void_sale(sid))
-                    ]), bgcolor="#f5f5f5", padding=15, border_radius=10, border=ft.border.all(1, "#e0e0e0"))
+                    ]), bgcolor=SURFACE, padding=15, border_radius=10, border=ft.border.all(1, "#e0e0e0"))
                 )
             page.update()
 
@@ -321,7 +329,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                 title=ft.Text("¿Anular Venta?"),
                 content=ft.Text("Se devolverá el stock y se descontará de la caja.\nEsta acción no se puede deshacer."),
                 actions=[ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_confirm)),
-                         ft.ElevatedButton("ANULAR", bgcolor="red", color="white", on_click=proceed_void)]
+                         ft.ElevatedButton("ANULAR", bgcolor=RED, color="white", on_click=proceed_void)]
             )
             page.overlay.append(dlg_confirm); dlg_confirm.open = True; page.update()
 
@@ -394,7 +402,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                 limit = client_data.get('limite', 0); current_balance = client_data.get('saldo_actual', 0)
                 if limit > 0 and (current_balance + current_total) > limit:
                     dlg_l = ft.AlertDialog(
-                        title=ft.Text("Límite de Crédito Excedido", color="red"),
+                        title=ft.Text("Límite de Crédito Excedido", color=RED),
                         content=ft.Column([ft.Text(f"Cliente: {client_data['nombre']}"),
                                            ft.Text(f"Límite: ${limit:,.0f}"),
                                            ft.Text(f"Deuda actual: ${current_balance:,.0f}"),
@@ -445,7 +453,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                 keyboard_type=ft.KeyboardType.NUMBER, autofocus=True, text_size=20,
                 on_submit=lambda e: finalize_sale('EFECTIVO') if not btn_confirm_cash.disabled else None
             )
-            txt_vuelto = ft.Text("Vuelto: $0", size=20, weight="bold", color="green")
+            txt_vuelto = ft.Text("Vuelto: $0", size=20, weight="bold", color=GREEN)
             def calculate_change(e):
                 try:
                     pago = int(txt_pago.value or 0); vuelto = pago - total_amount
@@ -455,7 +463,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                     txt_vuelto.update(); btn_confirm_cash.update()
                 except: pass
             txt_pago.on_change = calculate_change
-            btn_confirm_cash = ft.ElevatedButton("Confirmar Venta", bgcolor="green", color="white", disabled=False, on_click=lambda e: finalize_sale('EFECTIVO'))
+            btn_confirm_cash = ft.ElevatedButton("Confirmar Venta", bgcolor=GREEN, color="white", disabled=False, on_click=lambda e: finalize_sale('EFECTIVO'))
             dlg_cash = ft.AlertDialog(
                 title=ft.Text("Pago en Efectivo"),
                 content=ft.Column([ft.Text(f"Total a Pagar: ${total_amount:,.0f}", size=24, weight="bold"), ft.Divider(), txt_pago, txt_vuelto], tight=True),
@@ -473,12 +481,12 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
         dlg_payment = ft.AlertDialog(
             title=ft.Text("Método de Pago"),
             content=ft.Column([
-                ft.FilledButton("Efectivo", icon=ft.Icons.MONEY, style=ft.ButtonStyle(bgcolor=GREEN, color="white"), on_click=lambda e: pay_with("EFECTIVO"), height=50, width=float("inf")),
+                ft.FilledButton("Efectivo", icon=ft.Icons.MONEY, style=ft.ButtonStyle(bgcolor=PRIMARY, color="white"), on_click=lambda e: pay_with("EFECTIVO"), height=50, width=float("inf")),
                 ft.FilledButton("Débito", icon=ft.Icons.CREDIT_CARD, on_click=lambda e: pay_with("DEBITO"), height=50, width=float("inf")),
                 ft.FilledButton("Crédito", icon=ft.Icons.CREDIT_CARD, on_click=lambda e: pay_with("CREDITO"), height=50, width=float("inf")),
                 ft.FilledButton("Transferencia", icon=ft.Icons.QR_CODE, on_click=lambda e: pay_with("TRANSFERENCIA"), height=50, width=float("inf")),
                 ft.Divider(),
-                ft.FilledButton("Fiado", icon=ft.Icons.BOOK, style=ft.ButtonStyle(bgcolor="#D32F2F", color="white"), on_click=lambda e: pay_with("FIADO"), height=50, width=float("inf")),
+                ft.FilledButton("Fiado", icon=ft.Icons.BOOK, style=ft.ButtonStyle(bgcolor=RED, color="white"), on_click=lambda e: pay_with("FIADO"), height=50, width=float("inf")),
             ], tight=True, spacing=10),
             actions=[ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_payment))]
         )
@@ -501,7 +509,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
         hint_style=ft.TextStyle(color="#555555"),
         on_change=lambda e: refresh_products(e.control.value),
         on_submit=handle_barcode_scan,
-        bgcolor="#1a1a1a", color="white",
+        bgcolor=BG, color=TEXT,
         border_color=ACCENT, focused_border_color=ACCENT,
         height=52, expand=True,
         content_padding=ft.padding.symmetric(horizontal=16, vertical=12),
@@ -515,7 +523,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
         padding=ft.padding.symmetric(horizontal=14, vertical=6)
     )
     inactive_chip_style = ft.ButtonStyle(
-        bgcolor="#2a2a2a", color=DIM,
+        bgcolor=SURFACE, color=DIM,
         shape=ft.RoundedRectangleBorder(radius=20),
         padding=ft.padding.symmetric(horizontal=14, vertical=6)
     )
@@ -590,7 +598,7 @@ def build_pos_view(page: ft.Page, model, shared_cart=None):
                             ),
                             ft.FilledButton(
                                 "COBRAR",
-                                style=ft.ButtonStyle(bgcolor=GREEN, color="white", shape=ft.RoundedRectangleBorder(radius=10)),
+                                style=ft.ButtonStyle(bgcolor=PRIMARY, color="white", shape=ft.RoundedRectangleBorder(radius=10)),
                                 width=float("inf"), height=54,
                                 on_click=checkout
                             ),

@@ -3,13 +3,31 @@ import os
 import subprocess
 from app.utils.helpers import show_message
 
-BG       = "#121212"
-PANEL_BG = "#1e1e1e"
-CARD_BG  = "#2c2c2c"
-BORDER   = "#2a2a2a"
-DIM      = "#aaaaaa"
+def build_settings_view(page: ft.Page, model, on_theme_change=None):
+    from app.utils.theme import theme_manager
+    BG = theme_manager.get_color("bg_color")
+    SURFACE = theme_manager.get_color("surface")
+    BORDER = theme_manager.get_color("border")
+    PRIMARY = theme_manager.get_color("primary")
+    REVENUE = theme_manager.get_color("revenue")
+    EXPENSE = theme_manager.get_color("expense")
+    TEXT = theme_manager.get_color("text_primary")
+    DIM = theme_manager.get_color("text_secondary")
+    FIELD_BG = theme_manager.get_color("field_bg")
 
-def build_settings_view(page: ft.Page, model):
+
+    original_theme = model.get_config("theme", "LIGHT")
+    # ── Tema y Apariencia ──────────────────────────────────────────────
+    dd_theme = ft.Dropdown(
+        label="Esquema de Colores",
+        options=[
+            ft.dropdown.Option("LIGHT", text="Claro (Nav Azul, Acentos Naranjas)"),
+            ft.dropdown.Option("DARK", text="Oscuro Suave (Nav Gris Oscuro, Acentos Verdes)"),
+            ft.dropdown.Option("INTERMEDIATE", text="Intermedio (Nav Guinda, Acentos Naranjas)")
+        ],
+        value=original_theme,
+        color=TEXT, border_radius=8, border_color="#555555",
+    )
 
     # ── Controles de Impresión ─────────────────────────────────────────
     dd_impresora = ft.Dropdown(
@@ -19,25 +37,26 @@ def build_settings_view(page: ft.Page, model):
             ft.dropdown.Option("80mm", text="Ticketera Grande (80mm)")
         ],
         value=model.get_config("tipo_impresora", "58mm"),
-        color="white", border_radius=8, border_color="#555555",
+        color=TEXT, border_radius=8, border_color="#555555",
     )
     txt_pie_pagina = ft.TextField(
         label="Mensaje de Pie de Página",
         value=model.get_config("ticket_mensaje", "¡Gracias por su preferencia!"),
-        bgcolor=CARD_BG, color="white", border_color="#555555",
+        bgcolor=SURFACE, color=TEXT, border_color="#555555",
         border_radius=8, filled=True,
     )
 
     # ── Controles de Datos del Negocio ────────────────────────────────
-    txt_name    = ft.TextField(label="Nombre del Negocio",  value=model.get_config("business_name", ""),    bgcolor=CARD_BG, color="white", border_color="#555555", filled=True, border_radius=8)
-    txt_rut     = ft.TextField(label="RUT de la Empresa",   value=model.get_config("business_rut", ""),     bgcolor=CARD_BG, color="white", border_color="#555555", filled=True, border_radius=8)
-    txt_address = ft.TextField(label="Dirección",            value=model.get_config("business_address", ""), bgcolor=CARD_BG, color="white", border_color="#555555", filled=True, border_radius=8)
-    txt_phone   = ft.TextField(label="Teléfono",             value=model.get_config("business_phone", ""),   bgcolor=CARD_BG, color="white", border_color="#555555", filled=True, border_radius=8, keyboard_type=ft.KeyboardType.PHONE)
+    txt_name    = ft.TextField(label="Nombre del Negocio",  value=model.get_config("business_name", ""),    bgcolor=SURFACE, color=TEXT, border_color="#555555", filled=True, border_radius=8)
+    txt_rut     = ft.TextField(label="RUT de la Empresa",   value=model.get_config("business_rut", ""),     bgcolor=SURFACE, color=TEXT, border_color="#555555", filled=True, border_radius=8)
+    txt_address = ft.TextField(label="Dirección",            value=model.get_config("business_address", ""), bgcolor=SURFACE, color=TEXT, border_color="#555555", filled=True, border_radius=8)
+    txt_phone   = ft.TextField(label="Teléfono",             value=model.get_config("business_phone", ""),   bgcolor=SURFACE, color=TEXT, border_color="#555555", filled=True, border_radius=8, keyboard_type=ft.KeyboardType.PHONE)
 
 
     # ── Guardar ───────────────────────────────────────────────────────
     def save_settings(e):
         try:
+            model.set_config("theme",               dd_theme.value)
             model.set_config("tipo_impresora",      dd_impresora.value)
             model.set_config("ticket_mensaje",      txt_pie_pagina.value)
             model.set_config("business_name",       txt_name.value)
@@ -45,6 +64,10 @@ def build_settings_view(page: ft.Page, model):
             model.set_config("business_address",    txt_address.value)
             model.set_config("business_phone",      txt_phone.value)
             show_message(page, "Configuración guardada exitosamente.", "green")
+            
+            if dd_theme.value != original_theme and on_theme_change:
+                on_theme_change()
+                
         except Exception as ex:
             show_message(page, f"Error al guardar: {ex}", "red")
 
@@ -53,7 +76,7 @@ def build_settings_view(page: ft.Page, model):
         return ft.Container(
             content=ft.Row([
                 ft.Column([
-                    ft.Text(label, color="white", size=14, weight="bold"),
+                    ft.Text(label, color=TEXT, size=14, weight="bold"),
                     ft.Text(description, color=DIM, size=12)
                 ], spacing=2, expand=True),
                 control
@@ -69,6 +92,13 @@ def build_settings_view(page: ft.Page, model):
         )
 
     # ── Secciones ─────────────────────────────────────────────────────
+
+    section_apariencia = ft.Column([
+        section_label("Apariencia Visual"),
+        setting_row("Tema de la Aplicación", 
+                    "Cambia los colores principales (Se aplicará automáticamente al guardar)", 
+                    dd_theme),
+    ], spacing=0, scroll=ft.ScrollMode.AUTO)
 
     section_impresion = ft.Column([
         section_label("Formato de Ticket"),
@@ -90,13 +120,13 @@ def build_settings_view(page: ft.Page, model):
         section_label("Respaldo de datos"),
         ft.Container(
             content=ft.Column([
-                ft.Text("Base de datos local", color="white", size=14, weight="bold"),
+                ft.Text("Base de datos local", color=TEXT, size=14, weight="bold"),
                 ft.Text("Ubicación: ~/Documents/Digital_PyME/sos_pyme.db", color=DIM, size=12),
                 ft.Container(height=10),
                 ft.OutlinedButton(
                     "Abrir carpeta de datos",
                     icon=ft.Icons.FOLDER_OPEN,
-                    style=ft.ButtonStyle(side=ft.BorderSide(1, "#555555"), color="white", shape=ft.RoundedRectangleBorder(radius=6)),
+                    style=ft.ButtonStyle(side=ft.BorderSide(1, "#555555"), color=TEXT, shape=ft.RoundedRectangleBorder(radius=6)),
                     on_click=lambda e: subprocess.Popen(["open", os.path.expanduser("~/Documents/Digital_PyME")])
                 )
             ]),
@@ -107,6 +137,7 @@ def build_settings_view(page: ft.Page, model):
     # ── Mapa de secciones ─────────────────────────────────────────────
     sections = [
         ("Datos del negocio", section_negocio),
+        ("Apariencia",        section_apariencia),
         ("Impresión",         section_impresion),
         ("Respaldo",          section_respaldo),
     ]
@@ -116,9 +147,9 @@ def build_settings_view(page: ft.Page, model):
     nav_buttons = []
 
     style_active = ft.ButtonStyle(
-        bgcolor=CARD_BG, color="white",
+        bgcolor=SURFACE, color=TEXT,
         shape=ft.RoundedRectangleBorder(radius=6),
-        side=ft.BorderSide(2, "#2196F3"),
+        side=ft.BorderSide(2, PRIMARY),
         padding=ft.padding.symmetric(horizontal=14, vertical=8),
         alignment=ft.Alignment(-1.0, 0.0)
     )
@@ -151,7 +182,7 @@ def build_settings_view(page: ft.Page, model):
             ft.Container(height=10),
             *nav_buttons,
         ], spacing=4),
-        width=220, bgcolor=PANEL_BG, padding=16,
+        width=220, bgcolor=SURFACE, padding=16,
         border_radius=10, border=ft.border.all(1, BORDER)
     )
 
@@ -173,13 +204,13 @@ def build_settings_view(page: ft.Page, model):
                                 "Guardar cambios",
                                 on_click=save_settings,
                                 style=ft.ButtonStyle(
-                                    bgcolor="#4CAF50", color="white",
+                                    bgcolor=REVENUE, color="white",
                                     shape=ft.RoundedRectangleBorder(radius=8)
                                 )
                             )
                         ], alignment=ft.MainAxisAlignment.END, spacing=10)
                     ], expand=True, spacing=0),
-                    expand=True, bgcolor=PANEL_BG, padding=0,
+                    expand=True, bgcolor=SURFACE, padding=0,
                     border_radius=10, border=ft.border.all(1, BORDER),
                     clip_behavior=ft.ClipBehavior.HARD_EDGE
                 )

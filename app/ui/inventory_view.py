@@ -3,11 +3,22 @@ import sqlite3
 from app.utils.helpers import is_mobile, show_message
 
 def build_inventory_view(page: ft.Page, model):
+    from app.utils.theme import theme_manager
+    BG = theme_manager.get_color("bg_color")
+    SURFACE = theme_manager.get_color("surface")
+    BORDER = theme_manager.get_color("border")
+    PRIMARY = theme_manager.get_color("primary")
+    REVENUE = theme_manager.get_color("revenue")
+    EXPENSE = theme_manager.get_color("expense")
+    TEXT = theme_manager.get_color("text_primary")
+    DIM = theme_manager.get_color("text_secondary")
+    FIELD_BG = theme_manager.get_color("field_bg")
+    
     name_field = ft.TextField(
         label="Nombre del Producto",
-        bgcolor="white",
-        color="black",
-        border_color="#2196F3",
+        bgcolor=FIELD_BG,
+        color=TEXT,
+        border_color=PRIMARY,
         hint_text="Ej: Coca-Cola 2L",
         expand=True,
         filled=True,
@@ -15,9 +26,9 @@ def build_inventory_view(page: ft.Page, model):
     )
     barcode_field = ft.TextField(
         label="Código de Barras (Opcional)",
-        bgcolor="white",
-        color="black",
-        border_color="#2196F3",
+        bgcolor=FIELD_BG,
+        color=TEXT,
+        border_color=PRIMARY,
         hint_text="Ej: 7891234567890",
         expand=True,
         filled=True,
@@ -25,10 +36,10 @@ def build_inventory_view(page: ft.Page, model):
     )
     category_dropdown = ft.Dropdown(
         label="Categoría",
-        bgcolor="white",
-        border_color="#2196F3",
-        color="black",
-        label_style=ft.TextStyle(color="black"),
+        bgcolor=FIELD_BG,
+        border_color=PRIMARY,
+        color=TEXT,
+        label_style=ft.TextStyle(color=TEXT),
         filled=True,
         border_width=2,
         expand=True,
@@ -103,17 +114,17 @@ def build_inventory_view(page: ft.Page, model):
                         content=ft.Row(
                             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                             controls=[
-                                ft.Text(cat, weight="bold", color="black"),
+                                ft.Text(cat, weight="bold", color=TEXT),
                                 ft.Row([
                                     ft.IconButton(
                                         icon=ft.Icons.EDIT,
-                                        icon_color="blue",
+                                        icon_color=PRIMARY,
                                         tooltip="Editar",
                                         on_click=lambda e, c=cat: abrir_dialogo_edicion_cat(c)
                                     ),
                                     ft.IconButton(
                                         icon=ft.Icons.DELETE,
-                                        icon_color="red",
+                                        icon_color=EXPENSE,
                                         tooltip="Eliminar",
                                         disabled=es_protegida,
                                         on_click=lambda e, c=cat: confirmar_borrado_cat(c)
@@ -121,7 +132,7 @@ def build_inventory_view(page: ft.Page, model):
                                 ], spacing=0)
                             ]
                         ),
-                        bgcolor="#f5f5f5",
+                        bgcolor=SURFACE,
                         padding=10,
                         border_radius=5
                     )
@@ -175,7 +186,7 @@ def build_inventory_view(page: ft.Page, model):
                 content=ft.Text(f"¿Estás seguro de eliminar '{nombre_cat}'?\nLos productos asociados pasarán a 'General'."),
                 actions=[
                     ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dialogo_borrar)),
-                    ft.FilledButton("Eliminar", icon=ft.Icons.DELETE, bgcolor="red", color="white", on_click=proceder_borrado)
+                    ft.FilledButton("Eliminar", icon=ft.Icons.DELETE, bgcolor=EXPENSE, color="white", on_click=proceder_borrado)
                 ]
             )
             page.overlay.append(dialogo_borrar)
@@ -199,13 +210,13 @@ def build_inventory_view(page: ft.Page, model):
         category_dropdown,
         ft.IconButton(
             icon=ft.Icons.ADD_CIRCLE,
-            icon_color="#2196F3",
+            icon_color=PRIMARY,
             tooltip="Nueva Categoría",
             on_click=open_add_category_dialog
         ),
         ft.IconButton(
             icon=ft.Icons.SETTINGS,
-            icon_color="#2196F3",
+            icon_color=PRIMARY,
             tooltip="Gestionar Categorías",
             on_click=open_manage_categories_dialog
         )
@@ -213,10 +224,10 @@ def build_inventory_view(page: ft.Page, model):
     
     price_field = ft.TextField(
         label="Precio sin IVA",
-        bgcolor="white",
-        color="black",
+        bgcolor=FIELD_BG,
+        color=TEXT,
         keyboard_type=ft.KeyboardType.NUMBER,
-        border_color="#2196F3",
+        border_color=PRIMARY,
         hint_text="1000",
         on_change=lambda e: update_price_preview(),
         filled=True,
@@ -225,10 +236,10 @@ def build_inventory_view(page: ft.Page, model):
     )
     stock_field = ft.TextField(
         label="Stock Inicial (Opcional)",
-        bgcolor="white",
-        color="black",
+        bgcolor=FIELD_BG,
+        color=TEXT,
         keyboard_type=ft.KeyboardType.NUMBER,
-        border_color="#2196F3",
+        border_color=PRIMARY,
         hint_text="0",
         filled=True,
         border_width=2,
@@ -236,10 +247,10 @@ def build_inventory_view(page: ft.Page, model):
     )
     critic_field = ft.TextField(
         label="Stock Crítico (Opcional)",
-        bgcolor="white",
-        color="black",
+        bgcolor=FIELD_BG,
+        color=TEXT,
         keyboard_type=ft.KeyboardType.NUMBER,
-        border_color="#2196F3",
+        border_color=PRIMARY,
         hint_text="0",
         filled=True,
         border_width=2,
@@ -247,9 +258,9 @@ def build_inventory_view(page: ft.Page, model):
     )
     expiration_field = ft.TextField(
         label="Vencimiento (Opcional)",
-        bgcolor="white",
-        color="black",
-        border_color="#2196F3",
+        bgcolor=FIELD_BG,
+        color=TEXT,
+        border_color=PRIMARY,
         hint_text="YYYY-MM-DD",
         filled=True,
         border_width=2,
@@ -260,7 +271,7 @@ def build_inventory_view(page: ft.Page, model):
     price_preview = ft.Text(
         "Precio con IVA (19%): $0",
         size=14,
-        color="green",
+        color=REVENUE,
         weight="bold",
     )
     
@@ -289,9 +300,9 @@ def build_inventory_view(page: ft.Page, model):
     search_inventory = ft.TextField(
         hint_text="Buscar en inventario...",
         on_change=lambda e: refresh_products(e.control.value),
-        bgcolor="white",
-        color="black",
-        border_color="#2196F3",
+        bgcolor=FIELD_BG,
+        color=TEXT,
+        border_color=PRIMARY,
         height=50,
         text_size=16,
         expand=True,
@@ -336,32 +347,32 @@ def build_inventory_view(page: ft.Page, model):
                         content=ft.Column([
                             ft.Row([
                                 ft.Column([
-                                    ft.Text(p_name, size=16, weight="bold", color="white", max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
-                                    ft.Text(subtitle, size=12, color="#888888", max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)
+                                    ft.Text(p_name, size=16, weight="bold", color=TEXT, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                                    ft.Text(subtitle, size=12, color=DIM, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)
                                 ], spacing=0, expand=True),
                                 ft.PopupMenuButton(
                                     icon=ft.Icons.MORE_VERT,
-                                    icon_color="#888888",
+                                    icon_color=DIM,
                                     items=[
                                         ft.PopupMenuItem(content=ft.Text("Editar"), icon=ft.Icons.EDIT, on_click=lambda e, pid=p_id, pdata=p: open_edit_dialog(pid, pdata)),
                                         ft.PopupMenuItem(content=ft.Text("Agregar Stock"), icon=ft.Icons.ADD_BOX, on_click=lambda e, pid=p_id: quick_add_stock(pid)),
-                                        ft.PopupMenuItem(content=ft.Text("Eliminar", color="red"), icon=ft.Icons.DELETE, on_click=lambda e, pid=p_id, pname=p_name: delete_product(pid, pname)),
+                                        ft.PopupMenuItem(content=ft.Text("Eliminar", color=EXPENSE), icon=ft.Icons.DELETE, on_click=lambda e, pid=p_id, pname=p_name: delete_product(pid, pname)),
                                     ]
                                 ),
                             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                             
                             ft.Row([
-                                ft.Text(f"${p_price:,.0f}", size=18, weight="bold", color="white"),
+                                ft.Text(f"${p_price:,.0f}", size=18, weight="bold", color=TEXT),
                                 ft.Row([
                                     ft.Text(f"Stock: {p_stock}", size=14, weight="bold", color=stock_color),
                                     ft.Icon(stock_icon, size=14, color=stock_color)
                                 ], spacing=2)
                             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                         ], spacing=10),
-                        bgcolor="#2c2c2c",
+                        bgcolor=SURFACE,
                         padding=15,
                         border_radius=8,
-                        border=ft.border.only(left=ft.border.BorderSide(4, border_color), top=ft.border.BorderSide(1, "#3a3a3a"), right=ft.border.BorderSide(1, "#3a3a3a"), bottom=ft.border.BorderSide(1, "#3a3a3a"))
+                        border=ft.border.only(left=ft.border.BorderSide(4, border_color), top=ft.border.BorderSide(1, BORDER), right=ft.border.BorderSide(1, BORDER), bottom=ft.border.BorderSide(1, BORDER))
                     )
                 )
         page.update()
@@ -458,26 +469,26 @@ def build_inventory_view(page: ft.Page, model):
 
         dlg_confirm = ft.AlertDialog(
             title=ft.Row([
-                ft.Icon(ft.Icons.WARNING_ROUNDED, color="#F44336", size=22),
-                ft.Text("¿Eliminar producto?", color="white", size=16, weight="bold")
+                ft.Icon(ft.Icons.WARNING_ROUNDED, color=EXPENSE, size=22),
+                ft.Text("¿Eliminar producto?", color=TEXT, size=16, weight="bold")
             ], spacing=8),
             content=ft.Text(
                 f"Estás por eliminar \"{product_name}\".\n\nEsta acción no se puede deshacer.",
-                color="#aaaaaa", size=13
+                color=DIM, size=13
             ),
             actions=[
                 ft.TextButton("Cancelar", on_click=cancel_delete,
-                              style=ft.ButtonStyle(color="#aaaaaa")),
+                              style=ft.ButtonStyle(color=DIM)),
                 ft.FilledButton(
                     "Sí, eliminar",
                     icon=ft.Icons.DELETE_FOREVER,
-                    style=ft.ButtonStyle(bgcolor="#D32F2F", color="white",
+                    style=ft.ButtonStyle(bgcolor=EXPENSE, color="white",
                                         shape=ft.RoundedRectangleBorder(radius=8)),
                     on_click=confirm_delete
                 ),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
-            bgcolor="#1e1e1e",
+            bgcolor=SURFACE,
             shape=ft.RoundedRectangleBorder(radius=12)
         )
         page.overlay.append(dlg_confirm)
@@ -541,9 +552,9 @@ def build_inventory_view(page: ft.Page, model):
                             content=ft.Row([
                                 ft.Text(f"{data['name']}", size=14, expand=True),
                                 ft.Row([
-                                    ft.IconButton(ft.Icons.REMOVE_CIRCLE, icon_color="red", on_click=lambda e, i=pid: update_qty(i, -1)),
+                                    ft.IconButton(ft.Icons.REMOVE_CIRCLE, icon_color=EXPENSE, on_click=lambda e, i=pid: update_qty(i, -1)),
                                     ft.Text(f"{qty}", weight="bold"),
-                                    ft.IconButton(ft.Icons.ADD_CIRCLE, icon_color="green", on_click=lambda e, i=pid: update_qty(i, 1)),
+                                    ft.IconButton(ft.Icons.ADD_CIRCLE, icon_color=REVENUE, on_click=lambda e, i=pid: update_qty(i, 1)),
                                 ], spacing=0)
                             ]),
                             bgcolor="#f0f0f0", padding=5, border_radius=5
@@ -626,14 +637,14 @@ def build_inventory_view(page: ft.Page, model):
                     ft.Divider(),
                     ft.Text("Componentes:", weight="bold"),
                     p_search,
-                    ft.Container(content=search_results, bgcolor="white", border=ft.border.all(1, "grey"), border_radius=5),
+                    ft.Container(content=search_results, bgcolor=FIELD_BG, border=ft.border.all(1, "grey"), border_radius=5),
                     comp_list
                 ], spacing=10, scroll=ft.ScrollMode.AUTO),
                 width=400, height=500
             ),
             actions=[
                  ft.TextButton("Cancelar", on_click=lambda e: close_dialog(dlg_promo)),
-                 ft.FilledButton("Guardar Pack", on_click=save_promo, style=ft.ButtonStyle(bgcolor="green", color="white"))
+                 ft.FilledButton("Guardar Pack", on_click=save_promo, style=ft.ButtonStyle(bgcolor=REVENUE, color="white"))
             ]
         )
         page.overlay.append(dlg_promo)
@@ -740,18 +751,18 @@ def build_inventory_view(page: ft.Page, model):
         "Ocultar" if drawer_visible else "Agregar", 
         icon=ft.Icons.ARROW_FORWARD if drawer_visible else ft.Icons.ADD,
         on_click=toggle_drawer,
-        style=ft.ButtonStyle(bgcolor="#4CAF50", color="white")
+        style=ft.ButtonStyle(bgcolor=REVENUE, color="white")
     )
 
     form_panel = ft.Container(
         width=320,
         padding=20,
-        bgcolor="#1e1e1e",
+        bgcolor=SURFACE,
         border_radius=ft.border_radius.only(top_right=10, bottom_right=10),
-        border=ft.border.all(1, "#333333"),
+        border=ft.border.all(1, BORDER),
         visible=drawer_visible,
         content=ft.Column([
-            ft.Text("Nuevo Producto", size=20, weight="bold", color="white"),
+            ft.Text("Nuevo Producto", size=20, weight="bold", color=TEXT),
             ft.Divider(height=10, color="transparent"),
             name_field,
             barcode_field,
@@ -761,7 +772,7 @@ def build_inventory_view(page: ft.Page, model):
             expiration_field,
             price_preview,
             ft.Divider(height=10, color="transparent"),
-            ft.FilledButton("Agregar", on_click=add_product, style=ft.ButtonStyle(bgcolor="#4CAF50", color="white"), height=45, expand=True, width=float("inf")),
+            ft.FilledButton("Agregar", on_click=add_product, style=ft.ButtonStyle(bgcolor=REVENUE, color="white"), height=45, expand=True, width=float("inf")),
             ft.Divider(),
             ft.TextButton("Nueva Promoción", icon=ft.Icons.NEW_LABEL, on_click=open_promo_dialog, expand=True, width=float("inf")),
         ], spacing=10, scroll=ft.ScrollMode.AUTO, expand=True)
@@ -772,10 +783,10 @@ def build_inventory_view(page: ft.Page, model):
     main_panel = ft.Container(
         expand=True,
         padding=20,
-        bgcolor="#121212",
+        bgcolor=BG,
         content=ft.Column([
             ft.Row([
-                ft.Text("Productos registrados", size=24, weight="bold", color="white"),
+                ft.Text("Productos registrados", size=24, weight="bold", color=TEXT),
                 btn_toggle
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, vertical_alignment=ft.CrossAxisAlignment.CENTER),
             ft.Divider(height=10, color="transparent"),
@@ -791,7 +802,7 @@ def build_inventory_view(page: ft.Page, model):
             main_panel,
             form_panel
         ], expand=True, spacing=0),
-        bgcolor="#121212",
+        bgcolor=BG,
         border_radius=10,
         margin=10,
         expand=True

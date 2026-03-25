@@ -11,9 +11,10 @@ APP_VERSION = "0.11.24"
 WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
 # ----------------------
 async def original_main(page: ft.Page):
+    from app.utils.theme import theme_manager
     page.title = "Digital PyME"
-    page.theme_mode = ft.ThemeMode.LIGHT # Forzar modo claro
-    page.bgcolor = "#f5f5f5"
+    page.theme_mode = ft.ThemeMode.LIGHT if theme_manager.current_theme_name == "LIGHT" else ft.ThemeMode.DARK
+    page.bgcolor = theme_manager.get_color("bg_color")
     page.padding = 0
     
     # LAZY IMPORTS
@@ -37,9 +38,9 @@ async def original_main(page: ft.Page):
     # Mostrar mensaje inicial de carga ANTES de tocar el sistema de archivos (Evita pantalla blanca durante prompt de MacOS)
     loading_view = ft.Container(
         content=ft.Column([
-            ft.ProgressRing(color="#2196F3"),
-            ft.Text("Iniciando Digital PyME...", size=18, weight="bold", color="#333333"),
-            ft.Text("Por favor, concede los permisos de carpeta si el sistema lo solicita.", size=13, color="grey", text_align="center")
+            ft.ProgressRing(color=theme_manager.get_color("primary")),
+            ft.Text("Iniciando Digital PyME...", size=18, weight="bold", color=theme_manager.get_color("text_primary")),
+            ft.Text("Por favor, concede los permisos de carpeta si el sistema lo solicita.", size=13, color=theme_manager.get_color("text_secondary"), text_align="center")
         ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=15),
         alignment=ft.Alignment(0.0, 0.0),
         expand=True
@@ -101,6 +102,15 @@ async def original_main(page: ft.Page):
     # ---------------------------------------------------------
     def load_main_app():
         page.clean()
+
+        # --- APLICAR TEMA SELECCIONADO ---
+        from app.utils.theme import theme_manager
+        current_theme = model.get_config("theme", "LIGHT")
+        theme_manager.set_theme(current_theme)
+        
+        # TODOS los temas provistos por el usuario son formalmente "Light" (fondo claro, texto oscuro)
+        page.theme_mode = ft.ThemeMode.LIGHT 
+        page.bgcolor = theme_manager.get_color("bg_color")
         
         # Refs
         main_content = ft.Ref[ft.Container]()
@@ -431,14 +441,15 @@ async def original_main(page: ft.Page):
             elif index == 4:
                 content_container.content = build_reports_view(page, model)
             else:
-                content_container.content = build_settings_view(page, model)
+                content_container.content = build_settings_view(page, model, on_theme_change=load_main_app)
             
             # Actualizar colores de botones (Desktop)
             for i, btn in enumerate([btn_pos, btn_inv, btn_dash, btn_clients, btn_reports, btn_settings]):
                 if i == index:
                     btn.style = ft.ButtonStyle(
-                        bgcolor="#1D4ED8",
+                        bgcolor=ft.Colors.with_opacity(0.22, "white"),
                         color="white",
+                        overlay_color=ft.Colors.with_opacity(0.15, "white"),
                         side=ft.BorderSide(0, "transparent"),
                         shape=ft.RoundedRectangleBorder(radius=8),
                         padding=ft.padding.symmetric(horizontal=14, vertical=8)
@@ -446,7 +457,8 @@ async def original_main(page: ft.Page):
                 else:
                     btn.style = ft.ButtonStyle(
                         bgcolor="transparent",
-                        color="white",
+                        color=ft.Colors.with_opacity(0.75, "white"),
+                        overlay_color=ft.Colors.with_opacity(0.18, "white"),
                         side=ft.BorderSide(0, "transparent"),
                         shape=ft.RoundedRectangleBorder(radius=8),
                         padding=ft.padding.symmetric(horizontal=14, vertical=8)
@@ -599,7 +611,7 @@ async def original_main(page: ft.Page):
             leading_width=40,
             title=ft.Text("Digital PyME"),
             center_title=True,
-            bgcolor="#2196F3",
+            bgcolor=theme_manager.get_color("nav_bg"),
             color="white",
             visible=False,
             actions=[
@@ -610,13 +622,16 @@ async def original_main(page: ft.Page):
         
         # Estilos de navegación
         _nav_active = ft.ButtonStyle(
-            bgcolor="#1D4ED8", color="white",
+            bgcolor=ft.Colors.with_opacity(0.22, "white"),  # fondo blanco suave sobre barra oscura
+            color="white",
+            overlay_color=ft.Colors.with_opacity(0.15, "white"),
             side=ft.BorderSide(0, "transparent"),
             shape=ft.RoundedRectangleBorder(radius=8),
             padding=ft.padding.symmetric(horizontal=14, vertical=8)
         )
         _nav_inactive = ft.ButtonStyle(
-            bgcolor="transparent", color="white",
+            bgcolor="transparent", color=ft.Colors.with_opacity(0.75, "white"),
+            overlay_color=ft.Colors.with_opacity(0.18, "white"),
             side=ft.BorderSide(0, "transparent"),
             shape=ft.RoundedRectangleBorder(radius=8),
             padding=ft.padding.symmetric(horizontal=14, vertical=8)
@@ -653,7 +668,7 @@ async def original_main(page: ft.Page):
                     content=ft.Row([
                         ft.Container(
                             content=ft.Text("K", color="white", size=14, weight="bold"),
-                            bgcolor="#2196F3",
+                            bgcolor=theme_manager.get_color("nav_bg"),
                             width=28, height=28,
                             border_radius=6,
                             alignment=ft.Alignment(0.0, 0.0)
@@ -682,7 +697,7 @@ async def original_main(page: ft.Page):
                             "Cerrar caja",
                             icon=ft.Icons.LOGOUT,
                             style=ft.ButtonStyle(
-                                bgcolor="#EF4444", color="white",
+                                bgcolor=theme_manager.get_color("expense"), color="white",
                                 shape=ft.RoundedRectangleBorder(radius=8)
                             ),
                             on_click=handle_close_turn_global
@@ -692,9 +707,9 @@ async def original_main(page: ft.Page):
                 ], spacing=4)
             ], alignment=ft.MainAxisAlignment.START,
                vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            bgcolor="#2563EB",
+            bgcolor=theme_manager.get_color("nav_bg"),
             padding=ft.padding.symmetric(horizontal=16, vertical=8),
-            border=ft.border.only(bottom=ft.border.BorderSide(1, "#1D4ED8"))
+            border=ft.border.only(bottom=ft.border.BorderSide(1, theme_manager.get_color("border")))
         )
 
         # Layout principal (Columna con botónera y contenido)
