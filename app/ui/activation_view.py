@@ -12,6 +12,7 @@ def build_activation_view(page: ft.Page, on_success_callback):
     TEXT = theme_manager.get_color("text_primary")
     DIM = theme_manager.get_color("text_secondary")
     FIELD_BG = theme_manager.get_color("field_bg")
+    ACCENT = theme_manager.get_color("nav_bg")
 
     """
     Pantalla de primer uso: solicita la clave de activación.
