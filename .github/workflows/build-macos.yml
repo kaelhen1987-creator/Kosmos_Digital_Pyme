@@ -27,7 +27,16 @@ jobs:
           pip install flet
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Flet Build macOS
+      - name: Workaround connectivity_plus 7.1.0 bug
+        run: |
+          flet build macos --verbose --yes || echo "First build failed as expected due to connectivity_plus bug"
+          echo "Patching connectivity_plus in pub-cache..."
+          for FILE in $(find ~/.pub-cache /Users/runner/.pub-cache /opt/hostedtoolcache /Users/runner/flutter -type f -name "PathMonitorConnectivityProvider.swift" 2>/dev/null); do
+            echo "Found $FILE, applying patch..."
+            sed -i '' 's/path.isUltraConstrained/false/g' "$FILE" || sed -i 's/path.isUltraConstrained/false/g' "$FILE"
+          done
+          
+      - name: Flet Build macOS (Retry)
         run: |
           flet build macos --verbose --yes
       
