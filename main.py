@@ -865,6 +865,7 @@ async def original_main(page: ft.Page):
     def start_flow():
         # 1. Verificar Activación (Hardware Lock)
         if not is_activated():
+            page.clean()
             page.add(build_activation_view(page, on_success_callback=start_flow))
             return
             
