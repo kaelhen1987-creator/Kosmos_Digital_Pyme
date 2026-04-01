@@ -30,6 +30,7 @@ def _get_local_ip():
     import socket
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(0.5) # Evitar que la red atrase el encendido
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
         s.close()
@@ -147,15 +148,26 @@ async def original_main(page: ft.Page):
         # Leer modo WiFi desde config
         is_wifi = model.get_config('wifi_mode', '0') == '1'
         wifi_pin = model.get_config('wifi_pin', '')
-        # Guardar session_id en page.data para uso en turnos
+        # Guardar session_id persistente para uso en turnos (Usar Local Storage para persistir a través de recargas)
+        active_session = None
+        if is_wifi:
+            try:
+                active_session = page.client_storage.get("pos_device_id")
+                if not active_session:
+                    import uuid
+                    active_session = str(uuid.uuid4())
+                    page.client_storage.set("pos_device_id", active_session)
+            except Exception:
+                active_session = getattr(page, 'session_id', None)
+
         if not hasattr(page, 'data') or page.data is None:
             page.data = {}
         if isinstance(page.data, dict):
-            page.data['session_id'] = page.session_id if is_wifi else None
+            page.data['session_id'] = active_session
             page.data['is_wifi'] = is_wifi
             page.data['wifi_port'] = WIFI_PORT
         else:
-            page.data = {'session_id': page.session_id if is_wifi else None, 'is_wifi': is_wifi, 'wifi_port': WIFI_PORT}
+            page.data = {'session_id': active_session, 'is_wifi': is_wifi, 'wifi_port': WIFI_PORT}
     except Exception as e:
         import traceback
         err_trace = traceback.format_exc()
@@ -911,6 +923,10 @@ async def original_main(page: ft.Page):
 
         def verify_pin(e=None):
             if pin_value[0] == wifi_pin:
+                try:
+                    page.client_storage.set("pos_authenticated", "1")
+                except Exception:
+                    pass
                 page.clean()
                 start_flow()
             else:
@@ -986,9 +1002,17 @@ async def original_main(page: ft.Page):
         ))
         page.update()
 
-    # Iniciar flujo (con o sin PIN)
+    # Iniciar flujo (con PIN o recuperando autenticación previa)
     if is_wifi and wifi_pin:
-        show_wifi_pin_screen()
+        try:
+            is_authenticated = page.client_storage.get("pos_authenticated") == "1"
+        except Exception:
+            is_authenticated = False
+            
+        if is_authenticated:
+            start_flow()
+        else:
+            show_wifi_pin_screen()
     else:
         start_flow()
 
@@ -1017,6 +1041,17 @@ if __name__ == "__main__":
         print(f"  Abre esta URL en otro dispositivo")
         print(f"  conectado a la misma red WiFi.")
         print(f"{'='*50}\n")
+        
+        # Forzar la apertura del navegador localmente (remedio para empaquetados macOS/Windows)
+        import threading
+        import time
+        import webbrowser
+        def _open_master_browser():
+            time.sleep(1.5)
+            try: webbrowser.open(f"http://127.0.0.1:{WIFI_PORT}")
+            except: pass
+        threading.Thread(target=_open_master_browser, daemon=True).start()
+
         ft.app(
             target=main,
             view=ft.AppView.WEB_BROWSER,
