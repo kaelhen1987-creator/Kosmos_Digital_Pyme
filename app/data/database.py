@@ -5,8 +5,14 @@ class InventarioModel:
         self.db_name = db_name
         self._init_db()
 
+    def _connect(self):
+        """Crea conexión con timeout para concurrencia WiFi."""
+        conn = sqlite3.connect(self.db_name, timeout=15)
+        conn.execute("PRAGMA journal_mode=WAL")
+        return conn
+
     def _init_db(self):
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         
         # 1. Tabla Productos
@@ -173,7 +179,7 @@ class InventarioModel:
         Sistema de Migración Automática.
         Verifica versión de DB y aplica cambios incrementales.
         """
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         
         try:
@@ -284,6 +290,21 @@ class InventarioModel:
             conn.commit()
             print("Migración v5 aplicada.")
             current_version = 5
+
+        # --- MIGRACION 6: Sesión en Turnos (Modo WiFi Multipunto) ---
+        if current_version < 6:
+            print("Aplicando Migración v6 (Session ID en Turnos)...")
+            try:
+                cursor.execute("ALTER TABLE turnos ADD COLUMN session_id TEXT")
+                print("Columna 'session_id' agregada a turnos.")
+            except sqlite3.OperationalError as e:
+                print(f"Error en Migración v6: {e}")
+                pass
+            
+            cursor.execute("INSERT OR REPLACE INTO config (key, value) VALUES ('db_version', '6')")
+            conn.commit()
+            print("Migración v6 aplicada.")
+            current_version = 6
         
         conn.close()
 
@@ -294,7 +315,7 @@ class InventarioModel:
     # METODOS CONFIGURACION
     # ==========================================
     def get_config(self, key, default=None):
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         cursor.execute("SELECT value FROM config WHERE key = ?", (key,))
         res = cursor.fetchone()
@@ -302,7 +323,7 @@ class InventarioModel:
         return res[0] if res else default
 
     def set_config(self, key, value):
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         cursor.execute("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", (key, value))
         conn.commit()
@@ -312,7 +333,7 @@ class InventarioModel:
     # METODOS CATEGORIAS
     # ==========================================
     def get_all_categories(self):
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         cursor.execute("SELECT nombre FROM categorias ORDER BY nombre ASC")
         res = [row[0] for row in cursor.fetchall()]
@@ -325,7 +346,7 @@ class InventarioModel:
         nombre_normalizado = nombre.strip().title()
         if not nombre_normalizado or nombre_normalizado == "Todas": return
         
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         try:
             cursor.execute("INSERT INTO categorias (nombre) VALUES (?)", (nombre_normalizado,))
@@ -341,7 +362,7 @@ class InventarioModel:
         if not new_name or old_name == new_name or new_name == "Todas":
             return False
 
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         try:
             # 1. Actualizar la tabla de categorías
@@ -363,7 +384,7 @@ class InventarioModel:
         if category_name in categorias_protegidas:
             return False
 
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         try:
             # 1. Mover productos a "General"
@@ -382,7 +403,7 @@ class InventarioModel:
         2. Cambia estado del movimiento de cuenta a 'Anulada' si aplica.
         3. Cambia estado de la venta a 'Anulada'.
         """
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         try:
             # 1. Verificar existencia y estado
@@ -435,7 +456,7 @@ class InventarioModel:
     
     # --- MIGRACION VENCIMIENTO ---
     def _ensure_expiration_column(self):
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         try:
             cursor.execute("ALTER TABLE productos ADD COLUMN fecha_vencimiento TEXT")
@@ -446,7 +467,7 @@ class InventarioModel:
     
     def get_all_products(self):
         self._ensure_expiration_column()
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM productos")
         res = cursor.fetchall()
@@ -488,7 +509,7 @@ class InventarioModel:
 
     def add_product(self, nombre, precio, stock, stock_critico, codigo_barras=None, categoria="General", fecha_vencimiento=None):
         self._ensure_expiration_column()
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         try:
             cursor.execute('''
@@ -503,7 +524,7 @@ class InventarioModel:
 
     def update_product(self, product_id, nombre, precio, stock, stock_critico, codigo_barras=None, categoria="General", fecha_vencimiento=None):
         self._ensure_expiration_column()
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         cursor.execute('''
             UPDATE productos 
@@ -516,7 +537,7 @@ class InventarioModel:
     def get_expiring_products(self, days_threshold=7):
         self._ensure_expiration_column()
         import datetime
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         
         today = datetime.date.today().isoformat()
@@ -535,21 +556,21 @@ class InventarioModel:
         return rows
 
     def delete_product(self, product_id):
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         cursor.execute("DELETE FROM productos WHERE id = ?", (product_id,))
         conn.commit()
         conn.close()
 
     def increase_stock_by_name(self, nombre, cantidad):
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         cursor.execute("UPDATE productos SET stock = stock + ? WHERE nombre = ?", (cantidad, nombre))
         conn.commit()
         conn.close()
 
     def increase_stock_by_id(self, product_id, cantidad):
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         cursor.execute("UPDATE productos SET stock = stock + ? WHERE id = ?", (cantidad, product_id))
         conn.commit()
@@ -560,7 +581,7 @@ class InventarioModel:
         self.increase_stock_by_id(product_id, quantity)
 
     def decrease_stock(self, product_id, quantity=1):
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         cursor.execute("UPDATE productos SET stock = stock - ? WHERE id = ?", (quantity, product_id))
         conn.commit()
@@ -568,7 +589,7 @@ class InventarioModel:
     
     def get_product_by_barcode(self, codigo_barras):
         """Buscar producto por código de barras (búsqueda exacta, case-insensitive)"""
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM productos WHERE LOWER(codigo_barras) = LOWER(?) AND codigo_barras IS NOT NULL", 
                        (codigo_barras,))
@@ -608,7 +629,7 @@ class InventarioModel:
         Crea una promoción (Producto ficticio) y sus items.
         componentes: lista de tuplas (producto_id, cantidad)
         """
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         try:
             # 1. Crear producto tipo "Promoción"
@@ -637,7 +658,7 @@ class InventarioModel:
 
     def get_promotion_items(self, promo_id):
         """Retorna componentes de una promo: [(prod_id, cant_requerida)]"""
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         cursor.execute("SELECT producto_id, cantidad FROM promocion_items WHERE promocion_id = ?", (promo_id,))
         res = cursor.fetchall()
@@ -656,7 +677,7 @@ class InventarioModel:
         discount_percent: Porcentaje de descuento (0-100)
         """
         import datetime
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         
         try:
@@ -736,7 +757,7 @@ class InventarioModel:
 
     def add_expense(self, descripcion, monto, categoria="General"):
         import datetime
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         try:
             fecha_actual = datetime.datetime.now().isoformat()
@@ -748,7 +769,7 @@ class InventarioModel:
             conn.close()
 
     def get_sales_report(self):
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM ventas WHERE estado = 'Completada' ORDER BY fecha DESC")
         res = cursor.fetchall()
@@ -756,7 +777,7 @@ class InventarioModel:
         return res
 
     def get_expenses_report(self):
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM gastos ORDER BY fecha DESC")
         res = cursor.fetchall()
@@ -765,7 +786,7 @@ class InventarioModel:
 
     def get_payments_report(self):
         """Retorna todos los movimientos de tipo PAGO (Abonos) con nombre de cliente"""
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         # Incluir c.nombre al final
         cursor.execute('''
@@ -784,7 +805,7 @@ class InventarioModel:
     # ==========================================
 
     def add_client(self, nombre, telefono="", alias="", limite_credito=0):
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         try:
             cursor.execute("INSERT INTO clientes (nombre, telefono, alias, limite_credito) VALUES (?, ?, ?, ?)",
@@ -795,7 +816,7 @@ class InventarioModel:
             conn.close()
 
     def update_client(self, client_id, nombre, telefono, alias, limite_credito):
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         try:
             cursor.execute('''
@@ -808,7 +829,7 @@ class InventarioModel:
             conn.close()
 
     def delete_client(self, client_id):
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         try:
             # Eliminar movimientos asociados primero (si no hay CASCADE)
@@ -820,7 +841,7 @@ class InventarioModel:
 
     def get_clients_with_balance(self):
         """Retorna lista de clientes con su saldo calculado (Deuda - Pagos)"""
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         
         # Consulta optimizada: Clientes con saldo
@@ -855,7 +876,7 @@ class InventarioModel:
         return clients
 
     def get_client_movements(self, cliente_id):
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM movimientos_cuenta WHERE cliente_id = ? ORDER BY fecha DESC", (cliente_id,))
         res = cursor.fetchall()
@@ -864,7 +885,7 @@ class InventarioModel:
 
     def add_movement(self, cliente_id, tipo, monto, descripcion, venta_id=None, medio_pago=None):
         import datetime
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         try:
             fecha_actual = datetime.datetime.now().isoformat()
@@ -881,47 +902,76 @@ class InventarioModel:
     # METODOS CONTROL DE TURNOS
     # ==========================================
     
-    def get_active_turno(self):
-        """Devuelve el turno activo (fecha_fin IS NULL) o None"""
-        conn = sqlite3.connect(self.db_name)
+    def get_active_turno(self, session_id=None):
+        """Devuelve el turno activo (fecha_fin IS NULL) o None.
+        Si session_id se provee, filtra por sesión (modo WiFi multipunto)."""
+        conn = self._connect()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM turnos WHERE fecha_fin IS NULL ORDER BY id DESC LIMIT 1")
+        if session_id:
+            cursor.execute("SELECT * FROM turnos WHERE fecha_fin IS NULL AND session_id = ? ORDER BY id DESC LIMIT 1", (session_id,))
+        else:
+            cursor.execute("SELECT * FROM turnos WHERE fecha_fin IS NULL ORDER BY id DESC LIMIT 1")
         res = cursor.fetchone()
         conn.close()
         return res
 
-    def iniciar_turno(self, monto_inicial, usuario="Admin"):
+    def iniciar_turno(self, monto_inicial, usuario="Admin", session_id=None):
         import datetime
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         try:
             fecha_inicio = datetime.datetime.now().isoformat()
             cursor.execute('''
-                INSERT INTO turnos (fecha_inicio, monto_inicial, usuario)
-                VALUES (?, ?, ?)
-            ''', (fecha_inicio, monto_inicial, usuario))
+                INSERT INTO turnos (fecha_inicio, monto_inicial, usuario, session_id)
+                VALUES (?, ?, ?, ?)
+            ''', (fecha_inicio, monto_inicial, usuario, session_id))
             conn.commit()
             return cursor.lastrowid
         finally:
             conn.close()
 
-    def cerrar_turno(self, monto_final):
+    def cerrar_turno(self, monto_final, session_id=None):
         import datetime
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         try:
             fecha_fin = datetime.datetime.now().isoformat()
-            # Cerrar el último turno abierto
-            cursor.execute('''
-                UPDATE turnos 
-                SET fecha_fin = ?, monto_final = ? 
-                WHERE fecha_fin IS NULL
-            ''', (fecha_fin, monto_final))
+            if session_id:
+                cursor.execute('''
+                    UPDATE turnos 
+                    SET fecha_fin = ?, monto_final = ? 
+                    WHERE fecha_fin IS NULL AND session_id = ?
+                ''', (fecha_fin, monto_final, session_id))
+            else:
+                cursor.execute('''
+                    UPDATE turnos 
+                    SET fecha_fin = ?, monto_final = ? 
+                    WHERE fecha_fin IS NULL
+                ''', (fecha_fin, monto_final))
             conn.commit()
         finally:
             conn.close()
+
+    def get_last_closed_turno(self):
+        """Retorna info del último turno cerrado para mostrar en la pantalla de apertura."""
+        conn = self._connect()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT usuario, fecha_fin, monto_final FROM turnos WHERE fecha_fin IS NOT NULL ORDER BY id DESC LIMIT 1")
+            row = cursor.fetchone()
+            if not row:
+                return None
+            return {
+                "usuario": row[0],
+                "hora_cierre": row[1].split('T')[1] if row[1] and 'T' in row[1] else row[1],
+                "total_ventas": row[2] or 0
+            }
+        except Exception:
+            return None
+        finally:
+            conn.close()
     
-    def obtener_desglose_ventas_turno(self):
+    def obtener_desglose_ventas_turno(self, session_id=None):
         """
         Obtiene el desglose de ventas del turno actual agrupado por método de pago.
         Incluye ventas directas y pagos de deuda recibidos.
@@ -943,17 +993,26 @@ class InventarioModel:
                 }
             }
         """
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         try:
             # Obtener fecha de inicio del turno actual
-            cursor.execute('''
-                SELECT fecha_inicio 
-                FROM turnos 
-                WHERE fecha_fin IS NULL 
-                ORDER BY id DESC 
-                LIMIT 1
-            ''')
+            if session_id:
+                cursor.execute('''
+                    SELECT fecha_inicio 
+                    FROM turnos 
+                    WHERE fecha_fin IS NULL AND session_id = ?
+                    ORDER BY id DESC 
+                    LIMIT 1
+                ''', (session_id,))
+            else:
+                cursor.execute('''
+                    SELECT fecha_inicio 
+                    FROM turnos 
+                    WHERE fecha_fin IS NULL 
+                    ORDER BY id DESC 
+                    LIMIT 1
+                ''')
             turno = cursor.fetchone()
             
             if not turno:
@@ -1013,16 +1072,16 @@ class InventarioModel:
         finally:
             conn.close()
 
-    def get_current_shift_stats(self):
+    def get_current_shift_stats(self, session_id=None):
         """Calcula el estado actual de la caja según el turno activo"""
-        turno = self.get_active_turno()
+        turno = self.get_active_turno(session_id=session_id)
         if not turno:
             return None
             
-        # turno: (id, fecha_inicio, fecha_fin, monto_inicial, monto_final, usuario)
-        t_id, t_inicio, _, t_inicial, _, t_usuario = turno
+        # turno: (id, fecha_inicio, fecha_fin, monto_inicial, monto_final, usuario, session_id)
+        t_id, t_inicio, _, t_inicial, _, t_usuario = turno[:6]
         
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         
         # 1. Sumar ventas EN EFECTIVO DESDE el inicio del turno
@@ -1065,7 +1124,7 @@ class InventarioModel:
         Retorna diccionario con métricas clave.
         """
         import datetime
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         
         # Filtros de fecha (ISO strings YYYY-MM-DD...)
@@ -1141,7 +1200,7 @@ class InventarioModel:
         Retorna lista de tuplas: (nombre_producto, cantidad_total_vendida)
         """
         import datetime
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         
         try:
@@ -1172,7 +1231,7 @@ class InventarioModel:
         Retorna lista de ventas en un rango de fechas.
         Retorna: [(id, fecha, total), ...] ordenado por fecha DESC
         """
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         
         # Asegurar formato completo para end_date
@@ -1195,7 +1254,7 @@ class InventarioModel:
         Retorna detalles de los productos vendidos en una venta especifica.
         Lista de tuplas: (nombre_producto, cantidad, precio_unit, subtotal)
         """
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         query = '''
             SELECT p.nombre, d.cantidad, d.precio_unitario, d.subtotal
@@ -1222,7 +1281,7 @@ class InventarioModel:
             'details_id': int (id para buscar detalle, venta_id o movimiento_id)
         }
         """
-        conn = sqlite3.connect(self.db_name)
+        conn = self._connect()
         cursor = conn.cursor()
         
         events = []

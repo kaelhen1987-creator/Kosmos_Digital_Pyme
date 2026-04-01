@@ -6,10 +6,57 @@ import flet as ft  # pyre-ignore
 
 # --- SYSTEM VERSION ---
 # Versión de la App
-# v0.11.24 - UI Dashboard Rediseñado + Fix Pantalla Blanca en macOS
-APP_VERSION = "0.11.24"
-WIFI_MODE = False  # ACTIVAR PARA MODO WEB/WIFI (IPHONE/ANDROID)
+# v0.12.0 - Modo WiFi Multipunto de Venta
+APP_VERSION = "0.12.0"
+
+def _get_free_port(start_port=8550):
+    """Busca un puerto libre a partir del start_port para evitar errores del tipo 'address already in use'."""
+    import socket
+    port = start_port
+    while port < start_port + 20: # Buscar hasta en los primeros 20 saltos
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(('0.0.0.0', port))
+                return port # El puerto está libre
+        except OSError:
+            port += 1 # El puerto está ocupado, intentar el siguiente
+    return start_port # Default fallback
+
+WIFI_PORT = _get_free_port(8550)
 # ----------------------
+
+def _get_local_ip():
+    """Detecta la IP local del equipo en la red WiFi."""
+    import socket
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+def _read_wifi_config():
+    """Lee la configuración WiFi directamente de la DB antes de iniciar Flet."""
+    import sqlite3, os
+    try:
+        home_dir = os.path.expanduser("~")
+        db_path = os.path.join(home_dir, "Documents", "Digital_PyME", "sos_pyme.db")
+        if not os.path.exists(db_path):
+            return False, ""
+        conn = sqlite3.connect(db_path, timeout=5)
+        cursor = conn.cursor()
+        cursor.execute("SELECT value FROM config WHERE key = 'wifi_mode'")
+        row = cursor.fetchone()
+        wifi_on = (row and row[0] == '1')
+        cursor.execute("SELECT value FROM config WHERE key = 'wifi_pin'")
+        row2 = cursor.fetchone()
+        wifi_pin = row2[0] if row2 else ""
+        conn.close()
+        return wifi_on, wifi_pin
+    except Exception:
+        return False, ""
 async def original_main(page: ft.Page):
     from app.utils.theme import theme_manager
     page.title = "Digital PyME"
@@ -36,19 +83,25 @@ async def original_main(page: ft.Page):
     page.window.min_height = 600
     
     # Mostrar mensaje inicial de carga ANTES de tocar el sistema de archivos (Evita pantalla blanca durante prompt de MacOS)
-    loading_view = ft.Container(
-        content=ft.Column([
-            ft.ProgressRing(color=theme_manager.get_color("primary")),
-            ft.Text("Iniciando Digital PyME...", size=18, weight="bold", color=theme_manager.get_color("text_primary")),
-            ft.Text("Por favor, concede los permisos de carpeta si el sistema lo solicita.", size=13, color=theme_manager.get_color("text_secondary"), text_align="center")
-        ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=15),
-        alignment=ft.Alignment(0.0, 0.0),
-        expand=True
-    )
-    page.add(loading_view)
-    # Pequeña pausa para asegurar que Flet pinte el UI antes de bloquear el hilo en el sistema de archivos (TCC Dialog)
-    import asyncio
-    await asyncio.sleep(0.5)
+    # SOLO EN MODO ESCRITORIO
+    is_wifi_mode = isinstance(page.data, dict) and page.data.get('is_wifi', False) if hasattr(page, 'data') else False
+    
+    # Como la BD no se ha inicializado todavía en este punto del código, 
+    # podemos leerlo de los argumentos o dejar que page.web compruebe si es una vista web
+    if not page.web:
+        loading_view = ft.Container(
+            content=ft.Column([
+                ft.ProgressRing(color=theme_manager.get_color("primary")),
+                ft.Text("Iniciando Digital PyME...", size=18, weight="bold", color=theme_manager.get_color("text_primary")),
+                ft.Text("Por favor, concede los permisos de carpeta si el sistema lo solicita.", size=13, color=theme_manager.get_color("text_secondary"), text_align="center")
+            ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=15),
+            alignment=ft.Alignment(0.0, 0.0),
+            expand=True
+        )
+        page.add(loading_view)
+        # Pequeña pausa para asegurar que Flet pinte el UI antes de bloquear el hilo en el sistema de archivos (TCC Dialog)
+        import asyncio
+        await asyncio.sleep(0.5)
     
     # Usar nueva base de datos
     # DETECCION DE ENTORNO - SIEMPRE usar Documents para persistencia
@@ -89,7 +142,20 @@ async def original_main(page: ft.Page):
                 print(f"Error migrando DB local: {e}")
         
         model = InventarioModel(db_path)
-        print("DEBUG: Database initialized and Migrations verified (V5).")
+        print("DEBUG: Database initialized and Migrations verified (V6).")
+
+        # Leer modo WiFi desde config
+        is_wifi = model.get_config('wifi_mode', '0') == '1'
+        wifi_pin = model.get_config('wifi_pin', '')
+        # Guardar session_id en page.data para uso en turnos
+        if not hasattr(page, 'data') or page.data is None:
+            page.data = {}
+        if isinstance(page.data, dict):
+            page.data['session_id'] = page.session_id if is_wifi else None
+            page.data['is_wifi'] = is_wifi
+            page.data['wifi_port'] = WIFI_PORT
+        else:
+            page.data = {'session_id': page.session_id if is_wifi else None, 'is_wifi': is_wifi, 'wifi_port': WIFI_PORT}
     except Exception as e:
         import traceback
         err_trace = traceback.format_exc()
@@ -216,11 +282,12 @@ async def original_main(page: ft.Page):
         # --- LOGICA CIERRE DE CAJA GLOBAL ---
         def handle_close_turn_global(e):
             # Obtener datos del turno actual para mostrar "Monto Esperado"
-            stats = model.get_current_shift_stats()
+            _sid = page.data.get('session_id') if isinstance(page.data, dict) else None
+            stats = model.get_current_shift_stats(session_id=_sid)
             monto_esperado = stats["teorico_en_caja"] if stats else 0
             
             # Obtener desglose de ventas por método de pago
-            desglose = model.obtener_desglose_ventas_turno()
+            desglose = model.obtener_desglose_ventas_turno(session_id=_sid)
             
             # Campo para ingresar monto final
             final_amount_field = ft.TextField(
@@ -342,7 +409,8 @@ async def original_main(page: ft.Page):
                         return # No cerramos, esperamos segunda confirmación
                     
                     # Cerrar Turno en DB
-                    model.cerrar_turno(monto_final)
+                    _sid = page.data.get('session_id') if isinstance(page.data, dict) else None
+                    model.cerrar_turno(monto_final, session_id=_sid)
                     
                     # Cerrar diálogo primero
                     dlg_close.open = False
@@ -711,10 +779,27 @@ async def original_main(page: ft.Page):
             padding=ft.padding.symmetric(horizontal=16, vertical=8),
             border=ft.border.only(bottom=ft.border.BorderSide(1, theme_manager.get_color("border")))
         )
+        # Banner WiFi (solo visible en modo WiFi)
+        wifi_banner = ft.Container(visible=False)
+        if is_wifi:
+            _local_ip = _get_local_ip()
+            wifi_banner = ft.Container(
+                content=ft.Row([
+                    ft.Icon(ft.Icons.WIFI, color="white", size=16),
+                    ft.Text(f"🌐 Modo WiFi  ·  http://{_local_ip}:{WIFI_PORT}",
+                            color="white", size=12, weight="bold"),
+                    ft.Container(expand=True),
+                    ft.Text(f"Sesión: {page.session_id[:8]}…" if page.session_id else "",
+                            color=ft.Colors.with_opacity(0.7, "white"), size=11),
+                ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                bgcolor="#1B5E20",
+                padding=ft.padding.symmetric(horizontal=16, vertical=6),
+            )
 
         # Layout principal (Columna con botónera y contenido)
         main_layout = ft.Column([
             top_nav_bar,
+            wifi_banner,
             content_container,
         ], expand=True, spacing=0)
 
@@ -778,8 +863,9 @@ async def original_main(page: ft.Page):
             page.add(build_setup_view(page, model, on_success_callback=start_flow))
             return
 
-        # 3. Verificar si hay turno abierto
-        active_shift = model.get_active_turno()
+        # 3. Verificar si hay turno abierto (con session_id en modo WiFi)
+        _sid = page.data.get('session_id') if isinstance(page.data, dict) else None
+        active_shift = model.get_active_turno(session_id=_sid)
         
         if active_shift:
             # SI hay turno, vamos directo a la App
@@ -789,8 +875,122 @@ async def original_main(page: ft.Page):
             page.clean()  # <--- LIMPIAR ANTES DE MOSTRAR
             page.add(build_shift_view(page, model, on_success_callback=load_main_app))
 
-    # Iniciar flujo
-    start_flow()
+    # ── Pantalla de PIN WiFi ──────────────────────────────────────
+    def show_wifi_pin_screen():
+        """Pantalla de autenticación PIN para dispositivos WiFi secundarios."""
+        from app.utils.theme import theme_manager
+        NAV = theme_manager.get_color("nav_bg")
+        PRIMARY = theme_manager.get_color("primary")
+        DIM = theme_manager.get_color("text_secondary")
+        BORDER = theme_manager.get_color("border")
+
+        pin_value = [""]
+        pin_display = ft.Text("● ● ● ●", size=32, weight="bold", color=NAV,
+                              text_align=ft.TextAlign.CENTER)
+        error_text = ft.Text("", color="#D32F2F", size=13, text_align=ft.TextAlign.CENTER)
+
+        def update_pin_display():
+            filled = len(pin_value[0])
+            dots = "  ".join(["●" if i < filled else "○" for i in range(4)])
+            pin_display.value = dots
+            pin_display.update()
+
+        def press_pin_key(key):
+            if key == "⌫":
+                pin_value[0] = pin_value[0][:-1]
+            elif len(pin_value[0]) < 4:
+                pin_value[0] += key
+                
+            update_pin_display()
+            error_text.value = ""
+            error_text.update()
+            
+            # Auto-verify when 4 digits are reached
+            if len(pin_value[0]) == 4:
+                verify_pin()
+
+        def verify_pin(e=None):
+            if pin_value[0] == wifi_pin:
+                page.clean()
+                start_flow()
+            else:
+                error_text.value = "PIN incorrecto"
+                error_text.update()
+                pin_value[0] = ""
+                update_pin_display()
+
+        KEY_BG = "#e8edf5"
+        KEY_DEL = "#fde8e8"
+
+        def mk_key(label):
+            if label == "⌫":
+                return ft.Container(
+                    content=ft.Icon(ft.Icons.BACKSPACE_OUTLINED, color="#D32F2F", size=20),
+                    bgcolor=KEY_DEL, border_radius=10,
+                    alignment=ft.Alignment(0.0, 0.0),
+                    width=90, height=56,
+                    on_click=lambda e: press_pin_key("⌫"), ink=True,
+                    border=ft.border.all(1, "#f5c6c6")
+                )
+            if label == "✓":
+                return ft.Container(
+                    content=ft.Icon(ft.Icons.CHECK, color="white", size=24),
+                    bgcolor=PRIMARY, border_radius=10,
+                    alignment=ft.Alignment(0.0, 0.0),
+                    width=90, height=56,
+                    on_click=verify_pin, ink=True,
+                )
+            return ft.Container(
+                content=ft.Text(label, size=22, weight="bold", color=NAV),
+                bgcolor=KEY_BG, border_radius=10,
+                alignment=ft.Alignment(0.0, 0.0),
+                width=90, height=56,
+                on_click=lambda e, k=label: press_pin_key(k), ink=True,
+                border=ft.border.all(1, "#c8d4e8")
+            )
+
+        keypad = ft.Column([
+            ft.Row([mk_key("7"), mk_key("8"), mk_key("9")], spacing=8, alignment=ft.MainAxisAlignment.CENTER),
+            ft.Row([mk_key("4"), mk_key("5"), mk_key("6")], spacing=8, alignment=ft.MainAxisAlignment.CENTER),
+            ft.Row([mk_key("1"), mk_key("2"), mk_key("3")], spacing=8, alignment=ft.MainAxisAlignment.CENTER),
+            ft.Row([mk_key("⌫"), mk_key("0"), mk_key("✓")], spacing=8, alignment=ft.MainAxisAlignment.CENTER),
+        ], spacing=8)
+
+        card = ft.Container(
+            content=ft.Column([
+                ft.Icon(ft.Icons.WIFI_LOCK, size=48, color=PRIMARY),
+                ft.Text("Punto de Venta WiFi", size=24, weight="bold", color=NAV),
+                ft.Text("Ingrese el PIN de acceso", size=14, color=DIM),
+                ft.Container(height=16),
+                pin_display,
+                error_text,
+                ft.Container(height=12),
+                keypad,
+            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+               alignment=ft.MainAxisAlignment.CENTER,
+               spacing=6, tight=True),
+            bgcolor="white",
+            padding=ft.padding.symmetric(horizontal=40, vertical=32),
+            border_radius=20,
+            shadow=ft.BoxShadow(spread_radius=0, blur_radius=24,
+                                color=ft.Colors.with_opacity(0.12, "black"),
+                                offset=ft.Offset(0, 4)),
+            border=ft.border.all(1, BORDER),
+        )
+
+        page.add(ft.Container(
+            content=card,
+            alignment=ft.Alignment(0.0, 0.0),
+            expand=True,
+            bgcolor=theme_manager.get_color("bg_color")
+        ))
+        page.update()
+
+    # Iniciar flujo (con o sin PIN)
+    if is_wifi and wifi_pin:
+        show_wifi_pin_screen()
+    else:
+        start_flow()
 
 async def main(page: ft.Page):
     try:
@@ -805,15 +1005,25 @@ async def main(page: ft.Page):
 if __name__ == "__main__":
     import sys
     
-    # Soporte para modo web (móvil/navegador)
-    # Soporte para modo web (móvil/navegador)
-    # Soporte para modo web (móvil/navegador) - DESACTIVADO TEMPORALMENTE
-    # Para activar, usar: if True: ...
-    mode = "DESKTOP" 
+    # Leer configuración WiFi ANTES de iniciar Flet
+    wifi_enabled, _ = _read_wifi_config()
 
-    if mode == "WEB":
-        # Modo Web (Navegador) - Solo para debug
-        ft.app(target=main, view=ft.AppView.WEB_BROWSER, assets_dir="assets")
+    if wifi_enabled:
+        # ── Modo WiFi (Servidor Web Multipunto) ──
+        local_ip = _get_local_ip()
+        print(f"\n{'='*50}")
+        print(f"  🌐 MODO WIFI ACTIVADO")
+        print(f"  Servidor: http://{local_ip}:{WIFI_PORT}")
+        print(f"  Abre esta URL en otro dispositivo")
+        print(f"  conectado a la misma red WiFi.")
+        print(f"{'='*50}\n")
+        ft.app(
+            target=main,
+            view=ft.AppView.WEB_BROWSER,
+            host="0.0.0.0",
+            port=WIFI_PORT,
+            assets_dir="assets"
+        )
     else:
-        # Modo desktop (ventana nativa)
+        # ── Modo Desktop (ventana nativa) ──
         ft.app(target=main, assets_dir="assets")

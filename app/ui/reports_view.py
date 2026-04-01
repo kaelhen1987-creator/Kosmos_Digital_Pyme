@@ -81,10 +81,74 @@ def build_reports_view(page: ft.Page, model):
             ],
             rows=rows, column_spacing=20, heading_row_height=36, data_row_min_height=36,
         )
+
+        # ── Botón Anular Venta con confirmación ──
+        confirm_row = ft.Row(visible=False, spacing=8, alignment=ft.MainAxisAlignment.CENTER)
+        anular_btn = ft.Ref[ft.OutlinedButton]()
+
+        def on_anular_click(e):
+            # Primer click: mostrar confirmación
+            anular_btn.current.visible = False
+            confirm_row.visible = True
+            page.update()
+
+        def on_confirm_anular(e):
+            ok, msg = model.anular_venta(sale_id)
+            _close(dlg)
+            if ok:
+                show_message(page, f"✅ Venta #{sale_id} anulada. Stock restaurado.", "green")
+                refresh_report()
+            else:
+                show_message(page, f"⚠️ {msg}", "red")
+
+        def on_cancel_anular(e):
+            confirm_row.visible = False
+            anular_btn.current.visible = True
+            page.update()
+
+        confirm_row.controls = [
+            ft.Text("¿Anular esta venta?", color=EXPENSE, size=13, weight="bold"),
+            ft.ElevatedButton(
+                "Sí, anular",
+                bgcolor="#D32F2F", color="white",
+                style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=6)),
+                on_click=on_confirm_anular, height=34,
+            ),
+            ft.OutlinedButton(
+                "Cancelar",
+                style=ft.ButtonStyle(
+                    color=DIM,
+                    shape=ft.RoundedRectangleBorder(radius=6),
+                    side=ft.BorderSide(1, BORDER),
+                ),
+                on_click=on_cancel_anular, height=34,
+            ),
+        ]
+
         dlg = ft.AlertDialog(
             title=ft.Text(f"Detalle Venta #{sale_id}", color=TEXT),
             content=ft.Container(
-                content=ft.Column([table], scroll=ft.ScrollMode.AUTO, height=300),
+                content=ft.Column([
+                    table,
+                    ft.Divider(height=1, color=BORDER),
+                    ft.Container(
+                        content=ft.Column([
+                            ft.OutlinedButton(
+                                "🗑️  Anular esta venta",
+                                ref=anular_btn,
+                                style=ft.ButtonStyle(
+                                    color="#D32F2F",
+                                    side=ft.BorderSide(1, "#D32F2F"),
+                                    shape=ft.RoundedRectangleBorder(radius=6),
+                                ),
+                                on_click=on_anular_click,
+                                width=float("inf"), height=38,
+                            ),
+                            confirm_row,
+                        ], spacing=6, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                        padding=ft.padding.only(top=8),
+                    ),
+                ], scroll=ft.ScrollMode.AUTO, height=360),
                 bgcolor=SURFACE, padding=10, border_radius=8,
             ),
             bgcolor=SURFACE,

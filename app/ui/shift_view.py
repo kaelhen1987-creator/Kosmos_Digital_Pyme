@@ -126,7 +126,8 @@ def build_shift_view(page: ft.Page, model, on_success_callback):
             if amount < 0:
                 show_message(page, "El monto no puede ser negativo", "red")
                 return
-            model.iniciar_turno(amount, usuario=name_val)
+            _sid = page.data.get('session_id') if isinstance(page.data, dict) else None
+            model.iniciar_turno(amount, usuario=name_val, session_id=_sid)
             show_message(page, f"Turno abierto por {name_val} con ${amount:,.0f}", "green")
             on_success_callback()
         except ValueError:

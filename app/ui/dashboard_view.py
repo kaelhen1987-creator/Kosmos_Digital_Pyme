@@ -234,7 +234,8 @@ def build_dashboard_view(page: ft.Page, model, on_logout_callback=None):
     def refresh_data(initial=False):
         turno = model.get_active_turno()
         if turno:
-            _, t_inicio, _, _, _, _ = turno
+            # turno: (id, fecha_inicio, fecha_fin, monto_inicial, monto_final, usuario, session_id)
+            _, t_inicio, _, _, _, _ = turno[:6]
             fin_report = model.get_financial_report(start_date=t_inicio)
             
             total_s = fin_report["total_ventas"]

@@ -51,11 +51,87 @@ def build_settings_view(page: ft.Page, model, on_theme_change=None):
     txt_rut     = ft.TextField(label="RUT de la Empresa",   value=model.get_config("business_rut", ""),     bgcolor=SURFACE, color=TEXT, border_color="#555555", filled=True, border_radius=8)
     txt_address = ft.TextField(label="Dirección",            value=model.get_config("business_address", ""), bgcolor=SURFACE, color=TEXT, border_color="#555555", filled=True, border_radius=8)
     txt_phone   = ft.TextField(label="Teléfono",             value=model.get_config("business_phone", ""),   bgcolor=SURFACE, color=TEXT, border_color="#555555", filled=True, border_radius=8, keyboard_type=ft.KeyboardType.PHONE)
+    # ── Controles WiFi / Red ───────────────────────────────────────
+    import socket
+    def _get_local_ip():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "No disponible"
 
+    wifi_current = model.get_config("wifi_mode", "0") == "1"
+    sw_wifi = ft.Switch(
+        value=wifi_current,
+        active_color=PRIMARY,
+    )
+    txt_wifi_pin = ft.TextField(
+        label="PIN de Acceso (4 dígitos)",
+        value=model.get_config("wifi_pin", ""),
+        bgcolor=SURFACE, color=TEXT, border_color="#555555",
+        border_radius=8, filled=True,
+        keyboard_type=ft.KeyboardType.NUMBER,
+        max_length=4, width=200,
+        password=True, can_reveal_password=True,
+    )
+    local_ip = _get_local_ip()
+    wifi_port = 8550
+    if hasattr(page, 'data') and isinstance(page.data, dict):
+        wifi_port = page.data.get('wifi_port', 8550)
+    
+    # ── Reinicio de Aplicación ────────────────────────────────────────
+    def show_restart_dialog():
+        def do_restart(e):
+            import sys
+            import os
+            import subprocess
+            dlg.open = False
+            page.update()
+            
+            try:
+                if page.web:
+                    show_message(page, "Reiniciando el sistema... En el servidor central se abrirá la aplicación. (Puedes cerrar esta ventana)", "orange")
+                    page.update()
+                
+                # Lanzar la nueva instancia de la aplicación
+                subprocess.Popen([sys.executable] + sys.argv)
+                
+                # Matar forzosamente y al instante el proceso actual (incluye servidor web y ventanas nativas) 
+                # para asegurar que se liberen los recursos y puertos sin excepciones por limpiar la UI.
+                os._exit(0)
+                
+            except Exception as ex:
+                show_message(page, f"Error al reiniciar: {ex}", "red")
+
+        dlg = ft.AlertDialog(
+            title=ft.Text("Reinicio Requerido", color=TEXT, size=18, weight="bold"),
+            content=ft.Text("Has cambiado configuraciones que requieren reiniciar la aplicación.\n\n¿Deseas reiniciar ahora? (Asegúrate de no tener operaciones pendientes en curso)", size=14, color=DIM),
+            actions=[
+                ft.TextButton("Más tarde", on_click=lambda e: setattr(dlg, 'open', False) or page.update()),
+                ft.FilledButton(
+                    "Reiniciar Ahora",
+                    on_click=do_restart,
+                    style=ft.ButtonStyle(bgcolor=REVENUE, color="white", shape=ft.RoundedRectangleBorder(radius=6))
+                )
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+            bgcolor=SURFACE,
+            shape=ft.RoundedRectangleBorder(radius=10),
+        )
+        page.overlay.append(dlg)
+        dlg.open = True
+        page.update()
 
     # ── Guardar ───────────────────────────────────────────────────────
     def save_settings(e):
         try:
+            # Check if WiFi changed
+            old_wifi_mode = model.get_config("wifi_mode", "0")
+            old_wifi_pin = model.get_config("wifi_pin", "")
+            
             model.set_config("theme",               dd_theme.value)
             model.set_config("tipo_impresora",      dd_impresora.value)
             model.set_config("ticket_mensaje",      txt_pie_pagina.value)
@@ -63,10 +139,23 @@ def build_settings_view(page: ft.Page, model, on_theme_change=None):
             model.set_config("business_rut",        txt_rut.value)
             model.set_config("business_address",    txt_address.value)
             model.set_config("business_phone",      txt_phone.value)
+            
+            # WiFi settings
+            new_wifi_mode = "1" if sw_wifi.value else "0"
+            pin_val = txt_wifi_pin.value.strip() if txt_wifi_pin.value else ""
+            
+            model.set_config("wifi_mode", new_wifi_mode)
+            model.set_config("wifi_pin", pin_val)
+            
+            wifi_changed = (old_wifi_mode != new_wifi_mode) or (old_wifi_pin != pin_val)
+            
             show_message(page, "Configuración guardada exitosamente.", "green")
             
             if dd_theme.value != original_theme and on_theme_change:
                 on_theme_change()
+                
+            if wifi_changed:
+                show_restart_dialog()
                 
         except Exception as ex:
             show_message(page, f"Error al guardar: {ex}", "red")
@@ -134,11 +223,67 @@ def build_settings_view(page: ft.Page, model, on_theme_change=None):
         )
     ], spacing=0)
 
+    # ── Sección WiFi / Red ───────────────────────────────────────────
+    wifi_status_color = "#4CAF50" if wifi_current else DIM
+    wifi_status_text = "ACTIVO" if wifi_current else "Desactivado"
+
+    section_wifi = ft.Column([
+        section_label("Modo WiFi – Multipunto de Venta"),
+        setting_row("Activar Modo WiFi",
+                    "Permite conectar otros dispositivos como puntos de venta",
+                    sw_wifi),
+        setting_row("PIN de Acceso",
+                    "Solo los cajeros con este PIN pueden conectarse",
+                    txt_wifi_pin),
+        ft.Container(
+            content=ft.Column([
+                ft.Row([
+                    ft.Icon(ft.Icons.WIFI, color=wifi_status_color, size=20),
+                    ft.Text(f"Estado: {wifi_status_text}", color=wifi_status_color, size=14, weight="bold"),
+                ], spacing=8),
+                ft.Container(height=8),
+                ft.Row([
+                    ft.Icon(ft.Icons.COMPUTER, color=DIM, size=16),
+                    ft.Text(f"IP Local: {local_ip}", color=TEXT, size=13),
+                ], spacing=8),
+                ft.Row([
+                    ft.Icon(ft.Icons.LINK, color=DIM, size=16),
+                    ft.Text(f"URL de Conexión: http://{local_ip}:{wifi_port}", color=PRIMARY, size=13, weight="bold",
+                            selectable=True),
+                ], spacing=8),
+                ft.Container(height=12),
+                ft.Container(
+                    content=ft.Column([
+                        ft.Text("¿Cómo usar?", weight="bold", color=TEXT, size=13),
+                        ft.Text("1. Active el Modo WiFi y defina un PIN", color=DIM, size=12),
+                        ft.Text("2. Guarde y reinicie la aplicación", color=DIM, size=12),
+                        ft.Text("3. En el otro dispositivo, abra el navegador", color=DIM, size=12),
+                        ft.Text(f"4. Ingrese la URL: http://{local_ip}:{wifi_port}", color=DIM, size=12),
+                        ft.Text("5. Ingrese el PIN para acceder al punto de venta", color=DIM, size=12),
+                    ], spacing=4),
+                    bgcolor=FIELD_BG,
+                    padding=16, border_radius=8,
+                    border=ft.border.all(1, BORDER),
+                ),
+                ft.Container(height=8),
+                ft.Container(
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.INFO_OUTLINE, color="#FF9800", size=16),
+                        ft.Text("Requiere reiniciar la app para aplicar cambios.",
+                                color="#FF9800", size=12, italic=True),
+                    ], spacing=6),
+                ),
+            ]),
+            padding=20
+        )
+    ], spacing=0, scroll=ft.ScrollMode.AUTO)
+
     # ── Mapa de secciones ─────────────────────────────────────────────
     sections = [
         ("Datos del negocio", section_negocio),
         ("Apariencia",        section_apariencia),
         ("Impresión",         section_impresion),
+        ("WiFi / Red",        section_wifi),
         ("Respaldo",          section_respaldo),
     ]
 
