@@ -249,7 +249,8 @@ def build_settings_view(page: ft.Page, model, on_theme_change=None):
                 ], spacing=8),
                 ft.Row([
                     ft.Icon(ft.Icons.LINK, color=DIM, size=16),
-                    ft.Text(f"URL de Conexión: http://{local_ip}:{wifi_port}", color=PRIMARY, size=13, weight="bold",
+                    ft.Text(f"URL de Conexión: http://{local_ip}:{wifi_port}" if wifi_current else "URL de Conexión: Apagado", 
+                            color=PRIMARY if wifi_current else DIM, size=13, weight="bold",
                             selectable=True),
                 ], spacing=8),
                 ft.Container(height=12),
