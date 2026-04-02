@@ -1088,11 +1088,7 @@ if __name__ == "__main__":
         wifi_enabled, _ = _read_wifi_config()
 
         if wifi_enabled:
-            # ── Modo WiFi (Servidor Web Multipunto) ──
-            # Evita que el empaquetador de Flet Mac secuestre el puerto
-            if "FLET_SERVER_PORT" in os.environ:
-                os.environ.pop("FLET_SERVER_PORT")
-
+            # ── Modo WiFi (Servidor Web Multipunto + Desktop Simultáneo) ──
             local_ip = _get_local_ip()
             print(f"\n{'='*50}")
             print(f"  🌐 MODO WIFI ACTIVADO")
@@ -1101,22 +1097,39 @@ if __name__ == "__main__":
             print(f"  conectado a la misma red WiFi.")
             print(f"{'='*50}\n")
             
-            # Forzar la apertura del navegador localmente (remedio para empaquetados macOS/Windows)
+            def _start_uvicorn_server():
+                import uvicorn
+                from fastapi import FastAPI
+                import flet.fastapi
+                
+                app_fastapi = FastAPI()
+                
+                # Flet 0.8+ requiere before_main
+                async def _empty_before_main(page):
+                    pass
+                
+                app_fastapi.mount("/", flet.fastapi.app(main, before_main=_empty_before_main, assets_dir=resolved_assets_dir))
+                
+                import logging
+                logging.getLogger("uvicorn").setLevel(logging.CRITICAL)
+                
+                uvicorn.run(app_fastapi, host="0.0.0.0", port=WIFI_PORT, log_level="critical")
+
             import threading
-            import time
-            import webbrowser
-            import urllib.request
+            threading.Thread(target=_start_uvicorn_server, daemon=True).start()
 
             def _open_master_browser():
-                """Espera a que el servidor Flet esté listo y luego abre el navegador."""
-                # Usamos la IP de la red directamente en lugar del loopback 127.0.0.1
+                import time
+                import webbrowser
+                import urllib.request
+                import subprocess, sys
+
                 url = f"http://{local_ip}:{WIFI_PORT}"
                 check_url = f"http://127.0.0.1:{WIFI_PORT}"
-                max_wait = 20  # Máximo 20 segundos de espera
+                max_wait = 20
                 interval = 0.5
                 elapsed = 0
 
-                # Esperar mínimo 2 segundos antes del primer intento
                 time.sleep(2)
                 elapsed = 2
 
@@ -1132,39 +1145,25 @@ if __name__ == "__main__":
                 else:
                     print(f"  ⚠️ Timeout esperando servidor ({max_wait}s) — intentando abrir navegador de todos modos...")
 
-                # Intentar abrir navegador con webbrowser
                 opened = False
                 try:
                     opened = webbrowser.open(url)
-                except Exception as we:
-                    print(f"  webbrowser.open falló: {we}")
+                except Exception:
+                    pass
 
-                # Fallback: usar subprocess en macOS
                 if not opened:
                     try:
-                        import subprocess, sys
                         if sys.platform == "darwin":
                             subprocess.Popen(["open", url])
-                            print(f"  🔗 Abierto con 'open' (macOS fallback)")
                         elif sys.platform == "win32":
                             subprocess.Popen(["start", url], shell=True)
-                            print(f"  🔗 Abierto con 'start' (Windows fallback)")
-                    except Exception as se:
-                        print(f"  ❌ No se pudo abrir el navegador: {se}")
-                        print(f"  👉 Abre manualmente: {url}")
+                    except:
+                        pass
 
             threading.Thread(target=_open_master_browser, daemon=True).start()
 
-            ft.app(
-                target=main,
-                view=ft.AppView.WEB_BROWSER,
-                host="0.0.0.0",
-                port=WIFI_PORT,
-                assets_dir=resolved_assets_dir
-            )
-        else:
-            # ── Modo Desktop (ventana nativa) ──
-            ft.app(target=main, assets_dir=resolved_assets_dir)
+        # SIEMPRE arrancar la ventana de Escritorio nativa (así no te queda la pantalla negra)
+        ft.app(target=main, assets_dir=resolved_assets_dir)
             
     except Exception as base_e:
         import traceback
