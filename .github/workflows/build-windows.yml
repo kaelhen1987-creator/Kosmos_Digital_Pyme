@@ -1,14 +1,14 @@
 name: Build Windows Executable
 
-# on:
-#   workflow_dispatch:
-#   push:
-#     branches: [ "main" ]
-#     paths-ignore:
-#       - '**.md'
-#       - 'docs/**'
 on:
   workflow_dispatch:
+#  push:
+#    branches: [ "main" ]
+#    paths-ignore:
+#      - '**.md'
+#      - 'docs/**'
+
+
 
 
 jobs:
