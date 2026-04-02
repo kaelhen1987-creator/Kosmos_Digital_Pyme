@@ -86,34 +86,23 @@ def build_settings_view(page: ft.Page, model, on_theme_change=None):
     # ── Reinicio de Aplicación ────────────────────────────────────────
     def show_restart_dialog():
         def do_restart(e):
-            import sys
-            import os
-            import subprocess
             dlg.open = False
             page.update()
-            
             try:
                 if page.web:
-                    show_message(page, "Reiniciando el sistema... En el servidor central se abrirá la aplicación. (Puedes cerrar esta ventana)", "orange")
-                    page.update()
-                
-                # Lanzar la nueva instancia de la aplicación
-                subprocess.Popen([sys.executable] + sys.argv)
-                
-                # Matar forzosamente y al instante el proceso actual (incluye servidor web y ventanas nativas) 
-                # para asegurar que se liberen los recursos y puertos sin excepciones por limpiar la UI.
-                os._exit(0)
-                
+                    show_message(page, "Por favor, reinicia este navegador manualmente para ver los cambios.", "orange")
+                else:
+                    page.window.close()
             except Exception as ex:
-                show_message(page, f"Error al reiniciar: {ex}", "red")
+                show_message(page, "Por favor cierra la aplicación manualmente.", "orange")
 
         dlg = ft.AlertDialog(
             title=ft.Text("Reinicio Requerido", color=TEXT, size=18, weight="bold"),
-            content=ft.Text("Has cambiado configuraciones que requieren reiniciar la aplicación.\n\n¿Deseas reiniciar ahora? (Asegúrate de no tener operaciones pendientes en curso)", size=14, color=DIM),
+            content=ft.Text("Has cambiado configuraciones que requieren reiniciar la aplicación.\n\n¿Deseas cerrar la aplicación ahora? (Deberás volver a abrirla desde tu escritorio)", size=14, color=DIM),
             actions=[
                 ft.TextButton("Más tarde", on_click=lambda e: setattr(dlg, 'open', False) or page.update()),
                 ft.FilledButton(
-                    "Reiniciar Ahora",
+                    "Cerrar Aplicación",
                     on_click=do_restart,
                     style=ft.ButtonStyle(bgcolor=REVENUE, color="white", shape=ft.RoundedRectangleBorder(radius=6))
                 )

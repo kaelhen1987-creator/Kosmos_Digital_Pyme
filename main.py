@@ -998,7 +998,7 @@ async def original_main(page: ft.Page):
                                 offset=ft.Offset(0, 4)),
             border=ft.border.all(1, BORDER),
         )
-
+        page.clean()
         page.add(ft.Container(
             content=card,
             alignment=ft.Alignment(0.0, 0.0),
