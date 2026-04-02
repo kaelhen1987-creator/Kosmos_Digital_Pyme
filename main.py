@@ -801,7 +801,7 @@ async def original_main(page: ft.Page):
                     ft.Text(f"🌐 Modo WiFi  ·  http://{_local_ip}:{WIFI_PORT}",
                             color="white", size=12, weight="bold"),
                     ft.Container(expand=True),
-                    ft.Text(f"Sesión: {page.session_id[:8]}…" if page.session_id else "",
+                    ft.Text(f"Sesión: {page.data.get('session_id', '')[:8]}…" if page.data and isinstance(page.data, dict) and page.data.get('session_id') else "",
                             color=ft.Colors.with_opacity(0.7, "white"), size=11),
                 ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER),
                 bgcolor="#1B5E20",
@@ -1044,9 +1044,10 @@ if __name__ == "__main__":
 
         if wifi_enabled:
             # ── Modo WiFi (Servidor Web Multipunto) ──
-            # FORZAR A FLET A USAR EL PUERTO SOLICITADO Y MODO WEB EN ENTORNO EMPAQUETADO
-            os.environ["FLET_FORCE_WEB_SERVER"] = "true"
-            
+            # Evita que el empaquetador de Flet Mac secuestre el puerto
+            if "FLET_SERVER_PORT" in os.environ:
+                os.environ.pop("FLET_SERVER_PORT")
+
             local_ip = _get_local_ip()
             print(f"\n{'='*50}")
             print(f"  🌐 MODO WIFI ACTIVADO")
