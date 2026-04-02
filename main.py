@@ -1047,10 +1047,52 @@ if __name__ == "__main__":
         import threading
         import time
         import webbrowser
+        import urllib.request
+
         def _open_master_browser():
-            time.sleep(1.5)
-            try: webbrowser.open(f"http://127.0.0.1:{WIFI_PORT}")
-            except: pass
+            """Espera a que el servidor Flet esté listo y luego abre el navegador."""
+            url = f"http://127.0.0.1:{WIFI_PORT}"
+            max_wait = 20  # Máximo 20 segundos de espera
+            interval = 0.5
+            elapsed = 0
+
+            # Esperar mínimo 2 segundos antes del primer intento
+            time.sleep(2)
+            elapsed = 2
+
+            while elapsed < max_wait:
+                try:
+                    req = urllib.request.urlopen(url, timeout=2)
+                    req.close()
+                    print(f"  ✅ Servidor listo en {elapsed:.1f}s — abriendo navegador...")
+                    break
+                except Exception:
+                    time.sleep(interval)
+                    elapsed += interval
+            else:
+                print(f"  ⚠️ Timeout esperando servidor ({max_wait}s) — intentando abrir navegador de todos modos...")
+
+            # Intentar abrir navegador con webbrowser
+            opened = False
+            try:
+                opened = webbrowser.open(url)
+            except Exception as we:
+                print(f"  webbrowser.open falló: {we}")
+
+            # Fallback: usar subprocess en macOS
+            if not opened:
+                try:
+                    import subprocess, sys
+                    if sys.platform == "darwin":
+                        subprocess.Popen(["open", url])
+                        print(f"  🔗 Abierto con 'open' (macOS fallback)")
+                    elif sys.platform == "win32":
+                        subprocess.Popen(["start", url], shell=True)
+                        print(f"  🔗 Abierto con 'start' (Windows fallback)")
+                except Exception as se:
+                    print(f"  ❌ No se pudo abrir el navegador: {se}")
+                    print(f"  👉 Abre manualmente: {url}")
+
         threading.Thread(target=_open_master_browser, daemon=True).start()
 
         ft.app(

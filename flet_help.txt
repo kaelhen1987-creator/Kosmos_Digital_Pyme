@@ -1,0 +1,204 @@
+usage: flet build [-h] [-v] [-o OUTPUT_DIR]
+                  [--arch TARGET_ARCH [TARGET_ARCH ...]]
+                  [--exclude EXCLUDE [EXCLUDE ...]] [--clear-cache]
+                  [--project PROJECT_NAME] [--description DESCRIPTION]
+                  [--product PRODUCT_NAME] [--org ORG_NAME]
+                  [--bundle-id BUNDLE_ID] [--company COMPANY_NAME]
+                  [--copyright COPYRIGHT]
+                  [--android-adaptive-icon-background ANDROID_ADAPTIVE_ICON_BACKGROUND]
+                  [--splash-color SPLASH_COLOR]
+                  [--splash-dark-color SPLASH_DARK_COLOR] [--no-web-splash]
+                  [--no-ios-splash] [--no-android-splash]
+                  [--ios-team-id IOS_TEAM_ID]
+                  [--ios-export-method IOS_EXPORT_METHOD]
+                  [--ios-provisioning-profile IOS_PROVISIONING_PROFILE]
+                  [--ios-signing-certificate IOS_SIGNING_CERTIFICATE]
+                  [--base-url BASE_URL]
+                  [--web-renderer {auto,canvaskit,skwasm}]
+                  [--route-url-strategy {path,hash}]
+                  [--pwa-background-color PWA_BACKGROUND_COLOR]
+                  [--pwa-theme-color PWA_THEME_COLOR] [--no-wasm] [--no-cdn]
+                  [--split-per-abi] [--compile-app] [--compile-packages]
+                  [--cleanup-app]
+                  [--cleanup-app-files [CLEANUP_APP_FILES ...]]
+                  [--cleanup-packages]
+                  [--cleanup-package-files [CLEANUP_PACKAGE_FILES ...]]
+                  [--flutter-build-args [FLUTTER_BUILD_ARGS ...]]
+                  [--source-packages SOURCE_PACKAGES [SOURCE_PACKAGES ...]]
+                  [--info-plist INFO_PLIST [INFO_PLIST ...]]
+                  [--macos-entitlements MACOS_ENTITLEMENTS [MACOS_ENTITLEMENTS ...]]
+                  [--android-features ANDROID_FEATURES [ANDROID_FEATURES ...]]
+                  [--android-permissions ANDROID_PERMISSIONS [ANDROID_PERMISSIONS ...]]
+                  [--android-meta-data ANDROID_META_DATA [ANDROID_META_DATA ...]]
+                  [--permissions {location,camera,microphone,photo_library} [{location,camera,microphone,photo_library} ...]]
+                  [--deep-linking-scheme DEEP_LINKING_SCHEME]
+                  [--deep-linking-host DEEP_LINKING_HOST]
+                  [--android-signing-key-store ANDROID_SIGNING_KEY_STORE]
+                  [--android-signing-key-store-password ANDROID_SIGNING_KEY_STORE_PASSWORD]
+                  [--android-signing-key-password ANDROID_SIGNING_KEY_PASSWORD]
+                  [--android-signing-key-alias ANDROID_SIGNING_KEY_ALIAS]
+                  [--build-number BUILD_NUMBER]
+                  [--build-version BUILD_VERSION] [--module-name MODULE_NAME]
+                  [--template TEMPLATE] [--template-dir TEMPLATE_DIR]
+                  [--template-ref TEMPLATE_REF] [--show-platform-matrix]
+                  [--no-rich-output] [--yes] [--skip-flutter-doctor]
+                  {macos,linux,windows,web,apk,aab,ipa} [python_app_path]
+
+Build a Flet Python app into a platform-specific executable or installable
+bundle. It supports building for desktop (macOS, Linux, Windows), web, Android
+(APK/AAB), and iOS (IPA), with a wide range of customization options for
+metadata, assets, splash screens, and signing.
+
+positional arguments:
+  {macos,linux,windows,web,apk,aab,ipa}
+                        The target platform or type of package to build
+  python_app_path       Path to a directory with a Flet Python program
+                        (default: .)
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         Enable verbose output. Use -v for standard verbose
+                        logging and -vv for more detailed output (default: 0)
+  -o, --output OUTPUT_DIR
+                        Output directory for the final executable/bundle
+                        (default: <python_app_path>/build/<target_platform>)
+  --arch TARGET_ARCH [TARGET_ARCH ...]
+                        Build for specific CPU architectures (used in macOS
+                        and Android builds only). Example: `--arch arm64 x64`
+  --exclude EXCLUDE [EXCLUDE ...]
+                        Files and/or directories to exclude from the package
+  --clear-cache         Remove any existing build cache before starting the
+                        build process
+  --project PROJECT_NAME
+                        Project name for the executable/bundle. It is used in
+                        metadata and bundle IDs
+  --description DESCRIPTION
+                        Short description of the application
+  --product PRODUCT_NAME
+                        Display name of the app that is shown in window titles
+                        and about app dialogs
+  --org ORG_NAME        Organization name in reverse domain name notation,
+                        e.g. `com.mycompany`, combined with project name and
+                        used in bundle IDs and signing
+  --bundle-id BUNDLE_ID
+                        Bundle ID for the application, e.g.
+                        `com.mycompany.app-name`. It is used as an iOS,
+                        Android, macOS and Linux bundle ID
+  --company COMPANY_NAME
+                        Company name to display in about app dialogs
+  --copyright COPYRIGHT
+                        Copyright text to display in about app dialogs
+  --android-adaptive-icon-background ANDROID_ADAPTIVE_ICON_BACKGROUND
+                        The color to be used to fill out the background of
+                        Android adaptive icons
+  --splash-color SPLASH_COLOR
+                        Background color of app splash screen on iOS, Android
+                        and web
+  --splash-dark-color SPLASH_DARK_COLOR
+                        Background color in dark mode of app splash screen on
+                        iOS, Android and web
+  --no-web-splash       Disable splash screen on web platform
+  --no-ios-splash       Disable splash screen on iOS platform
+  --no-android-splash   Disable splash screen on Android platform
+  --ios-team-id IOS_TEAM_ID
+                        Apple developer team ID for signing iOS app bundle
+                        (ipa only)
+  --ios-export-method IOS_EXPORT_METHOD
+                        Export method for iOS app bundle (default: debugging)
+  --ios-provisioning-profile IOS_PROVISIONING_PROFILE
+                        Provisioning profile name or UUID that should be used
+                        to sign and export iOS app bundle
+  --ios-signing-certificate IOS_SIGNING_CERTIFICATE
+                        Signing certificate name, SHA-1 hash, or automatic
+                        selector to use for signing iOS app bundle
+  --base-url BASE_URL   Base URL from which the app is served (web only)
+  --web-renderer {auto,canvaskit,skwasm}
+                        Flutter web renderer to use (web only)
+  --route-url-strategy {path,hash}
+                        Base URL path to serve the app from. Useful if the app
+                        is hosted in a subdirectory (web only)
+  --pwa-background-color PWA_BACKGROUND_COLOR
+                        Initial background color for your web app (web only)
+  --pwa-theme-color PWA_THEME_COLOR
+                        Default color for your web app's user interface (web
+                        only)
+  --no-wasm             Disable WASM target for web build (web only)
+  --no-cdn              Disable loading of CanvasKit, Pyodide and fonts from
+                        CDN
+  --split-per-abi       Split the APKs per ABIs (Android only)
+  --compile-app         Pre-compile app's `.py` files to `.pyc`
+  --compile-packages    Pre-compile site packages' `.py` files to `.pyc`
+  --cleanup-app         Remove unnecessary app files upon packaging
+  --cleanup-app-files [CLEANUP_APP_FILES ...]
+                        The list of globs to delete extra app files and
+                        directories
+  --cleanup-packages    Remove unnecessary package files upon packaging
+  --cleanup-package-files [CLEANUP_PACKAGE_FILES ...]
+                        The list of globs to delete extra package files and
+                        directories
+  --flutter-build-args [FLUTTER_BUILD_ARGS ...]
+                        Additional arguments for flutter build command
+  --source-packages SOURCE_PACKAGES [SOURCE_PACKAGES ...]
+                        The list of Python packages to install from source
+                        distributions
+  --info-plist INFO_PLIST [INFO_PLIST ...]
+                        The list of `<key>=<value>|True|False` pairs to add to
+                        Info.plist for macOS and iOS builds (macos and ipa
+                        only)
+  --macos-entitlements MACOS_ENTITLEMENTS [MACOS_ENTITLEMENTS ...]
+                        The list of `<key>=<value>|True|False` entitlements
+                        for macOS builds (macos only)
+  --android-features ANDROID_FEATURES [ANDROID_FEATURES ...]
+                        The list of `<feature_name>=True|False` features to
+                        add to AndroidManifest.xml for Android builds (android
+                        only)
+  --android-permissions ANDROID_PERMISSIONS [ANDROID_PERMISSIONS ...]
+                        The list of `<permission_name>=True|False` permissions
+                        to add to AndroidManifest.xml for Android builds
+                        (android only)
+  --android-meta-data ANDROID_META_DATA [ANDROID_META_DATA ...]
+                        The list of `<name>=<value>` app meta-data entries to
+                        add to AndroidManifest.xml for Android builds (android
+                        only)
+  --permissions {location,camera,microphone,photo_library} [{location,camera,microphone,photo_library} ...]
+                        The list of pre-defined cross-platform permissions for
+                        iOS, Android and macOS builds
+  --deep-linking-scheme DEEP_LINKING_SCHEME
+                        Deep linking URL scheme to configure for iOS and
+                        Android builds, i.g. `https` or `myapp`
+  --deep-linking-host DEEP_LINKING_HOST
+                        Deep linking URL host for iOS and Android builds
+  --android-signing-key-store ANDROID_SIGNING_KEY_STORE
+                        path to an upload keystore `.jks` file for Android
+                        apps
+  --android-signing-key-store-password ANDROID_SIGNING_KEY_STORE_PASSWORD
+                        Android signing store password
+  --android-signing-key-password ANDROID_SIGNING_KEY_PASSWORD
+                        Android signing key password
+  --android-signing-key-alias ANDROID_SIGNING_KEY_ALIAS
+                        Android signing key alias (default: upload)
+  --build-number BUILD_NUMBER
+                        Build number - an identifier used as an internal
+                        version number
+  --build-version BUILD_VERSION
+                        Build version - a `x.y.z` string used as the version
+                        number shown to users
+  --module-name MODULE_NAME
+                        Python module name with an app entry point
+  --template TEMPLATE   Directory containing Flutter bootstrap template, or a
+                        URL to a git repository template
+  --template-dir TEMPLATE_DIR
+                        Relative path to a Flutter bootstrap template in a
+                        repository
+  --template-ref TEMPLATE_REF
+                        The branch, tag or commit ID to checkout after cloning
+                        the repository with Flutter bootstrap template
+  --show-platform-matrix
+                        Display the build platform matrix in a table, then
+                        exit
+  --no-rich-output      Disable rich output and prefer plain text. Useful on
+                        Windows builds
+  --yes                 Answer yes to all prompts (install dependencies
+                        without confirmation).
+  --skip-flutter-doctor
+                        Skip running Flutter doctor upon failed builds

@@ -1,0 +1,23 @@
+================================
+      CAFETERIA LA CUMBRE       
+         Balmaceda 770          
+         Tel: 234566876         
+================================
+  Comprobante Interno de Venta  
+Ticket Nro: 62
+Fecha: 01/04/2026 14:37
+--------------------------------
+CANT  DESCRIPCION       TOTAL
+1   Cafe Nescafe    $   1,060
+1   Coca cola 3 Li  $   1,190
+--------------------------------
+TOTAL A PAGAR:      $     2,250
+Medio de Pago:          EFECTIVO
+================================
+  ¡Gracias por su preferencia!  
+         Vuelva pronto          
+
+
+
+
+
