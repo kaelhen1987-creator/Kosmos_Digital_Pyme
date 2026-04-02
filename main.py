@@ -1007,7 +1007,8 @@ async def original_main(page: ft.Page):
     if is_wifi and wifi_pin:
         try:
             is_authenticated = page.client_storage.get("pos_authenticated") == "1"
-        except Exception:
+        except Exception as e:
+            print(f"WS Warning: No se pudo leer client_storage durante init: {e}")
             is_authenticated = False
             
         if is_authenticated:
@@ -1023,9 +1024,12 @@ async def main(page: ft.Page):
     except Exception as e:
         import traceback
         err_trace = traceback.format_exc()
-        page.clean()
-        page.add(ft.Text(f"Error Crítico en UI:\n{e}\n\n{err_trace}", color="red", selectable=True))
-        page.update()
+        try:
+            page.clean()
+            page.add(ft.Text(f"Error Crítico en UI:\n{e}\n\n{err_trace}", color="red", selectable=True))
+            page.update()
+        except:
+            pass
 
 if __name__ == "__main__":
     import sys
@@ -1039,6 +1043,13 @@ if __name__ == "__main__":
     log_file = os.path.join(data_dir, "crash_log.txt")
 
     try:
+        # Resolver ruta absoluta a los assets (Previene caída de Flet en empaquetados macOS/PyInstaller por fallo del CWD)
+        if getattr(sys, 'frozen', False):
+            base_dir = sys._MEIPASS
+        else:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+        resolved_assets_dir = os.path.join(base_dir, "assets")
+
         # Leer configuración WiFi ANTES de iniciar Flet
         wifi_enabled, _ = _read_wifi_config()
 
@@ -1113,11 +1124,11 @@ if __name__ == "__main__":
                 view=ft.AppView.WEB_BROWSER,
                 host="0.0.0.0",
                 port=WIFI_PORT,
-                assets_dir="assets"
+                assets_dir=resolved_assets_dir
             )
         else:
             # ── Modo Desktop (ventana nativa) ──
-            ft.app(target=main, assets_dir="assets")
+            ft.app(target=main, assets_dir=resolved_assets_dir)
             
     except Exception as base_e:
         import traceback
