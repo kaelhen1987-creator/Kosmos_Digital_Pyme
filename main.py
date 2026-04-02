@@ -1,5 +1,9 @@
 #!/opt/homebrew/bin/python3
 import flet as ft  # pyre-ignore
+# --- SOLUCIÓN ERROR WEBSOCKET MAC ---
+import uvicorn
+import websockets
+# ------------------------------------
 # Imports de compatibilidad eliminados
 
 # Imports diferidos para que el catch global atrape cualquier ImportError de librerías nativas compiladas.
@@ -1075,7 +1079,8 @@ if __name__ == "__main__":
 
             def _open_master_browser():
                 """Espera a que el servidor Flet esté listo y luego abre el navegador."""
-                url = f"http://127.0.0.1:{WIFI_PORT}"
+                # Usamos la IP de la red directamente en lugar del loopback 127.0.0.1
+                url = f"http://{local_ip}:{WIFI_PORT}"
                 max_wait = 20  # Máximo 20 segundos de espera
                 interval = 0.5
                 elapsed = 0
