@@ -1081,6 +1081,7 @@ if __name__ == "__main__":
                 """Espera a que el servidor Flet esté listo y luego abre el navegador."""
                 # Usamos la IP de la red directamente en lugar del loopback 127.0.0.1
                 url = f"http://{local_ip}:{WIFI_PORT}"
+                check_url = f"http://127.0.0.1:{WIFI_PORT}"
                 max_wait = 20  # Máximo 20 segundos de espera
                 interval = 0.5
                 elapsed = 0
@@ -1091,7 +1092,7 @@ if __name__ == "__main__":
 
                 while elapsed < max_wait:
                     try:
-                        req = urllib.request.urlopen(url, timeout=2)
+                        req = urllib.request.urlopen(check_url, timeout=2)
                         req.close()
                         print(f"  ✅ Servidor listo en {elapsed:.1f}s — abriendo navegador...")
                         break
