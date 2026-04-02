@@ -1044,6 +1044,9 @@ if __name__ == "__main__":
 
         if wifi_enabled:
             # ── Modo WiFi (Servidor Web Multipunto) ──
+            # FORZAR A FLET A USAR EL PUERTO SOLICITADO Y MODO WEB EN ENTORNO EMPAQUETADO
+            os.environ["FLET_FORCE_WEB_SERVER"] = "true"
+            
             local_ip = _get_local_ip()
             print(f"\n{'='*50}")
             print(f"  🌐 MODO WIFI ACTIVADO")
