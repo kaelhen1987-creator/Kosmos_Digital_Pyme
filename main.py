@@ -8,36 +8,6 @@ import websockets
 
 # Imports diferidos para que el catch global atrape cualquier ImportError de librerías nativas compiladas.
 
-# --- LOGGING GLOBAL DE ERRORES PARA MAC OS ---
-import sys, os, datetime
-try:
-    _log_dir = os.path.join(os.path.expanduser("~"), "Documents", "Digital_PyME")
-    os.makedirs(_log_dir, exist_ok=True)
-    _log_path = os.path.join(_log_dir, "digital_pyme_error.log")
-    
-    class _LoggerWriter:
-        def __init__(self, filename, original):
-            self.filename = filename
-            self.original = original
-
-        def write(self, message):
-            self.original.write(message)
-            try:
-                with open(self.filename, 'a', encoding='utf-8') as f:
-                    f.write(message)
-            except:
-                pass
-                
-        def flush(self):
-            self.original.flush()
-            
-    sys.stdout = _LoggerWriter(_log_path, sys.stdout)
-    sys.stderr = _LoggerWriter(_log_path, sys.stderr)
-    print(f"\n[{datetime.datetime.now()}] === NUEVA SESIÓN DIGITAL PYME ===")
-except Exception:
-    pass
-# ---------------------------------------------
-
 # --- SYSTEM VERSION ---
 # Versión de la App
 # v0.12.0 - Modo WiFi Multipunto de Venta
